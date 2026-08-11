@@ -244,7 +244,84 @@ a {
 }
 
 .page-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 1rem;
   margin-bottom: 1.5rem;
+}
+
+.header-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  justify-content: flex-end;
+}
+
+.buttonish {
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid var(--accent);
+  background: var(--accent);
+  color: white !important;
+  text-decoration: none !important;
+  border-radius: 8px;
+  padding: 0.55rem 0.8rem;
+  font-size: 0.9rem;
+  font-weight: 650;
+}
+
+.buttonish.subtle {
+  background: transparent;
+  color: var(--accent) !important;
+}
+
+.research-form {
+  margin-top: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+  max-width: 46rem;
+}
+
+.research-form label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  font-size: 0.9rem;
+  color: var(--muted);
+}
+
+.research-form input,
+.research-form select,
+.research-form textarea {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 0.7rem 0.75rem;
+  background: var(--bg-elevated);
+  color: var(--ink);
+  font: inherit;
+}
+
+.research-form textarea {
+  resize: vertical;
+  min-height: 5rem;
+}
+
+.research-form button[type="submit"] {
+  align-self: flex-start;
+  border: none;
+  border-radius: 8px;
+  padding: 0.75rem 1rem;
+  background: var(--accent);
+  color: white;
+  font-weight: 650;
+  cursor: pointer;
+}
+
+.research-form button[type="submit"]:disabled {
+  opacity: 0.7;
+  cursor: wait;
 }
 
 .page-header h1 {

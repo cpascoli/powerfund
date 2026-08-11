@@ -27,6 +27,28 @@ export type DocumentType =
   | "press"
   | "other";
 
+export type DossierStatus =
+  | "watch"
+  | "investigate"
+  | "active_thesis"
+  | "passed";
+
+export const DOSSIER_STATUSES: readonly DossierStatus[] = [
+  "watch",
+  "investigate",
+  "active_thesis",
+  "passed",
+] as const;
+
+export const DECISION_TYPES: readonly DecisionType[] = [
+  "enter",
+  "add",
+  "reduce",
+  "exit",
+  "hold",
+  "watch",
+] as const;
+
 export interface Theme {
   id: string;
   slug: string;

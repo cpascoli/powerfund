@@ -11,8 +11,8 @@ export default function LoginPage() {
         <p className="auth-eyebrow">Power Fund</p>
         <h1>Sign in</h1>
         <p className="muted">
-          Research OS access. Create a local account on first use (email
-          confirmation is off in local Supabase).
+          Research OS access. Sign in with your Power Fund account, or create
+          one on first use.
         </p>
         <LoginForm />
       </div>

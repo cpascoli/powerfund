@@ -87,4 +87,4 @@ pnpm deploy:prod
 
 ## Status
 
-Phase 1 Research OS: auth, watchlist, dossiers (stubs), Netlify + hosted Supabase. Next: dossier editing + decision journal.
+Phase 1 Research OS: auth, watchlist, editable dossiers, decision journal, Netlify + hosted Supabase.

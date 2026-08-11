@@ -30,10 +30,11 @@ Build:
 - [x] Auth + Supabase client wiring (local)
 - [x] Watchlists organized by theme (live data + starter universe seed)
 - [x] Company dossiers (stub fields + CLS/VRT/NBIS research notes)
-- [ ] Dossier editing UI + filings/earnings links
+- [x] Dossier create/edit UI
+- [ ] Filings/earnings links on dossiers
 - [ ] Signal inbox CRUD (manual + later automated)
 - [ ] Portfolio book (positions, exposure, P&L, risk flags)
-- [ ] Decision journal (thesis → action → review)
+- [x] Decision journal CRUD (thesis → action → review)
 
 Technical direction:
 
