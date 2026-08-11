@@ -1,0 +1,36 @@
+# dependencies
+node_modules
+.pnpm-store
+
+# builds
+dist
+.next
+out
+*.tsbuildinfo
+
+# env
+.env
+.env.local
+.env.*.local
+apps/*/.env
+apps/*/.env.local
+
+# supabase
+supabase/.branches
+supabase/.temp
+
+# OS / IDE
+.DS_Store
+.idea
+.vscode/*
+!.vscode/extensions.json
+
+# logs / debug
+npm-debug.log*
+pnpm-debug.log*
+*.log
+
+# Local Netlify / Next
+.netlify
+**/.netlify
+apps/*/.netlify

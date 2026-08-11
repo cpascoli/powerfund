@@ -1,0 +1,21 @@
+{
+  "name": "powerfund",
+  "private": true,
+  "packageManager": "pnpm@9.1.1",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "dev": "pnpm --filter @powerfund/web dev",
+    "dev:worker": "pnpm --filter @powerfund/worker dev",
+    "build": "pnpm -r run build",
+    "typecheck": "pnpm -r run typecheck",
+    "lint": "pnpm -r run lint",
+    "db:start": "supabase start",
+    "db:stop": "supabase stop",
+    "db:reset": "supabase db reset",
+    "db:status": "supabase status",
+    "deploy": "netlify deploy --build --filter @powerfund/web",
+    "deploy:prod": "netlify deploy --build --prod --filter @powerfund/web"
+  }
+}

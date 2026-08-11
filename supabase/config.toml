@@ -1,0 +1,39 @@
+# Minimal local Supabase config for Power Fund.
+# Regenerate/expand with `supabase init` if you need full defaults.
+
+project_id = "powerfund"
+
+[api]
+enabled = true
+port = 54321
+schemas = ["public", "graphql_public"]
+extra_search_path = ["public", "extensions"]
+max_rows = 1000
+
+[db]
+port = 54322
+# Must match the local Postgres image major version (currently 17.x).
+major_version = 17
+
+[db.seed]
+enabled = true
+sql_paths = ["./seed.sql"]
+
+[studio]
+enabled = true
+port = 54323
+
+[local_smtp]
+enabled = true
+# Mailpit web UI (local email testing)
+port = 54324
+
+[auth]
+enabled = true
+site_url = "http://127.0.0.1:3000"
+additional_redirect_urls = ["http://127.0.0.1:3000/**"]
+enable_signup = true
+
+[auth.email]
+enable_signup = true
+enable_confirmations = false
