@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { RISK_DEFAULTS } from "@powerfund/domain";
 
+import { CashForm } from "@/components/cash-form";
 import { PositionForm } from "@/components/position-form";
 import { getOpenPortfolioBook } from "@/lib/data/portfolio";
 import { listInstrumentsWithThemes } from "@/lib/data/research";
@@ -16,24 +17,24 @@ function money(value: number | null | undefined): string {
   });
 }
 
-function pct(value: number | null | undefined): string {
+function pct(value: number | null | undefined, signed = false): string {
   if (value == null || Number.isNaN(value)) return "—";
-  const sign = value > 0 ? "+" : "";
+  const sign = signed && value > 0 ? "+" : "";
   return `${sign}${value.toFixed(1)}%`;
 }
 
 export default async function PortfolioPage({
   searchParams,
 }: {
-  searchParams: Promise<{ add?: string }>;
+  searchParams: Promise<{ add?: string; cash?: string }>;
 }) {
-  const { add } = await searchParams;
+  const { add, cash: cashEdit } = await searchParams;
   const [book, instruments] = await Promise.all([
     getOpenPortfolioBook(),
     listInstrumentsWithThemes(),
   ]);
-  const showForm = add === "1" || book.openCount === 0;
-  const vrt = instruments.find((row) => row.symbol === "VRT");
+  const showForm = add === "1";
+  const showCash = cashEdit === "1";
 
   return (
     <>
@@ -41,36 +42,48 @@ export default async function PortfolioPage({
         <div>
           <h1>Portfolio</h1>
           <p>
-            Open book marked to the latest daily close. Cash tracking comes
-            next — for now this is invested equity only.
+            NAV = cash + marked positions. Weights are % of NAV against the
+            mandate (max name {RISK_DEFAULTS.maxPositionPctNav}%, max theme{" "}
+            {RISK_DEFAULTS.maxThemePctNav}%, min cash {RISK_DEFAULTS.minCashPctNav}
+            %). BTC and gold stay outside this book.
           </p>
         </div>
         <div className="header-actions">
-          {showForm ? null : (
+          <Link className="buttonish subtle" href="/portfolio?cash=1">
+            Edit cash
+          </Link>
+          {showForm ? (
+            <Link className="buttonish subtle" href="/portfolio">
+              Cancel
+            </Link>
+          ) : (
             <Link className="buttonish" href="/portfolio?add=1">
               Add position
             </Link>
           )}
-          {showForm && book.openCount > 0 ? (
-            <Link className="buttonish subtle" href="/portfolio">
-              Cancel
-            </Link>
-          ) : null}
         </div>
       </header>
 
       <section className="stat-row" aria-label="Book summary">
         <div className="stat">
-          <span>Open positions</span>
-          <strong>{book.openCount}</strong>
+          <span>NAV</span>
+          <strong>{money(book.nav)}</strong>
         </div>
         <div className="stat">
-          <span>Invested</span>
-          <strong>{money(book.invested)}</strong>
+          <span>Cash</span>
+          <strong>{money(book.cash)}</strong>
         </div>
         <div className="stat">
-          <span>Market value</span>
-          <strong>{money(book.marketValue)}</strong>
+          <span>Cash % NAV</span>
+          <strong
+            className={
+              book.cashPctNav < RISK_DEFAULTS.minCashPctNav
+                ? "is-down"
+                : undefined
+            }
+          >
+            {pct(book.cashPctNav)}
+          </strong>
         </div>
         <div className="stat">
           <span>Unrealized P&amp;L</span>
@@ -88,21 +101,77 @@ export default async function PortfolioPage({
         </div>
       </section>
 
+      <section className="stat-row" aria-label="Invested vs phase 1">
+        <div className="stat">
+          <span>Open positions</span>
+          <strong>{book.openCount}</strong>
+        </div>
+        <div className="stat">
+          <span>Invested (cost)</span>
+          <strong>{money(book.invested)}</strong>
+        </div>
+        <div className="stat">
+          <span>Equities MTM</span>
+          <strong>{money(book.marketValue)}</strong>
+        </div>
+        <div className="stat">
+          <span>Phase-1 invested cap</span>
+          <strong>{money(RISK_DEFAULTS.phase1InvestedCapUsd)}</strong>
+        </div>
+      </section>
+
+      <section className="panel" aria-label="Mandate checks">
+        <h2>Mandate</h2>
+        <ul className="list">
+          {book.flags.map((flag) => (
+            <li key={flag.label}>
+              <span className={flag.severity === "warn" ? "is-down" : "is-up"}>
+                {flag.severity === "warn" ? "Flag" : "OK"}
+              </span>
+              <span>{flag.label}</span>
+            </li>
+          ))}
+        </ul>
+        {book.themeExposures.length > 0 ? (
+          <ul className="list">
+            {book.themeExposures.map((theme) => (
+              <li key={theme.slug}>
+                <div>
+                  <strong>{theme.name}</strong>
+                  <span className="muted"> · {money(theme.marketValue)}</span>
+                </div>
+                <span className={theme.overCap ? "is-down" : undefined}>
+                  {pct(theme.weightPctNav)} NAV
+                </span>
+              </li>
+            ))}
+          </ul>
+        ) : null}
+      </section>
+
+      {showCash ? (
+        <section className="panel">
+          <h2>Cash</h2>
+          <p className="muted">
+            Set the uninvested PowerFund cash. Adding a position debits this
+            automatically by cost basis.
+          </p>
+          <CashForm cash={book.cash} notes={book.cashNotes} />
+        </section>
+      ) : null}
+
       <section className="panel">
         <h2>Open book</h2>
         {book.positions.length === 0 ? (
           <p className="empty">
-            No open positions yet. Add your first fill below.
+            No open positions yet. Add a fill to debit cash and start the book.
           </p>
         ) : (
           <ul className="list position-list">
             {book.positions.map((position) => {
-              const weight =
-                book.marketValue > 0 && position.marketValue != null
-                  ? (position.marketValue / book.marketValue) * 100
-                  : null;
               const oversize =
-                weight != null && weight > RISK_DEFAULTS.maxPositionPctNav;
+                position.weightPctNav != null &&
+                position.weightPctNav > RISK_DEFAULTS.maxPositionPctNav;
 
               return (
                 <li key={position.id}>
@@ -121,7 +190,9 @@ export default async function PortfolioPage({
                         maximumFractionDigits: 5,
                       })}{" "}
                       @ {money(position.avgCost)} · cost {money(position.costBasis)}
-                      {weight != null ? ` · ${weight.toFixed(1)}% of book` : ""}
+                      {position.weightPctNav != null
+                        ? ` · ${pct(position.weightPctNav)} NAV`
+                        : ""}
                       {oversize ? (
                         <span className="tag warn-tag">
                           {" "}
@@ -145,7 +216,7 @@ export default async function PortfolioPage({
                       }
                     >
                       {money(position.unrealizedPnl)} (
-                      {pct(position.unrealizedPnlPct)})
+                      {pct(position.unrealizedPnlPct, true)})
                     </span>
                   </div>
                 </li>
@@ -159,22 +230,10 @@ export default async function PortfolioPage({
         <section className="panel">
           <h2>Add position</h2>
           <p className="muted">
-            Record a fill. Market value uses the latest ingested close.
+            Record a fill. Cost is taken from cash. Market value uses the latest
+            ingested close. Cash available: {money(book.cash)}.
           </p>
-          <PositionForm
-            instruments={instruments}
-            defaults={
-              book.openCount === 0 && vrt
-                ? {
-                    instrumentId: vrt.id,
-                    quantity: "16.86133",
-                    avgCost: "296.54",
-                    thesisSummary:
-                      "Quality AI-infra / cooling compounder; first live book entry.",
-                  }
-                : undefined
-            }
-          />
+          <PositionForm instruments={instruments} />
         </section>
       ) : null}
     </>

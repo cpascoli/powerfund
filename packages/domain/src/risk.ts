@@ -6,6 +6,8 @@ export const RISK_DEFAULTS = {
   drawdownKillSwitchPct: 15,
   /** Soft guide: pure AI memory/storage names inside the AI infra theme. */
   maxAiMemorySleevePctNav: 15,
+  /** Soft cap on invested cost during phase-1 deployment. */
+  phase1InvestedCapUsd: 75000,
 } as const;
 
 export type RiskDefaults = typeof RISK_DEFAULTS;

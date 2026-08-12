@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { RISK_DEFAULTS } from "@powerfund/domain";
 
+import { getOpenPortfolioBook } from "@/lib/data/portfolio";
 import {
   listInstrumentsWithThemes,
   listThemes,
@@ -9,12 +10,14 @@ import {
 export const dynamic = "force-dynamic";
 
 export default async function BriefingPage() {
-  const [themes, instruments] = await Promise.all([
+  const [themes, instruments, book] = await Promise.all([
     listThemes(),
     listInstrumentsWithThemes(),
+    getOpenPortfolioBook(),
   ]);
 
   const coreThemes = themes.filter((theme) => theme.is_core);
+  const warnFlags = book.flags.filter((flag) => flag.severity === "warn");
 
   return (
     <>
@@ -32,30 +35,55 @@ export default async function BriefingPage() {
 
       <section className="stat-row" aria-label="Book and universe">
         <div className="stat">
+          <span>NAV</span>
+          <strong>
+            {book.nav.toLocaleString(undefined, {
+              style: "currency",
+              currency: "USD",
+              maximumFractionDigits: 0,
+            })}
+          </strong>
+        </div>
+        <div className="stat">
+          <span>Cash % NAV</span>
+          <strong
+            className={
+              book.cashPctNav < RISK_DEFAULTS.minCashPctNav
+                ? "is-down"
+                : undefined
+            }
+          >
+            {book.cashPctNav.toFixed(1)}%
+          </strong>
+        </div>
+        <div className="stat">
           <span>Watchlist names</span>
           <strong>{instruments.length}</strong>
         </div>
         <div className="stat">
-          <span>Core themes</span>
-          <strong>{coreThemes.length}</strong>
-        </div>
-        <div className="stat">
           <span>Max position</span>
           <strong>{RISK_DEFAULTS.maxPositionPctNav}%</strong>
-        </div>
-        <div className="stat">
-          <span>Drawdown kill-switch</span>
-          <strong>{RISK_DEFAULTS.drawdownKillSwitchPct}%</strong>
         </div>
       </section>
 
       <div className="grid">
         <section className="panel half">
           <h2>Needs attention</h2>
-          <p className="empty">
-            No open signals or risk flags yet. Triage will land here once the
-            signal inbox is in use.
-          </p>
+          {warnFlags.length > 0 ? (
+            <ul className="list">
+              {warnFlags.map((flag) => (
+                <li key={flag.code}>
+                  <span className="is-down">Flag</span>
+                  <span>{flag.label}</span>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="empty">
+              Mandate checks are clear vs NAV. Signal triage will land here
+              once the inbox is in use.
+            </p>
+          )}
         </section>
 
         <section className="panel half">

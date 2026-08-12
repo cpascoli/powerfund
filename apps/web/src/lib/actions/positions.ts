@@ -63,6 +63,7 @@ export async function savePosition(
     return { error: "Invalid opened date." };
   }
 
+  const costBasis = quantity * avgCost;
   const payload = {
     instrument_id: instrumentId,
     status: "open",
@@ -87,6 +88,45 @@ export async function savePosition(
       };
     };
   };
+  const cashDb = supabase as unknown as {
+    from: (table: "portfolio_state") => {
+      select: (columns: "id, cash") => {
+        limit: (n: number) => {
+          maybeSingle: () => Promise<{
+            data: { id: string; cash: number } | null;
+            error: { message: string } | null;
+          }>;
+        };
+      };
+      update: (values: { cash: number }) => {
+        eq: (
+          column: "id",
+          value: string,
+        ) => Promise<{ error: { message: string } | null }>;
+      };
+    };
+  };
+
+  const { data: state, error: stateError } = await cashDb
+    .from("portfolio_state")
+    .select("id, cash")
+    .limit(1)
+    .maybeSingle();
+
+  if (stateError) {
+    return { error: `Failed to load cash: ${stateError.message}` };
+  }
+  if (!state) {
+    return { error: "Set cash first (Portfolio → Edit cash) before adding a fill." };
+  }
+  if (Number(state.cash) < costBasis) {
+    return {
+      error: `Not enough cash (${Number(state.cash).toLocaleString("en-US", {
+        style: "currency",
+        currency: "USD",
+      })}) for this fill.`,
+    };
+  }
 
   const { data, error } = await positions
     .from("positions")
@@ -98,6 +138,16 @@ export async function savePosition(
     return { error: error?.message ?? "Failed to save position." };
   }
 
+  const { error: cashError } = await cashDb
+    .from("portfolio_state")
+    .update({ cash: Number(state.cash) - costBasis })
+    .eq("id", state.id);
+  if (cashError) {
+    return {
+      error: `Position saved but cash was not updated: ${cashError.message}`,
+    };
+  }
+
   if (alsoLogDecision) {
     const decisions = supabase as unknown as {
       from: (table: "decisions") => {
@@ -106,7 +156,6 @@ export async function savePosition(
         }>;
       };
     };
-    const costBasis = quantity * avgCost;
     await decisions.from("decisions").insert({
       instrument_id: instrumentId,
       position_id: data.id,

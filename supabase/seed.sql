@@ -391,3 +391,16 @@ on conflict (instrument_id) do update
     next_diligence = excluded.next_diligence,
     source = excluded.source,
     updated_at = timezone('utc', now());
+
+-- Live cash (NAV = cash + MTM). Do not overwrite an existing row.
+insert into public.portfolio_state (cash, notes)
+select
+  greatest(
+    0,
+    250000 - coalesce(
+      (select sum(quantity * avg_cost) from public.positions where status = 'open'),
+      0
+    )
+  ),
+  'PowerFund allocated NAV $250k. BTC/gold are outside this book.'
+where not exists (select 1 from public.portfolio_state);

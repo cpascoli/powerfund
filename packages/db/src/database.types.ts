@@ -351,6 +351,27 @@ export type Database = {
         };
         Relationships: [];
       };
+      portfolio_state: {
+        Row: {
+          id: string;
+          cash: number;
+          notes: string | null;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          cash: number;
+          notes?: string | null;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          cash?: number;
+          notes?: string | null;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
       dossiers: {
         Row: {
           id: string;

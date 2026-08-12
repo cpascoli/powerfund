@@ -16,6 +16,7 @@ erDiagram
   positions ||--o{ decisions : linked
   signals ||--o{ decisions : linked
   portfolio_snapshots
+  portfolio_state
 ```
 
 | Table | Role |
@@ -28,6 +29,7 @@ erDiagram
 | `positions` | Open/closed book |
 | `decisions` | Thesis journal entries |
 | `portfolio_snapshots` | Point-in-time NAV/cash/exposures |
+| `portfolio_state` | Live cash; NAV = cash + open-position MTM |
 | `dossiers` | Research stubs: thesis, risks, invalidation, next diligence |
 
 ## Enums

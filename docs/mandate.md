@@ -46,6 +46,24 @@ Exact percentages can be tuned; the existence of hard caps cannot.
 | Min cash | 10% NAV |
 | Portfolio drawdown kill-switch | 15% from peak → mandatory review + risk reduction |
 | Soft max AI memory/storage sleeve | 15% NAV (inside AI infra) |
+| Phase-1 invested cap | $75,000 cost |
+
+## Capital & deployment
+
+PowerFund **NAV** is the equity book only: **cash + marked stocks**. Starting allocated capital: **$250,000**. Bitcoin and gold are a separate sleeve and must not be counted as PowerFund cash.
+
+| Rule | Default |
+|------|---------|
+| Allocated NAV | $250,000 |
+| Phase-1 invested cap (cost) | $75,000 |
+| Min cash | 10% of NAV |
+| BTC / gold | Out of scope |
+
+**NAV** = cash + market value of open positions. Adding a fill **debits cash** by cost basis.
+
+**Phase 1 (first weeks):** stay well under the invested cap. Starter stubs first; add on thesis-intact weakness or confirmation. Do not treat a weekly dollar target as a quota.
+
+**Out of scope for this book:** BTC DCA, gold as BTC reserve, and any capital not explicitly moved into PowerFund cash.
 
 ## Decision process
 

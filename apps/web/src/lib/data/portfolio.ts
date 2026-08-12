@@ -1,3 +1,5 @@
+import { RISK_DEFAULTS } from "@powerfund/domain";
+
 import { createClient } from "@/lib/supabase/server";
 
 export type OpenPositionRow = {
@@ -6,6 +8,7 @@ export type OpenPositionRow = {
   symbol: string;
   name: string;
   themeName: string;
+  themeSlug: string;
   side: "long" | "short";
   quantity: number;
   avgCost: number;
@@ -14,8 +17,28 @@ export type OpenPositionRow = {
   marketValue: number | null;
   unrealizedPnl: number | null;
   unrealizedPnlPct: number | null;
+  weightPctNav: number | null;
   openedAt: string;
   thesisSummary: string | null;
+};
+
+export type ThemeExposure = {
+  slug: string;
+  name: string;
+  marketValue: number;
+  weightPctNav: number;
+  overCap: boolean;
+};
+
+export type MandateFlag = {
+  code:
+    | "position_cap"
+    | "theme_cap"
+    | "cash_floor"
+    | "phase1_invested"
+    | "all_clear";
+  label: string;
+  severity: "warn" | "ok";
 };
 
 export type PortfolioBook = {
@@ -24,6 +47,13 @@ export type PortfolioBook = {
   marketValue: number;
   unrealizedPnl: number;
   openCount: number;
+  cash: number;
+  nav: number;
+  cashPctNav: number;
+  themeExposures: ThemeExposure[];
+  flags: MandateFlag[];
+  cashUpdatedAt: string | null;
+  cashNotes: string | null;
 };
 
 type PositionDbRow = {
@@ -39,26 +69,62 @@ type PositionDbRow = {
 export async function getOpenPortfolioBook(): Promise<PortfolioBook> {
   const supabase = await createClient();
 
-  const { data: positionData, error: positionError } = await supabase
-    .from("positions")
-    .select(
-      "id, instrument_id, side, quantity, avg_cost, opened_at, thesis_summary",
-    )
-    .eq("status", "open")
-    .order("opened_at", { ascending: false });
+  const [
+    { data: positionData, error: positionError },
+    { data: stateData, error: stateError },
+  ] = await Promise.all([
+    supabase
+      .from("positions")
+      .select(
+        "id, instrument_id, side, quantity, avg_cost, opened_at, thesis_summary",
+      )
+      .eq("status", "open")
+      .order("opened_at", { ascending: false }),
+    supabase
+      .from("portfolio_state")
+      .select("cash, notes, updated_at")
+      .limit(1)
+      .maybeSingle(),
+  ]);
 
   if (positionError) {
     throw new Error(`Failed to load positions: ${positionError.message}`);
   }
+  if (stateError) {
+    throw new Error(`Failed to load cash: ${stateError.message}`);
+  }
+
+  const state = stateData as {
+    cash: number;
+    notes: string | null;
+    updated_at: string;
+  } | null;
+  const cash = Number(state?.cash ?? 0);
+  const cashUpdatedAt = state?.updated_at ?? null;
+  const cashNotes = state?.notes ?? null;
 
   const positions = (positionData as PositionDbRow[] | null) ?? [];
   if (positions.length === 0) {
+    const nav = cash;
+    const cashPctNav = nav > 0 ? (cash / nav) * 100 : 100;
     return {
       positions: [],
       invested: 0,
       marketValue: 0,
       unrealizedPnl: 0,
       openCount: 0,
+      cash,
+      nav,
+      cashPctNav,
+      themeExposures: [],
+      flags: buildFlags({
+        positions: [],
+        cashPctNav,
+        invested: 0,
+        themeExposures: [],
+      }),
+      cashUpdatedAt,
+      cashNotes,
     };
   }
 
@@ -88,8 +154,11 @@ export async function getOpenPortfolioBook(): Promise<PortfolioBook> {
     ),
   ];
   const { data: themes } = themeIds.length
-    ? await supabase.from("themes").select("id, name").in("id", themeIds)
-    : { data: [] as Array<{ id: string; name: string }> };
+    ? await supabase
+        .from("themes")
+        .select("id, name, slug")
+        .in("id", themeIds)
+    : { data: [] as Array<{ id: string; name: string; slug: string }> };
 
   const instrumentMap = new Map(
     ((instruments as Array<{
@@ -98,22 +167,26 @@ export async function getOpenPortfolioBook(): Promise<PortfolioBook> {
       name: string;
     }> | null) ?? []).map((row) => [row.id, row]),
   );
-  const themeMap = new Map(
-    ((themes as Array<{ id: string; name: string }> | null) ?? []).map(
-      (row) => [row.id, row.name],
-    ),
+  const themeById = new Map(
+    ((themes as Array<{ id: string; name: string; slug: string }> | null) ??
+      []).map((row) => [row.id, row]),
   );
-  const primaryThemeByInstrument = new Map<string, string>();
+  const primaryThemeByInstrument = new Map<
+    string,
+    { name: string; slug: string }
+  >();
   for (const link of (links as Array<{
     instrument_id: string;
     theme_id: string;
     is_primary: boolean;
   }> | null) ?? []) {
+    const theme = themeById.get(link.theme_id);
+    if (!theme) continue;
     if (link.is_primary || !primaryThemeByInstrument.has(link.instrument_id)) {
-      primaryThemeByInstrument.set(
-        link.instrument_id,
-        themeMap.get(link.theme_id) ?? "—",
-      );
+      primaryThemeByInstrument.set(link.instrument_id, {
+        name: theme.name,
+        slug: theme.slug,
+      });
     }
   }
 
@@ -135,7 +208,7 @@ export async function getOpenPortfolioBook(): Promise<PortfolioBook> {
   );
   const closeMap = new Map(closes);
 
-  const rows: OpenPositionRow[] = positions.map((position) => {
+  const draftRows = positions.map((position) => {
     const instrument = instrumentMap.get(position.instrument_id);
     const quantity = Number(position.quantity);
     const avgCost = Number(position.avg_cost);
@@ -148,13 +221,15 @@ export async function getOpenPortfolioBook(): Promise<PortfolioBook> {
       unrealizedPnl == null || costBasis === 0
         ? null
         : (unrealizedPnl / costBasis) * 100;
+    const theme = primaryThemeByInstrument.get(position.instrument_id);
 
     return {
       id: position.id,
       instrumentId: position.instrument_id,
       symbol: instrument?.symbol ?? "—",
       name: instrument?.name ?? "Unknown",
-      themeName: primaryThemeByInstrument.get(position.instrument_id) ?? "—",
+      themeName: theme?.name ?? "—",
+      themeSlug: theme?.slug ?? "other",
       side: position.side,
       quantity,
       avgCost,
@@ -168,11 +243,49 @@ export async function getOpenPortfolioBook(): Promise<PortfolioBook> {
     };
   });
 
-  const invested = rows.reduce((sum, row) => sum + row.costBasis, 0);
-  const marketValue = rows.reduce(
+  const invested = draftRows.reduce((sum, row) => sum + row.costBasis, 0);
+  const marketValue = draftRows.reduce(
     (sum, row) => sum + (row.marketValue ?? row.costBasis),
     0,
   );
+  const nav = cash + marketValue;
+  const cashPctNav = nav > 0 ? (cash / nav) * 100 : 100;
+
+  const rows: OpenPositionRow[] = draftRows.map((row) => ({
+    ...row,
+    weightPctNav:
+      nav > 0 && (row.marketValue ?? row.costBasis) != null
+        ? ((row.marketValue ?? row.costBasis) / nav) * 100
+        : null,
+  }));
+
+  const byTheme = new Map<string, ThemeExposure>();
+  for (const row of rows) {
+    const value = row.marketValue ?? row.costBasis;
+    const existing = byTheme.get(row.themeSlug);
+    if (existing) {
+      existing.marketValue += value;
+    } else {
+      byTheme.set(row.themeSlug, {
+        slug: row.themeSlug,
+        name: row.themeName,
+        marketValue: value,
+        weightPctNav: 0,
+        overCap: false,
+      });
+    }
+  }
+
+  const themeExposures = [...byTheme.values()]
+    .map((theme) => {
+      const weightPctNav = nav > 0 ? (theme.marketValue / nav) * 100 : 0;
+      return {
+        ...theme,
+        weightPctNav,
+        overCap: weightPctNav > RISK_DEFAULTS.maxThemePctNav,
+      };
+    })
+    .sort((a, b) => b.marketValue - a.marketValue);
 
   return {
     positions: rows,
@@ -180,5 +293,74 @@ export async function getOpenPortfolioBook(): Promise<PortfolioBook> {
     marketValue,
     unrealizedPnl: marketValue - invested,
     openCount: rows.length,
+    cash,
+    nav,
+    cashPctNav,
+    themeExposures,
+    flags: buildFlags({
+      positions: rows,
+      cashPctNav,
+      invested,
+      themeExposures,
+    }),
+    cashUpdatedAt,
+    cashNotes,
   };
+}
+
+function buildFlags(args: {
+  positions: OpenPositionRow[];
+  cashPctNav: number;
+  invested: number;
+  themeExposures: ThemeExposure[];
+}): MandateFlag[] {
+  const flags: MandateFlag[] = [];
+
+  const oversized = args.positions.filter(
+    (row) =>
+      row.weightPctNav != null &&
+      row.weightPctNav > RISK_DEFAULTS.maxPositionPctNav,
+  );
+  if (oversized.length > 0) {
+    flags.push({
+      code: "position_cap",
+      severity: "warn",
+      label: `${oversized.map((row) => row.symbol).join(", ")} above ${RISK_DEFAULTS.maxPositionPctNav}% NAV`,
+    });
+  }
+
+  const hotThemes = args.themeExposures.filter((theme) => theme.overCap);
+  if (hotThemes.length > 0) {
+    flags.push({
+      code: "theme_cap",
+      severity: "warn",
+      label: `${hotThemes.map((theme) => theme.name).join(", ")} above ${RISK_DEFAULTS.maxThemePctNav}% NAV`,
+    });
+  }
+
+  if (args.cashPctNav < RISK_DEFAULTS.minCashPctNav) {
+    flags.push({
+      code: "cash_floor",
+      severity: "warn",
+      label: `Cash ${args.cashPctNav.toFixed(1)}% is below ${RISK_DEFAULTS.minCashPctNav}% floor`,
+    });
+  }
+
+  if (args.invested > RISK_DEFAULTS.phase1InvestedCapUsd) {
+    flags.push({
+      code: "phase1_invested",
+      severity: "warn",
+      label: `Invested cost above phase-1 cap ($${RISK_DEFAULTS.phase1InvestedCapUsd.toLocaleString()})`,
+    });
+  }
+
+  if (flags.length === 0) {
+    flags.push({
+      code: "all_clear",
+      severity: "ok",
+      label: "Mandate checks clear vs NAV",
+    });
+  }
+
+  return flags;
 }

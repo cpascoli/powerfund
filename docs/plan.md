@@ -33,7 +33,7 @@ Build:
 - [x] Dossier create/edit UI + market snapshot fields
 - [ ] Filings/earnings links on dossiers
 - [ ] Signal inbox CRUD (manual + later automated)
-- [x] Portfolio book (open positions + mark-to-market; cash later)
+- [x] Portfolio book (open positions, cash, NAV, mandate weights)
 - [x] Decision journal CRUD (thesis → action → review)
 
 Technical direction:
