@@ -33,7 +33,7 @@ Build:
 - [x] Dossier create/edit UI + market snapshot fields
 - [ ] Filings/earnings links on dossiers
 - [ ] Signal inbox CRUD (manual + later automated)
-- [ ] Portfolio book (positions, exposure, P&L, risk flags)
+- [x] Portfolio book (open positions + mark-to-market; cash later)
 - [x] Decision journal CRUD (thesis → action → review)
 
 Technical direction:

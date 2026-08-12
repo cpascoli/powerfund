@@ -2,10 +2,14 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { DossierForm } from "@/components/dossier-form";
+import { PriceHistoryChart } from "@/components/price-history-chart";
+import { PriceReturnsRow } from "@/components/price-returns-row";
 import {
   getInstrumentDossier,
   getInstrumentMarketSnapshot,
+  getInstrumentPriceHistory,
 } from "@/lib/data/research";
+import { computePriceReturns } from "@/lib/market/returns";
 
 export const dynamic = "force-dynamic";
 
@@ -47,7 +51,11 @@ export default async function InstrumentDossierPage({
   }
 
   const { instrument, dossier } = result;
-  const market = await getInstrumentMarketSnapshot(instrument.id);
+  const [market, priceHistory] = await Promise.all([
+    getInstrumentMarketSnapshot(instrument.id),
+    getInstrumentPriceHistory(instrument.id),
+  ]);
+  const returns = computePriceReturns(priceHistory);
   const editing = edit === "1" || !dossier;
 
   const formatUsd = (value: number | null) => {
@@ -96,6 +104,9 @@ export default async function InstrumentDossierPage({
           </Link>
         </div>
       </header>
+
+      <PriceHistoryChart symbol={instrument.symbol} points={priceHistory} />
+      <PriceReturnsRow returns={returns} />
 
       <section className="stat-row" aria-label="Dossier status">
         <div className="stat">

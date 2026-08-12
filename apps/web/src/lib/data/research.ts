@@ -166,6 +166,40 @@ export type InstrumentMarketSnapshot = {
   fundamentalsPeriodEnd: string | null;
 };
 
+export type PriceBar = {
+  date: string;
+  close: number;
+};
+
+export async function getInstrumentPriceHistory(
+  instrumentId: string,
+): Promise<PriceBar[]> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("market_bars")
+    .select("bar_date, close, adj_close")
+    .eq("instrument_id", instrumentId)
+    .order("bar_date", { ascending: true });
+
+  if (error) {
+    throw new Error(`Failed to load price history: ${error.message}`);
+  }
+
+  const rows = (data as Array<{
+    bar_date: string;
+    close: number | null;
+    adj_close: number | null;
+  }> | null) ?? [];
+
+  return rows
+    .map((row) => {
+      const close = row.adj_close ?? row.close;
+      if (close == null) return null;
+      return { date: row.bar_date, close };
+    })
+    .filter((row): row is PriceBar => row != null);
+}
+
 export async function getInstrumentDossier(
   symbol: string,
 ): Promise<InstrumentDossier | null> {
