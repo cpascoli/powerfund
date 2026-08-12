@@ -18,7 +18,7 @@ export type PriceReturn = {
   pct: number | null;
 };
 
-const WINDOWS: Array<{ key: ReturnWindow; label: string }> = [
+export const RETURN_WINDOWS: Array<{ key: ReturnWindow; label: string }> = [
   { key: "1d", label: "1D" },
   { key: "1m", label: "1M" },
   { key: "3m", label: "3M" },
@@ -27,6 +27,8 @@ const WINDOWS: Array<{ key: ReturnWindow; label: string }> = [
   { key: "1y", label: "1Y" },
   { key: "2y", label: "2Y" },
 ];
+
+const WINDOWS = RETURN_WINDOWS;
 
 function parseUtcDate(iso: string): Date {
   const [y, m, d] = iso.split("-").map(Number);
@@ -124,4 +126,15 @@ export function computePriceReturns(points: PricePoint[]): PriceReturn[] {
     ...window,
     pct: pctChange(anchorFor(window.key), lastClose),
   }));
+}
+
+export function computeReturnPct(
+  points: PricePoint[],
+  window: ReturnWindow,
+): number | null {
+  return computePriceReturns(points).find((row) => row.key === window)?.pct ?? null;
+}
+
+export function isReturnWindow(value: string): value is ReturnWindow {
+  return RETURN_WINDOWS.some((window) => window.key === value);
 }

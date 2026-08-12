@@ -454,6 +454,79 @@ a {
   margin-left: 0.35rem;
 }
 
+.workbench-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+.workbench-controls label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 650;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.workbench-controls select {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 0.45rem 0.6rem;
+  background: var(--bg-elevated);
+  color: var(--ink);
+  font: inherit;
+  text-transform: none;
+  letter-spacing: normal;
+  font-weight: 500;
+  min-width: 9rem;
+}
+
+.treemap-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.75rem;
+  color: var(--ink);
+  font-size: 0.9rem;
+}
+
+.treemap-legend {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  color: var(--muted);
+  font-size: 0.78rem;
+}
+
+.legend-bar {
+  width: 72px;
+  height: 8px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, var(--danger), #9aa7b5, var(--accent));
+}
+
+.legend-down {
+  color: var(--danger);
+}
+
+.legend-up {
+  color: var(--accent);
+}
+
+.treemap-chart {
+  width: 100%;
+  height: 480px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  overflow: hidden;
+  background: var(--bg-elevated);
+}
+
 .price-panel-head {
   display: flex;
   align-items: baseline;
@@ -563,6 +636,10 @@ a {
 
   .price-chart {
     height: 260px;
+  }
+
+  .treemap-chart {
+    height: 360px;
   }
 
   .price-panel-head {

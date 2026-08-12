@@ -1,29 +1,53 @@
-export default function WorkbenchPage() {
+import { MarketCapTreemap } from "@/components/market-cap-treemap";
+import { getWorkbenchUniverse } from "@/lib/data/workbench";
+import {
+  isReturnWindow,
+  type ReturnWindow,
+} from "@/lib/market/returns";
+
+export const dynamic = "force-dynamic";
+
+type PageProps = {
+  searchParams: Promise<{ theme?: string; window?: string }>;
+};
+
+export default async function WorkbenchPage({ searchParams }: PageProps) {
+  const params = await searchParams;
+  const universe = await getWorkbenchUniverse();
+  const initialTheme =
+    params.theme &&
+    (params.theme === "all" ||
+      universe.themes.some((theme) => theme.slug === params.theme))
+      ? params.theme
+      : "all";
+  const initialWindow: ReturnWindow = isReturnWindow(params.window ?? "")
+    ? (params.window as ReturnWindow)
+    : "3m";
+
   return (
     <>
       <header className="page-header">
         <div>
           <h1>Workbench</h1>
           <p>
-            Deep visualization and comparison space — relative strength, event
-            markers, factor histories, and dataset views. Saved views will live
-            here so weekly research does not start from a blank chart.
+            Comparative views over the research universe. Start with the market
+            map — size is market cap, color is period return.
           </p>
         </div>
       </header>
 
-      <section className="stat-row" aria-label="Workbench capabilities">
+      <section className="stat-row" aria-label="Workbench summary">
         <div className="stat">
-          <span>Price + events</span>
-          <strong>Soon</strong>
+          <span>Names mapped</span>
+          <strong>{universe.names.length}</strong>
         </div>
         <div className="stat">
-          <span>Theme vs benchmark</span>
-          <strong>Soon</strong>
+          <span>Themes</span>
+          <strong>{universe.themes.length}</strong>
         </div>
         <div className="stat">
-          <span>Dataset browser</span>
-          <strong>Soon</strong>
+          <span>Default window</span>
+          <strong>3M</strong>
         </div>
         <div className="stat">
           <span>Saved views</span>
@@ -31,39 +55,12 @@ export default function WorkbenchPage() {
         </div>
       </section>
 
-      <section className="panel">
-        <h2>How this space will work</h2>
-        <ul className="list">
-          <li>
-            <div>
-              <strong>Question-titled charts</strong>
-              <div className="muted">
-                Every view answers something concrete — not “Chart 1”.
-              </div>
-            </div>
-          </li>
-          <li>
-            <div>
-              <strong>Context from Explore</strong>
-              <div className="muted">
-                Open Workbench from a theme or dossier with filters already set.
-              </div>
-            </div>
-          </li>
-          <li>
-            <div>
-              <strong>Evidence beside the series</strong>
-              <div className="muted">
-                Link filings, signals, and decisions next to the plot.
-              </div>
-            </div>
-          </li>
-        </ul>
-        <p className="empty">
-          No series connected yet. Chart library and first dataset views land
-          when market/filings pipelines start feeding the app.
-        </p>
-      </section>
+      <MarketCapTreemap
+        names={universe.names}
+        themes={universe.themes}
+        initialTheme={initialTheme}
+        initialWindow={initialWindow}
+      />
     </>
   );
 }
