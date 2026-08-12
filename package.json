@@ -16,6 +16,10 @@
     "db:reset": "supabase db reset",
     "db:status": "supabase status",
     "deploy": "netlify deploy --build --filter @powerfund/web",
-    "deploy:prod": "netlify deploy --build --prod --filter @powerfund/web"
+    "deploy:prod": "netlify deploy --build --prod --filter @powerfund/web",
+    "ingest:bars": "pnpm --filter @powerfund/worker ingest:bars",
+    "ingest:fundamentals": "pnpm --filter @powerfund/worker ingest:fundamentals",
+    "ingest:all": "pnpm --filter @powerfund/worker ingest:all",
+    "smoke:market": "pnpm --filter @powerfund/worker smoke:market"
   }
 }

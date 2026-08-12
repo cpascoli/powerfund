@@ -399,6 +399,114 @@ export type Database = {
         };
         Relationships: [];
       };
+      market_bars: {
+        Row: {
+          instrument_id: string;
+          bar_date: string;
+          open: number | null;
+          high: number | null;
+          low: number | null;
+          close: number | null;
+          adj_close: number | null;
+          volume: number | null;
+          source: string;
+          ingested_at: string;
+        };
+        Insert: {
+          instrument_id: string;
+          bar_date: string;
+          open?: number | null;
+          high?: number | null;
+          low?: number | null;
+          close?: number | null;
+          adj_close?: number | null;
+          volume?: number | null;
+          source: string;
+          ingested_at?: string;
+        };
+        Update: {
+          instrument_id?: string;
+          bar_date?: string;
+          open?: number | null;
+          high?: number | null;
+          low?: number | null;
+          close?: number | null;
+          adj_close?: number | null;
+          volume?: number | null;
+          source?: string;
+          ingested_at?: string;
+        };
+        Relationships: [];
+      };
+      market_caps: {
+        Row: {
+          instrument_id: string;
+          as_of_date: string;
+          market_cap: number;
+          source: string;
+          ingested_at: string;
+        };
+        Insert: {
+          instrument_id: string;
+          as_of_date: string;
+          market_cap: number;
+          source: string;
+          ingested_at?: string;
+        };
+        Update: {
+          instrument_id?: string;
+          as_of_date?: string;
+          market_cap?: number;
+          source?: string;
+          ingested_at?: string;
+        };
+        Relationships: [];
+      };
+      fundamentals_quarterly: {
+        Row: {
+          instrument_id: string;
+          period_end: string;
+          fiscal_period: string | null;
+          revenue: number | null;
+          free_cash_flow: number | null;
+          capex: number | null;
+          net_debt: number | null;
+          shares_diluted: number | null;
+          currency: string;
+          source: string;
+          raw: Json;
+          ingested_at: string;
+        };
+        Insert: {
+          instrument_id: string;
+          period_end: string;
+          fiscal_period?: string | null;
+          revenue?: number | null;
+          free_cash_flow?: number | null;
+          capex?: number | null;
+          net_debt?: number | null;
+          shares_diluted?: number | null;
+          currency?: string;
+          source: string;
+          raw?: Json;
+          ingested_at?: string;
+        };
+        Update: {
+          instrument_id?: string;
+          period_end?: string;
+          fiscal_period?: string | null;
+          revenue?: number | null;
+          free_cash_flow?: number | null;
+          capex?: number | null;
+          net_debt?: number | null;
+          shares_diluted?: number | null;
+          currency?: string;
+          source?: string;
+          raw?: Json;
+          ingested_at?: string;
+        };
+        Relationships: [];
+      };
     };
     Views: Record<string, never>;
     Functions: Record<string, never>;

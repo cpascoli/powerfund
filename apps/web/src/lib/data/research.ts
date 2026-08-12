@@ -154,6 +154,18 @@ export async function listInstrumentsWithThemes(): Promise<
     });
 }
 
+export type InstrumentMarketSnapshot = {
+  lastBarDate: string | null;
+  lastClose: number | null;
+  marketCap: number | null;
+  marketCapAsOf: string | null;
+  latestRevenue: number | null;
+  latestFcf: number | null;
+  latestCapex: number | null;
+  latestNetDebt: number | null;
+  fundamentalsPeriodEnd: string | null;
+};
+
 export async function getInstrumentDossier(
   symbol: string,
 ): Promise<InstrumentDossier | null> {
@@ -180,5 +192,64 @@ export async function getInstrumentDossier(
   return {
     instrument,
     dossier: (data as DossierRow | null) ?? null,
+  };
+}
+
+export async function getInstrumentMarketSnapshot(
+  instrumentId: string,
+): Promise<InstrumentMarketSnapshot> {
+  const supabase = await createClient();
+
+  const [barResult, capResult, fundResult] = await Promise.all([
+    supabase
+      .from("market_bars")
+      .select("bar_date, close, adj_close")
+      .eq("instrument_id", instrumentId)
+      .order("bar_date", { ascending: false })
+      .limit(1)
+      .maybeSingle(),
+    supabase
+      .from("market_caps")
+      .select("as_of_date, market_cap")
+      .eq("instrument_id", instrumentId)
+      .order("as_of_date", { ascending: false })
+      .limit(1)
+      .maybeSingle(),
+    supabase
+      .from("fundamentals_quarterly")
+      .select("period_end, revenue, free_cash_flow, capex, net_debt")
+      .eq("instrument_id", instrumentId)
+      .order("period_end", { ascending: false })
+      .limit(1)
+      .maybeSingle(),
+  ]);
+
+  const bar = barResult.data as {
+    bar_date: string;
+    close: number | null;
+    adj_close: number | null;
+  } | null;
+  const cap = capResult.data as {
+    as_of_date: string;
+    market_cap: number;
+  } | null;
+  const fund = fundResult.data as {
+    period_end: string;
+    revenue: number | null;
+    free_cash_flow: number | null;
+    capex: number | null;
+    net_debt: number | null;
+  } | null;
+
+  return {
+    lastBarDate: bar?.bar_date ?? null,
+    lastClose: bar?.adj_close ?? bar?.close ?? null,
+    marketCap: cap?.market_cap ?? null,
+    marketCapAsOf: cap?.as_of_date ?? null,
+    latestRevenue: fund?.revenue ?? null,
+    latestFcf: fund?.free_cash_flow ?? null,
+    latestCapex: fund?.capex ?? null,
+    latestNetDebt: fund?.net_debt ?? null,
+    fundamentalsPeriodEnd: fund?.period_end ?? null,
   };
 }

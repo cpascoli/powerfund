@@ -1,0 +1,22 @@
+{
+  "name": "@powerfund/data-clients",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "default": "./src/index.ts"
+    }
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "lint": "echo \"no lint configured\""
+  },
+  "dependencies": {
+    "yahoo-finance2": "^4.0.2"
+  },
+  "devDependencies": {
+    "typescript": "^5.8.2"
+  }
+}

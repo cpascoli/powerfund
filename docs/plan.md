@@ -26,11 +26,11 @@ Build:
 - [x] Postgres schema (`themes`, `instruments`, `documents`, `signals`, `positions`, `decisions`, `portfolio_snapshots`)
 - [x] Research UI shell + IA (Briefing, Explore, Signals, Workbench, Portfolio, Journal)
 - [x] Netlify deploy config for the frontend
-- [x] Worker stub
+- [x] Worker ingest (daily bars + quarterly fundamentals via free APIs)
 - [x] Auth + Supabase client wiring (local)
 - [x] Watchlists organized by theme (live data + starter universe seed)
 - [x] Company dossiers (stub fields + CLS/VRT/NBIS research notes)
-- [x] Dossier create/edit UI
+- [x] Dossier create/edit UI + market snapshot fields
 - [ ] Filings/earnings links on dossiers
 - [ ] Signal inbox CRUD (manual + later automated)
 - [ ] Portfolio book (positions, exposure, P&L, risk flags)
@@ -41,7 +41,7 @@ Technical direction:
 - TypeScript monorepo (pnpm)
 - Postgres via Supabase
 - Next.js research UI
-- Workers/jobs stubbed for later ingestion
+- Free-tier ingest: Tiingo/Yahoo/Stooq bars + SEC/Yahoo fundamentals ([ADR 0005](../architecture/decisions/0005-free-market-data-vendors.md))
 
 Exit criteria: weekly investment process runs entirely through Power Fund tooling (even if many signals are still manual).
 
@@ -90,10 +90,10 @@ Exit criteria: deliberate go/no-go; no premature multi-tenant complexity before 
 ## Near-term execution (first ~30 days)
 
 1. [x] Freeze Phase 0 docs (iterate lightly as we learn).
-2. [ ] Choose initial data sources (lean: market API + SEC EDGAR + one filings/news path).
+2. [x] Choose initial free data sources (Tiingo/Yahoo bars + Yahoo fundamentals; EDGAR later).
 3. [x] Scaffold monorepo + DB schema.
-4. [ ] Connect UI to Supabase (auth + CRUD).
-5. [ ] Manual research workflow for a starter universe (~15–30 names across core themes).
+4. [x] Connect UI to Supabase (auth + CRUD).
+5. [x] Manual research workflow for a starter universe (~15–30 names across core themes).
 6. [ ] Ship one automated scorer (e.g. growth/CapEx inflection + anti-parabolic filter).
 7. [ ] Establish weekly review ritual.
 
@@ -110,7 +110,7 @@ Exit criteria: deliberate go/no-go; no premature multi-tenant complexity before 
 | Phase | Status |
 |-------|--------|
 | Phase 0 — Operating model | Complete |
-| Phase 1 — Research OS | In progress (scaffold done; live workflows next) |
-| Phase 2 — Data & quant pipelines | Not started |
+| Phase 1 — Research OS | In progress (watchlist/dossiers/journal + free market ingest) |
+| Phase 2 — Data & quant pipelines | Started early (EOD bars + quarterly fundamentals ingest) |
 | Phase 3 — Risk & portfolio construction | Not started |
 | Phase 4 — Scale / insight product | Not started |

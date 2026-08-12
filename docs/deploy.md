@@ -19,10 +19,11 @@ Build config lives in root [`netlify.toml`](../netlify.toml).
 2. Netlify UI → site **powerfund** → **Project configuration → Build & deploy → Continuous deployment → Link repository**.
 3. Select the GitHub repo; leave base directory **empty** (root).
 4. Confirm Production branch is `main`.
-5. Ensure Production env vars exist:
-   - `NEXT_PUBLIC_SUPABASE_URL`
-   - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
-6. Trigger a deploy (push to `main` or **Trigger deploy**).
+5. Ensure Production env vars exist (Site configuration → Environment variables):
+   - `NEXT_PUBLIC_SUPABASE_URL` — Project URL (Settings → API Keys / Data API)
+   - `NEXT_PUBLIC_SUPABASE_ANON_KEY` — **anon** / **publishable** key only
+6. **Do not** set `SUPABASE_SERVICE_ROLE_KEY`, `service_role`, or `TIINGO_API_KEY` on Netlify. Those are for local/worker ingest only and must never be `NEXT_PUBLIC_*`.
+7. Trigger a deploy (push to `main` or **Trigger deploy**). After changing `NEXT_PUBLIC_*`, trigger a **new** deploy so Next.js rebuilds with the values.
 
 After linking, every push to `main` that touches the web app or shared packages deploys Production. The `ignore` rule in `netlify.toml` skips builds when only docs/worker/supabase change.
 

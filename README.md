@@ -12,9 +12,10 @@ Investment intelligence for managing and growing capital — thematic focus on A
 
 ```text
 apps/web          Research OS (Next.js)
-apps/worker       Ingestion/scoring stub
+apps/worker       Ingestion (bars + fundamentals)
 packages/domain   Shared types, themes, risk defaults
 packages/db       Typed Supabase client
+packages/data-clients  Tiingo + Yahoo free market clients
 supabase/         Migrations + seed
 docs/             Product / mandate docs
 architecture/     Engineering design docs
@@ -42,15 +43,30 @@ UX / navigation model: [docs/ux.md](./docs/ux.md) (Briefing, Explore, Signals, W
 ```bash
 supabase start
 pnpm db:reset   # apply migrations + seed
-supabase status -o env   # copy API_URL + ANON_KEY
+supabase status -o env   # copy API_URL + ANON_KEY (+ SERVICE_ROLE_KEY for ingest)
 ```
 
 Create `apps/web/.env.local` from [`.env.example`](./.env.example). Sign up locally (email confirmations off), then use Explore.
 
-### Worker stub
+### Market data ingest (free tier)
+
+Daily OHLCV + market cap + quarterly fundamentals (revenue, FCF, capex, net debt).
+
+- Bars: Tiingo (if `TIINGO_API_KEY`) → Yahoo → Stooq
+- Fundamentals: SEC companyfacts → Yahoo
+- Free Tiingo key recommended for reliable daily bars: https://www.tiingo.com/
+
+See [ADR 0005](./architecture/decisions/0005-free-market-data-vendors.md).
 
 ```bash
-pnpm dev:worker
+# apps/web/.env.local needs:
+#   SUPABASE_URL or NEXT_PUBLIC_SUPABASE_URL
+#   SUPABASE_SERVICE_ROLE_KEY   # from `supabase status` (local) — not the anon key
+#   TIINGO_API_KEY=...          # optional but recommended
+
+pnpm ingest:bars              # default ~2y daily bars + market caps
+pnpm ingest:fundamentals      # quarterly fundamentals
+pnpm ingest:all               # both
 ```
 
 ## Git + Netlify CI
@@ -79,7 +95,9 @@ pnpm deploy:prod
 | Command | Description |
 |---------|-------------|
 | `pnpm dev` | Start web app |
-| `pnpm dev:worker` | Start worker stub |
+| `pnpm ingest:bars` | Ingest daily bars + market caps |
+| `pnpm ingest:fundamentals` | Ingest quarterly fundamentals |
+| `pnpm ingest:all` | Run both ingest jobs |
 | `pnpm build` | Build all packages/apps |
 | `pnpm typecheck` | Typecheck all workspaces |
 | `pnpm db:reset` | Reset local DB (migrate + seed) |
@@ -87,4 +105,4 @@ pnpm deploy:prod
 
 ## Status
 
-Phase 1 Research OS: auth, watchlist, editable dossiers, decision journal, Netlify + hosted Supabase.
+Phase 1 Research OS: auth, watchlist, editable dossiers, decision journal, free-tier market ingest, Netlify + hosted Supabase.

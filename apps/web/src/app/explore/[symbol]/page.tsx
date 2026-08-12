@@ -2,7 +2,10 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { DossierForm } from "@/components/dossier-form";
-import { getInstrumentDossier } from "@/lib/data/research";
+import {
+  getInstrumentDossier,
+  getInstrumentMarketSnapshot,
+} from "@/lib/data/research";
 
 export const dynamic = "force-dynamic";
 
@@ -44,7 +47,17 @@ export default async function InstrumentDossierPage({
   }
 
   const { instrument, dossier } = result;
+  const market = await getInstrumentMarketSnapshot(instrument.id);
   const editing = edit === "1" || !dossier;
+
+  const formatUsd = (value: number | null) => {
+    if (value == null) return "—";
+    const abs = Math.abs(value);
+    if (abs >= 1e12) return `$${(value / 1e12).toFixed(2)}T`;
+    if (abs >= 1e9) return `$${(value / 1e9).toFixed(2)}B`;
+    if (abs >= 1e6) return `$${(value / 1e6).toFixed(1)}M`;
+    return `$${value.toLocaleString(undefined, { maximumFractionDigits: 2 })}`;
+  };
 
   return (
     <>
@@ -90,12 +103,16 @@ export default async function InstrumentDossierPage({
           <strong>{dossier?.status ?? "new"}</strong>
         </div>
         <div className="stat">
-          <span>Book status</span>
-          <strong>{instrument.status}</strong>
+          <span>Last close</span>
+          <strong>
+            {market.lastClose != null
+              ? `$${market.lastClose.toFixed(2)}`
+              : "—"}
+          </strong>
         </div>
         <div className="stat">
-          <span>Theme</span>
-          <strong>{instrument.theme_name}</strong>
+          <span>Market cap</span>
+          <strong>{formatUsd(market.marketCap)}</strong>
         </div>
         <div className="stat">
           <span>Updated</span>
@@ -104,6 +121,25 @@ export default async function InstrumentDossierPage({
               ? new Date(dossier.updated_at).toLocaleDateString()
               : "—"}
           </strong>
+        </div>
+      </section>
+
+      <section className="stat-row" aria-label="Latest fundamentals">
+        <div className="stat">
+          <span>Revenue (qtr)</span>
+          <strong>{formatUsd(market.latestRevenue)}</strong>
+        </div>
+        <div className="stat">
+          <span>FCF (qtr)</span>
+          <strong>{formatUsd(market.latestFcf)}</strong>
+        </div>
+        <div className="stat">
+          <span>Capex (qtr)</span>
+          <strong>{formatUsd(market.latestCapex)}</strong>
+        </div>
+        <div className="stat">
+          <span>Net debt</span>
+          <strong>{formatUsd(market.latestNetDebt)}</strong>
         </div>
       </section>
 

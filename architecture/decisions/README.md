@@ -21,3 +21,4 @@ Suggested sections:
 | [0002](./0002-supabase-postgres.md) | Supabase (Postgres) as system of record | Accepted |
 | [0003](./0003-nextjs-research-ui.md) | Next.js App Router for the research UI | Accepted |
 | [0004](./0004-netlify-frontend-hosting.md) | Netlify for the research frontend | Accepted |
+| [0005](./0005-free-market-data-vendors.md) | Free-tier market data (Tiingo + Yahoo) | Accepted |
