@@ -35,6 +35,7 @@ Exact percentages can be tuned; the existence of hard caps cannot.
 6. **Parabolic / crowded filter** — prefer not initiating full size into vertical, highly crowded moves without a fresh asymmetric catalyst.
 7. **Liquidity** — position size must respect average volume and expected exit horizon.
 8. **Kill-switch** — if portfolio drawdown from peak exceeds a defined threshold, reduce risk (trim, halt new risk, or raise cash) until review is complete.
+9. **AI memory cycle discipline** — HBM/DRAM/NAND names count toward the **AI infrastructure** theme (not a separate core theme). Do not treat peak-cycle EPS or trough trailing multiples as “cheap” without contract coverage, mix shift, and normalized-earnings evidence. Prefer starter sizes; add only on new information. Soft guide: pure memory/storage names ≤ **15% NAV** until the sleeve earns a larger allocation in review.
 
 *Initial numeric defaults (revise after first live month):*
 
@@ -44,6 +45,7 @@ Exact percentages can be tuned; the existence of hard caps cannot.
 | Max theme | 40% NAV |
 | Min cash | 10% NAV |
 | Portfolio drawdown kill-switch | 15% from peak → mandatory review + risk reduction |
+| Soft max AI memory/storage sleeve | 15% NAV (inside AI infra) |
 
 ## Decision process
 

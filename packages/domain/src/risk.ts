@@ -4,6 +4,8 @@ export const RISK_DEFAULTS = {
   maxThemePctNav: 40,
   minCashPctNav: 10,
   drawdownKillSwitchPct: 15,
+  /** Soft guide: pure AI memory/storage names inside the AI infra theme. */
+  maxAiMemorySleevePctNav: 15,
 } as const;
 
 export type RiskDefaults = typeof RISK_DEFAULTS;

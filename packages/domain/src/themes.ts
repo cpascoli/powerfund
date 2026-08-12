@@ -19,7 +19,7 @@ export const CORE_THEMES: ReadonlyArray<{
     slug: "ai-infrastructure",
     name: "AI Infrastructure",
     description:
-      "Compute, networking, data centers, and supply chain behind AI demand.",
+      "Compute, networking, memory/storage, data centers, and supply chain behind AI demand.",
     isCore: true,
     sortOrder: 1,
   },
