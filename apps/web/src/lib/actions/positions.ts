@@ -84,5 +84,5 @@ export async function savePosition(
   revalidatePath("/portfolio");
   revalidatePath("/decisions");
   revalidatePath("/");
-  redirect("/portfolio");
+  redirect("/portfolio?tab=book");
 }

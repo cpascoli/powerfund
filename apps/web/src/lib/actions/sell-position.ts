@@ -154,5 +154,5 @@ export async function sellPosition(
   revalidatePath("/portfolio");
   revalidatePath("/decisions");
   revalidatePath("/");
-  redirect("/portfolio");
+  redirect("/portfolio?tab=book");
 }

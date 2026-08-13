@@ -70,7 +70,7 @@ export async function savePlannedAction(
   }
 
   revalidateBook();
-  redirect("/portfolio");
+  redirect("/portfolio?tab=queue");
 }
 
 async function setStatus(
@@ -86,7 +86,7 @@ async function setStatus(
     throw new Error(error.message);
   }
   revalidateBook();
-  redirect("/portfolio");
+  redirect("/portfolio?tab=queue");
 }
 
 export async function deferPlannedAction(formData: FormData): Promise<void> {
@@ -175,7 +175,7 @@ export async function confirmPlannedAction(
       };
     }
     revalidateBook();
-    redirect("/portfolio");
+    redirect("/portfolio?tab=queue");
   }
 
   if (planned.status !== "pending" && planned.status !== "deferred") {
@@ -219,5 +219,5 @@ export async function confirmPlannedAction(
   }
 
   revalidateBook();
-  redirect("/portfolio");
+  redirect("/portfolio?tab=book");
 }

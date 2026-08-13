@@ -478,6 +478,61 @@ a {
   text-decoration: none;
 }
 
+.tab-nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+  margin-top: 1.25rem;
+  border-bottom: 1px solid var(--line);
+}
+
+.tab-nav a {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.55rem 0.85rem;
+  margin-bottom: -1px;
+  color: var(--muted);
+  text-decoration: none;
+  font-size: 0.92rem;
+  font-weight: 650;
+  border-bottom: 2px solid transparent;
+}
+
+.tab-nav a:hover {
+  color: var(--ink);
+}
+
+.tab-nav a.is-active {
+  color: var(--ink);
+  border-bottom-color: var(--accent);
+}
+
+.tab-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.3rem;
+  padding: 0.05rem 0.35rem;
+  border-radius: 999px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--line);
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--muted);
+}
+
+.tab-badge.warn {
+  background: #f5e6c8;
+  border-color: transparent;
+  color: var(--warn);
+}
+
+/* The tab bar already draws the separator line. */
+.tab-nav + .panel {
+  border-top: none;
+}
+
 .workbench-controls {
   display: flex;
   flex-wrap: wrap;
