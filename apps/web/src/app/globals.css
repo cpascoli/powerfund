@@ -435,6 +435,22 @@ a {
   font-size: 0.9rem;
 }
 
+.kill-criteria {
+  margin-top: 0.25rem;
+  font-size: 0.9rem;
+}
+
+.kill-criteria summary {
+  cursor: pointer;
+  color: var(--muted);
+  user-select: none;
+}
+
+.kill-criteria p {
+  margin: 0.35rem 0 0;
+  white-space: pre-line;
+}
+
 .position-mtm {
   text-align: right;
   display: flex;

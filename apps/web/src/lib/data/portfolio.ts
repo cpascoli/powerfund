@@ -22,6 +22,7 @@ export type OpenPositionRow = {
   priceSource: "live" | "close";
   openedAt: string;
   thesisSummary: string | null;
+  invalidation: string | null;
 };
 
 export type ThemeExposure = {
@@ -68,6 +69,7 @@ type PositionDbRow = {
   avg_cost: number;
   opened_at: string;
   thesis_summary: string | null;
+  invalidation: string | null;
 };
 
 export async function getOpenPortfolioBook(): Promise<PortfolioBook> {
@@ -80,7 +82,7 @@ export async function getOpenPortfolioBook(): Promise<PortfolioBook> {
     supabase
       .from("positions")
       .select(
-        "id, instrument_id, side, quantity, avg_cost, opened_at, thesis_summary",
+        "id, instrument_id, side, quantity, avg_cost, opened_at, thesis_summary, invalidation",
       )
       .eq("status", "open")
       .order("opened_at", { ascending: false }),
@@ -246,6 +248,7 @@ export async function getOpenPortfolioBook(): Promise<PortfolioBook> {
       unrealizedPnlPct,
       openedAt: position.opened_at,
       thesisSummary: position.thesis_summary,
+      invalidation: position.invalidation,
       priceSource: "close" as const,
     };
   });

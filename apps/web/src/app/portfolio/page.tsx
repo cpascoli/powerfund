@@ -162,6 +162,18 @@ export default async function PortfolioPage({
                   {position.thesisSummary ? (
                     <p className="muted">{position.thesisSummary}</p>
                   ) : null}
+                  {position.invalidation ? (
+                    <details className="kill-criteria">
+                      <summary>Kill criteria</summary>
+                      <p className="muted">{position.invalidation}</p>
+                    </details>
+                  ) : (
+                    <p className="muted">
+                      <span className="tag warn-tag">
+                        No kill criteria — mandate rule 4 violation
+                      </span>
+                    </p>
+                  )}
                 </div>
                 <div className="position-mtm">
                   <strong>{money(position.marketValue)}</strong>
