@@ -15,57 +15,55 @@ function emptyToNull(value: FormDataEntryValue | null): string | null {
   return trimmed.length === 0 ? null : trimmed;
 }
 
+/**
+ * Cash is a projection of the transactions ledger, so it can no longer be set
+ * by hand — that would leave the balance disagreeing with the entries that
+ * explain it. Notes are still free-form. Deposits and withdrawals get their own
+ * entry form (review BOOK-5); until then this refuses the edit rather than
+ * silently desyncing the book.
+ */
 export async function saveCash(
   _prev: CashActionState,
   formData: FormData,
 ): Promise<CashActionState> {
   const raw = emptyToNull(formData.get("cash"));
   const notes = emptyToNull(formData.get("notes"));
-  const cash = raw == null ? NaN : Number(raw);
-
-  if (!Number.isFinite(cash) || cash < 0) {
-    return { error: "Cash must be a non-negative number.", ok: false };
-  }
+  const submitted = raw == null ? null : Number(raw);
 
   const supabase = await createClient();
-  const db = supabase as unknown as {
-    from: (table: "portfolio_state") => {
-      select: (columns: string) => {
-        limit: (n: number) => {
-          maybeSingle: () => Promise<{
-            data: { id: string } | null;
-            error: { message: string } | null;
-          }>;
-        };
-      };
-      insert: (
-        values: Record<string, unknown>,
-      ) => Promise<{ error: { message: string } | null }>;
-      update: (values: Record<string, unknown>) => {
-        eq: (
-          column: "id",
-          value: string,
-        ) => Promise<{ error: { message: string } | null }>;
-      };
-    };
-  };
-
-  const { data: existing, error: loadError } = await db
+  const { data: existing, error: loadError } = await supabase
     .from("portfolio_state")
-    .select("id")
+    .select("id, cash")
     .limit(1)
     .maybeSingle();
 
   if (loadError) {
     return { error: loadError.message, ok: false };
   }
+  if (!existing) {
+    return {
+      error: "No book yet. Record a deposit to open the ledger.",
+      ok: false,
+    };
+  }
 
-  const { error } = existing
-    ? await db
-        .from("portfolio_state")
-        .update({ cash, notes })
-        .eq("id", existing.id)
-    : await db.from("portfolio_state").insert({ cash, notes });
+  if (
+    submitted != null &&
+    Number.isFinite(submitted) &&
+    Math.abs(submitted - Number(existing.cash)) >= 0.005
+  ) {
+    return {
+      error:
+        "Cash is derived from the transactions ledger and cannot be typed in. " +
+        "Record a deposit or withdrawal so the balance has an entry explaining it.",
+      ok: false,
+    };
+  }
+
+  const { error } = await supabase
+    .from("portfolio_state")
+    .update({ notes })
+    .eq("id", existing.id);
 
   if (error) {
     return { error: error.message, ok: false };
