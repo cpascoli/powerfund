@@ -274,6 +274,30 @@ begin
   end if;
   raise notice 'PASS fees are capitalised into cost basis';
 
+  ---------------------------------------------------------------------------
+  -- Regression: Supabase's `authenticator` role preloads `safeupdate`, which
+  -- rejects any UPDATE without a WHERE clause. These tests connect as
+  -- `postgres`, where it is not loaded, so a WHERE-less UPDATE inside a trigger
+  -- passes here and then fails for every real request. Assert on the source
+  -- instead, which does not depend on reproducing the library preload.
+  ---------------------------------------------------------------------------
+  select count(*) into v_failures
+  from (
+    select m[1] as stmt
+    from pg_proc p
+    join pg_namespace n on n.oid = p.pronamespace,
+      regexp_matches(p.prosrc, '(update\s+[a-z_."]+\s+set[^;]*;)', 'gi') as m
+    where n.nspname = 'public'
+  ) s
+  where stmt !~* 'where';
+
+  if v_failures > 0 then
+    raise exception
+      'FAIL safeupdate: % UPDATE statement(s) in public functions have no WHERE clause; they will fail for every API request',
+      v_failures;
+  end if;
+  raise notice 'PASS no function relies on a WHERE-less UPDATE';
+
   raise notice 'ALL LEDGER TESTS PASSED';
 end $$;
 

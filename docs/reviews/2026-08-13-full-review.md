@@ -382,6 +382,16 @@ Design recorded as [ADR 0007](../../architecture/decisions/0007-transactions-led
 
 **New risk recorded.** The operator's cash, crypto and equities all sit in one Coinbase account, so the $250k is a policy carve-out rather than an isolated balance. Buying BTC with the same dollars would make PowerFund's cash figure untrue while every reconciliation check still passes. Noted in the seed deposit's note; the ledger cannot detect it.
 
+### 2026-08-13 — Ledger write path broken by `safeupdate` (fixed)
+
+Reported from the app: adding a CLS buy failed with `UPDATE requires a WHERE clause`.
+
+`apply_transaction` updated the singleton `portfolio_state` row without a `WHERE` clause. Supabase's `authenticator` role — the one PostgREST connects as before switching to `authenticated` — has `session_preload_libraries = supautils, safeupdate`, and `safeupdate` rejects any `UPDATE` or `DELETE` without a filter. Every ledger write through the API therefore aborted: fills, sells and cash entries alike. Fixed in `20260813162500_fix_cash_update_where_clause`, which also takes `for update` on the row so concurrent cash updates serialise explicitly.
+
+**The verification gap is the real lesson.** All 13 ledger tests passed while the feature was completely broken in production, because `pnpm db:test` connects as `postgres` via `psql`, where `safeupdate` is not preloaded. The tests exercised a privilege context the application never uses. `LOAD 'safeupdate'` is blocked by supautils and connecting as `authenticator` needs its password, so the regression check asserts on `pg_proc.prosrc` instead: no function in `public` may contain an `UPDATE` without a `WHERE`. Verified non-vacuous by running the same query against production while it was still broken, where it returned exactly the offending statement.
+
+This is a general warning for anything added later: a test that runs as `postgres` proves the SQL logic, not that the app can execute it. RLS, column grants and `safeupdate` all differ by role.
+
 ### Still open from the P0 set
 
 - **SEC-1 — disable email signup.** This is a dashboard setting and cannot be done from a migration. Until it is off, strangers can still create accounts; they now land as read-only viewers rather than operators, so the severity is reduced from "full control of the book" to "can read everything", but it is still open.
