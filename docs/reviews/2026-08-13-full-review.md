@@ -253,23 +253,31 @@ A reasonable first scorer, given what you already ingest and what the mandate ca
 
 ## 6. Recommended sequence
 
-### Now (today, ~1 hour) — close the door
+*Status as of 2026-08-13 evening. See §9 for what was actually applied.*
 
-1. **SEC-1** Disable email signup on the hosted Supabase project.
-2. **SEC-3** Revoke `anon` SELECT grants and the default privilege.
-3. **SEC-4** Make middleware fail closed.
-4. **SEC-5** Remove authenticated write policies from the three market tables.
+### Now (today, ~1 hour) — close the door — **3 of 4 done**
 
-### Sprint 1 — make the book trustworthy
+1. **SEC-1** Disable email signup on the hosted Supabase project. — **OPEN, operator action.** Dashboard-only; cannot be done from a migration. Strangers can still register, but land as `viewer` and cannot write.
+2. **SEC-3** Revoke `anon` SELECT grants and the default privilege. — **DONE.** All 90 grants removed; verified 0 remain.
+3. **SEC-4** Make middleware fail closed. — **DONE.**
+4. **SEC-5** Remove authenticated write policies from the three market tables. — **DONE.**
 
-5. **BOOK-1 + BOOK-2 + BOOK-4** One transactional `book_fill` RPC; idempotent queue confirmation; partial unique index on open positions.
-6. **BOOK-3** Sell/reduce/close path with realized P&L.
-7. **BOOK-5** `cash_ledger` with deposits/withdrawals/fees; derive the balance.
-8. **BOOK-7** Nightly NAV snapshot → unlocks drawdown, the kill-switch, and an equity curve.
-9. **BOOK-6** Hard mandate enforcement with a written override, per your choice.
-10. **HYG-1 + HYG-2** Vitest on the money math and mandate checks; a GitHub Actions gate running typecheck + tests. Also **HYG-4** — delete the fake client shims while you are in `book-fill.ts`.
+Also closed in the same pass, beyond the original list: **SEC-2** (every `using (true)` write policy replaced with `is_operator()` gating; the role dimension from §8 exists), and half of **SEC-7** (`set_updated_at` search_path pinned; leaked-password protection is still a dashboard toggle).
 
-### Sprint 2 — make the data honest
+### Sprint 1 — make the book trustworthy — **3 of 6 done**
+
+5. **BOOK-1 + BOOK-2 + BOOK-4** — **DONE**, though not as an RPC. The append-only ledger made a separate transactional function unnecessary: one insert is one statement, the trigger takes `for update`, and a unique index enforces one open position per instrument. BOOK-2 is a unique index on `planned_action_id` plus queue repair on retry.
+6. **BOOK-3** Sell/reduce/close path with realized P&L. — **DONE.** Average-cost pooling, fees, full-exit basis zeroing, UI with a pre-commit preview.
+7. **BOOK-5** cash ledger with deposits/withdrawals/fees; derive the balance. — **DONE**, as `transactions` rather than a separate `cash_ledger`. Cash can no longer be typed in.
+8. **BOOK-7** Nightly NAV snapshot → unlocks drawdown, the kill-switch, and an equity curve. — **OPEN.** `portfolio_snapshots` is still unwritten, so there is no peak NAV and the mandate's 15% kill-switch still cannot exist.
+9. **BOOK-6** Hard mandate enforcement with a written override. — **OPEN.** Caps remain display-only; `transactions.mandate_override_reason` exists and is unused. This is the last structural gap in "trustworthy".
+10. **HYG-1 + HYG-2** Vitest + a CI gate. Also **HYG-4**. — **PARTIAL.** 14 SQL assertions cover the ledger via `pnpm db:test`, but there is no Vitest, no CI gate, and the money helpers in `@powerfund/domain` are untested. HYG-4's root cause is fixed and the money paths are typed; shims remain in `decisions.ts`, `dossiers.ts` and the worker.
+
+Closed opportunistically alongside Sprint 1: **HYG-5** (type generation script, now from the linked project), **BOOK-12** (a failed journal write now aborts the fill instead of silently booking a thesis-less position), and most of **BOOK-13/D-6** (money settles at `numeric(20,2)`, quantities at `numeric(20,8)`, rounding centralised in `@powerfund/domain`). Partially: **D-5** (added the open-position index and the `closed_at` CHECK; the nullable-`exchange` duplicate, `documents (source, external_id)`, and the `positions (instrument_id, status)` index remain), and **BOOK-8** (the new position map flags marks that fell back to cost; the rest of the book still shows them silently).
+
+### Sprint 2 — make the data honest — **not started**
+
+This is the sprint that serves the stated #1 goal. Nothing here has been touched, and DATA-1 remains the highest-leverage change in the project.
 
 11. **DATA-1** Fundamentals vintages (`filed_at`). Highest-leverage schema change in the project.
 12. **DATA-2** Resolve adjusted vs raw; backfill; add `price_basis`.
@@ -278,7 +286,7 @@ A reasonable first scorer, given what you already ingest and what the mandate ca
 15. **DATA-7 + DATA-8 + DATA-9** SEC fiscal-period and net-debt correctness.
 16. **DATA-11** Schedule fundamentals in production.
 
-### Sprint 3 — build edge
+### Sprint 3 — build edge — **not started**
 
 17. **PROD-1** Signal inbox CRUD (manual first).
 18. Filings/events ingest (`documents` table is already modelled and empty) + filings on dossiers — the last unchecked Phase 1 item.
