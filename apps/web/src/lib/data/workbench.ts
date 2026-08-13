@@ -37,7 +37,6 @@ export async function getWorkbenchUniverse(): Promise<WorkbenchUniverse> {
     { data: themeData, error: themeError },
     { data: linkData, error: linkError },
     { data: capData, error: capError },
-    { data: barData, error: barError },
   ] = await Promise.all([
     supabase
       .from("instruments")
@@ -54,10 +53,6 @@ export async function getWorkbenchUniverse(): Promise<WorkbenchUniverse> {
     supabase
       .from("market_caps")
       .select("instrument_id, as_of_date, market_cap"),
-    supabase
-      .from("market_bars")
-      .select("instrument_id, bar_date, close, adj_close")
-      .order("bar_date", { ascending: true }),
   ]);
 
   if (instrumentError) {
@@ -72,15 +67,34 @@ export async function getWorkbenchUniverse(): Promise<WorkbenchUniverse> {
   if (capError) {
     throw new Error(`Failed to load market caps: ${capError.message}`);
   }
-  if (barError) {
-    throw new Error(`Failed to load bars: ${barError.message}`);
-  }
 
   const instruments = (instrumentData as Array<{
     id: string;
     symbol: string;
     name: string;
   }> | null) ?? [];
+
+  // The longest return window is 2y. With 5 years of history in market_bars, an
+  // unbounded all-instrument query would exceed the 1,000-row PostgREST cap, so
+  // fetch a 25-month window per instrument (~530 rows each) in parallel.
+  const barStart = new Date();
+  barStart.setUTCMonth(barStart.getUTCMonth() - 25);
+  const barStartIso = barStart.toISOString().slice(0, 10);
+
+  const barResults = await Promise.all(
+    instruments.map(async (instrument) => {
+      const { data, error } = await supabase
+        .from("market_bars")
+        .select("bar_date, close, adj_close")
+        .eq("instrument_id", instrument.id)
+        .gte("bar_date", barStartIso)
+        .order("bar_date", { ascending: true });
+      if (error) {
+        throw new Error(`Failed to load bars: ${error.message}`);
+      }
+      return { instrumentId: instrument.id, rows: data ?? [] };
+    }),
+  );
   const themes = (themeData as Array<{
     id: string;
     slug: string;
@@ -121,17 +135,18 @@ export async function getWorkbenchUniverse(): Promise<WorkbenchUniverse> {
   }
 
   const barsByInstrument = new Map<string, PricePoint[]>();
-  for (const row of (barData as Array<{
-    instrument_id: string;
-    bar_date: string;
-    close: number | null;
-    adj_close: number | null;
-  }> | null) ?? []) {
-    const close = row.adj_close ?? row.close;
-    if (close == null) continue;
-    const list = barsByInstrument.get(row.instrument_id) ?? [];
-    list.push({ date: row.bar_date, close: Number(close) });
-    barsByInstrument.set(row.instrument_id, list);
+  for (const { instrumentId, rows } of barResults) {
+    const points: PricePoint[] = [];
+    for (const row of rows as Array<{
+      bar_date: string;
+      close: number | null;
+      adj_close: number | null;
+    }>) {
+      const close = row.adj_close ?? row.close;
+      if (close == null) continue;
+      points.push({ date: row.bar_date, close: Number(close) });
+    }
+    barsByInstrument.set(instrumentId, points);
   }
 
   const names: WorkbenchNameNode[] = instruments

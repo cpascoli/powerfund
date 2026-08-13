@@ -171,25 +171,36 @@ export type PriceBar = {
   close: number;
 };
 
+const BAR_PAGE_SIZE = 1000;
+
 export async function getInstrumentPriceHistory(
   instrumentId: string,
 ): Promise<PriceBar[]> {
   const supabase = await createClient();
-  const { data, error } = await supabase
-    .from("market_bars")
-    .select("bar_date, close, adj_close")
-    .eq("instrument_id", instrumentId)
-    .order("bar_date", { ascending: true });
 
-  if (error) {
-    throw new Error(`Failed to load price history: ${error.message}`);
-  }
-
-  const rows = (data as Array<{
+  // PostgREST caps responses at 1,000 rows; five years of daily bars is ~1,260,
+  // so page through the history instead of issuing one unbounded query.
+  const rows: Array<{
     bar_date: string;
     close: number | null;
     adj_close: number | null;
-  }> | null) ?? [];
+  }> = [];
+  for (let page = 0; ; page += 1) {
+    const { data, error } = await supabase
+      .from("market_bars")
+      .select("bar_date, close, adj_close")
+      .eq("instrument_id", instrumentId)
+      .order("bar_date", { ascending: true })
+      .range(page * BAR_PAGE_SIZE, (page + 1) * BAR_PAGE_SIZE - 1);
+
+    if (error) {
+      throw new Error(`Failed to load price history: ${error.message}`);
+    }
+
+    const batch = (data as typeof rows | null) ?? [];
+    rows.push(...batch);
+    if (batch.length < BAR_PAGE_SIZE) break;
+  }
 
   return rows
     .map((row) => {
