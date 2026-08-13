@@ -1,15 +1,17 @@
 import Link from "next/link";
 import { RISK_DEFAULTS } from "@powerfund/domain";
 
-import { CashForm } from "@/components/cash-form";
+import { CashEntryForm } from "@/components/cash-entry-form";
 import { ConfirmFillForm } from "@/components/confirm-fill-form";
 import { PlannedActionForm } from "@/components/planned-action-form";
 import { PositionForm } from "@/components/position-form";
+import { SellForm } from "@/components/sell-form";
 import {
   cancelPlannedAction,
   deferPlannedAction,
   restorePlannedAction,
 } from "@/lib/actions/planned-actions";
+import { getLedgerSummary } from "@/lib/data/ledger";
 import {
   buildDeploymentQueue,
   listOpenPlannedActions,
@@ -42,13 +44,15 @@ export default async function PortfolioPage({
     cash?: string;
     plan?: string;
     confirm?: string;
+    sell?: string;
   }>;
 }) {
-  const { add, cash: cashEdit, plan, confirm } = await searchParams;
-  const [rawBook, instruments, rawQueue] = await Promise.all([
+  const { add, cash: cashEdit, plan, confirm, sell } = await searchParams;
+  const [rawBook, instruments, rawQueue, ledger] = await Promise.all([
     getOpenPortfolioBook(),
     listInstrumentsWithThemes(),
     listOpenPlannedActions(),
+    getLedgerSummary(),
   ]);
   const book = await withLiveMarks(rawBook);
   const queue = buildDeploymentQueue(book, instruments, rawQueue);
@@ -59,7 +63,21 @@ export default async function PortfolioPage({
     confirm != null
       ? (queue.actions.find((row) => row.id === confirm) ?? null)
       : null;
-  const busy = showForm || showCash || showPlan || confirmAction != null;
+  const sellPositionRow =
+    sell != null
+      ? (book.positions.find((row) => row.id === sell) ?? null)
+      : null;
+  const busy =
+    showForm ||
+    showCash ||
+    showPlan ||
+    confirmAction != null ||
+    sellPositionRow != null;
+  // Return on capital actually committed, which deposits make measurable.
+  const totalReturnPct =
+    ledger.depositedCapital > 0
+      ? ((book.nav - ledger.depositedCapital) / ledger.depositedCapital) * 100
+      : null;
 
   return (
     <>
@@ -89,7 +107,7 @@ export default async function PortfolioPage({
           ) : (
             <>
               <Link className="buttonish subtle" href="/portfolio?cash=1">
-                Edit cash
+                Cash entry
               </Link>
               <Link className="buttonish subtle" href="/portfolio?add=1">
                 Add fill
@@ -139,14 +157,51 @@ export default async function PortfolioPage({
         </div>
       </section>
 
-      <section className="stat-row" aria-label="Invested vs phase 1">
+      <section className="stat-row" aria-label="Capital and realized results">
         <div className="stat">
-          <span>Open positions</span>
-          <strong>{book.openCount}</strong>
+          <span>Capital in</span>
+          <strong>{money(ledger.depositedCapital)}</strong>
+        </div>
+        <div className="stat">
+          <span>Total return</span>
+          <strong
+            className={
+              totalReturnPct == null
+                ? undefined
+                : totalReturnPct > 0
+                  ? "is-up"
+                  : totalReturnPct < 0
+                    ? "is-down"
+                    : undefined
+            }
+          >
+            {pct(totalReturnPct, true)}
+          </strong>
+        </div>
+        <div className="stat">
+          <span>Realized P&amp;L</span>
+          <strong
+            className={
+              ledger.realizedPnl > 0
+                ? "is-up"
+                : ledger.realizedPnl < 0
+                  ? "is-down"
+                  : undefined
+            }
+          >
+            {money(ledger.realizedPnl)}
+          </strong>
         </div>
         <div className="stat">
           <span>Invested (cost)</span>
           <strong>{money(book.invested)}</strong>
+        </div>
+      </section>
+
+      <section className="stat-row" aria-label="Deployment vs phase 1">
+        <div className="stat">
+          <span>Open positions</span>
+          <strong>{book.openCount}</strong>
         </div>
         <div className="stat">
           <span>Queued to deploy</span>
@@ -155,6 +210,10 @@ export default async function PortfolioPage({
         <div className="stat">
           <span>Phase-1 invested cap</span>
           <strong>{money(RISK_DEFAULTS.phase1InvestedCapUsd)}</strong>
+        </div>
+        <div className="stat">
+          <span>Ledger entries</span>
+          <strong>{ledger.entryCount}</strong>
         </div>
       </section>
 
@@ -263,12 +322,19 @@ export default async function PortfolioPage({
 
       {showCash ? (
         <section className="panel">
-          <h2>Cash</h2>
+          <h2>Cash entry</h2>
           <p className="muted">
-            Set the uninvested PowerFund cash. Confirming a fill debits this by
-            cost basis.
+            Cash is the sum of the ledger, so it changes only through entries.
+            Current balance {money(book.cash)}.
           </p>
-          <CashForm cash={book.cash} notes={book.cashNotes} />
+          <CashEntryForm />
+        </section>
+      ) : null}
+
+      {sellPositionRow ? (
+        <section className="panel">
+          <h2>Sell {sellPositionRow.symbol}</h2>
+          <SellForm position={sellPositionRow} />
         </section>
       ) : null}
 
@@ -352,10 +418,67 @@ export default async function PortfolioPage({
                       {money(position.unrealizedPnl)} (
                       {pct(position.unrealizedPnlPct, true)})
                     </span>
+                    <Link href={`/portfolio?sell=${position.id}`}>
+                      Sell or close
+                    </Link>
                   </div>
                 </li>
               );
             })}
+          </ul>
+        )}
+      </section>
+
+      <section className="panel" aria-label="Ledger">
+        <h2>Ledger</h2>
+        <p className="muted">
+          Every balance above is the sum of these entries. History is append-only,
+          so a mistake is corrected with an adjustment rather than an edit.
+        </p>
+        {ledger.entries.length === 0 ? (
+          <p className="empty">
+            No entries yet. Record a deposit to open the book.
+          </p>
+        ) : (
+          <ul className="list position-list">
+            {ledger.entries.map((entry) => (
+              <li key={entry.id}>
+                <div>
+                  <strong>
+                    {entry.kind}
+                    {entry.symbol ? ` ${entry.symbol}` : ""}
+                  </strong>
+                  {entry.source !== "manual" ? (
+                    <span className="tag"> {entry.source}</span>
+                  ) : null}
+                  <p className="position-meta">
+                    {new Date(entry.occurredAt).toLocaleString(undefined, {
+                      dateStyle: "medium",
+                      timeStyle: "short",
+                    })}
+                    {entry.quantity != null && entry.price != null
+                      ? ` · ${entry.quantity.toLocaleString(undefined, {
+                          maximumFractionDigits: 8,
+                        })} @ ${money(entry.price)}`
+                      : ""}
+                  </p>
+                  {entry.notes ? <p className="muted">{entry.notes}</p> : null}
+                </div>
+                <div className="position-mtm">
+                  <strong className={entry.cashDelta > 0 ? "is-up" : undefined}>
+                    {entry.cashDelta > 0 ? "+" : ""}
+                    {money(entry.cashDelta)}
+                  </strong>
+                  {entry.realizedPnl != null ? (
+                    <span
+                      className={entry.realizedPnl >= 0 ? "is-up" : "is-down"}
+                    >
+                      realized {money(entry.realizedPnl)}
+                    </span>
+                  ) : null}
+                </div>
+              </li>
+            ))}
           </ul>
         )}
       </section>

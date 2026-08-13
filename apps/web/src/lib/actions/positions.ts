@@ -38,6 +38,7 @@ export async function savePosition(
     emptyToNull(formData.get("avg_cost")),
     "avg_cost",
   );
+  const feesRaw = emptyToNull(formData.get("fees"));
   const openedAtRaw = emptyToNull(formData.get("opened_at"));
   const thesisSummary = emptyToNull(formData.get("thesis_summary"));
   const invalidation = emptyToNull(formData.get("invalidation"));
@@ -51,6 +52,11 @@ export async function savePosition(
   }
   if (avgCost == null) {
     return { error: "Average cost must be a non-negative number." };
+  }
+
+  const fees = feesRaw == null ? 0 : Number(feesRaw);
+  if (!Number.isFinite(fees) || fees < 0) {
+    return { error: "Fees must be zero or more." };
   }
 
   const openedAt = openedAtRaw
@@ -68,6 +74,7 @@ export async function savePosition(
     thesisSummary,
     invalidation,
     logDecision: alsoLogDecision,
+    fees,
   });
 
   if (!result.ok) {

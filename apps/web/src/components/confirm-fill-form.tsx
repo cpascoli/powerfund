@@ -59,15 +59,21 @@ export function ConfirmFillForm({ action }: Props) {
         </label>
       </div>
 
-      <label>
-        Filled at
-        <input
-          name="filled_at"
-          type="datetime-local"
-          defaultValue={filledDefault}
-          required
-        />
-      </label>
+      <div className="form-row-2">
+        <label>
+          Fees (USD)
+          <input name="fees" type="number" step="0.01" min="0" defaultValue="0" />
+        </label>
+        <label>
+          Filled at
+          <input
+            name="filled_at"
+            type="datetime-local"
+            defaultValue={filledDefault}
+            required
+          />
+        </label>
+      </div>
 
       <label>
         Thesis summary

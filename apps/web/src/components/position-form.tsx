@@ -77,15 +77,25 @@ export function PositionForm({ instruments, defaults }: Props) {
         </label>
       </div>
 
-      <label>
-        Opened at
-        <input
-          name="opened_at"
-          type="datetime-local"
-          defaultValue={openedDefault}
-          required
-        />
-      </label>
+      <div className="form-row-2">
+        <label>
+          Fees (USD)
+          <input name="fees" type="number" step="0.01" min="0" defaultValue="0" />
+        </label>
+        <label>
+          Opened at
+          <input
+            name="opened_at"
+            type="datetime-local"
+            defaultValue={openedDefault}
+            required
+          />
+        </label>
+      </div>
+      <p className="muted">
+        Cost basis is quantity x price plus fees, which is what leaves your cash
+        and what UK CGT treats as the cost.
+      </p>
 
       <label>
         Thesis summary

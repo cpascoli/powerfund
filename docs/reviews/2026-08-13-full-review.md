@@ -363,6 +363,25 @@ Code: `apps/web/src/lib/supabase/middleware.ts` now fails closed — returns 503
 
 **Note for future migrations:** Supabase applies its own default privileges when new tables are created, so `anon` grants can reappear. Re-check `information_schema.role_table_grants` for `grantee = 'anon'` after adding tables, ideally as a CI assertion once CI exists (HYG-2).
 
+### 2026-08-13 — Sprint 1: transactions ledger (applied to the live project)
+
+Design recorded as [ADR 0007](../../architecture/decisions/0007-transactions-ledger.md). The operator's answers that shaped it: pooled cash (no custody accounts), seed deposit dated just before the first fill, average cost pooling, fees capitalised into basis.
+
+| Version | What |
+|---|---|
+| `20260813121952_transactions_ledger` | Append-only `transactions` table; `positions` and `portfolio_state.cash` become trigger-maintained projections; append-only, oversell, chronology and cash-sign guards; `verify_book_against_ledger()`; one-open-position-per-instrument index; `positions.closed_at` consistency check; $250k seed deposit and the VRT buy backfilled |
+| `20260813140000_planned_action_idempotency` | Unique index on `planned_action_id` so a queued buy can only ever be booked once |
+
+**Findings closed.** BOOK-1 (atomicity) and BOOK-4 (duplicate open positions) are solved by construction rather than by an RPC: one insert is one statement, and the trigger takes `for update` on the position row. BOOK-2 (double-booking on retry) is now enforced by the unique index, and `confirmPlannedAction` repairs the queue instead of re-booking when it finds an existing entry. BOOK-3 (no sell path) and BOOK-5 (unauditable cash) now exist as real flows. HYG-5 (no type generation) fixed.
+
+**Verified:** all three reconciliation checks exact on the live book after backfill; 13 assertions in `supabase/tests/ledger.sql` pass via `pnpm db:test`, covering average-cost maths, realized P&L, full-exit basis zeroing, fee capitalisation, and every guard; `pnpm typecheck` and the web build clean; production serves after deploy.
+
+**Correction to the numbers.** Backfilling rounded cash from `244999.9412018` to `244999.94` and VRT average cost from `296.54` to `296.540355`, because cost basis is now derived from cash actually spent and a real account cannot hold a tenth of a cent. The VRT buy was recorded at $5,000.06; the share count suggests the true debit may have been exactly $5,000.00, which wants checking against the Coinbase statement and correcting with an adjustment entry.
+
+**Root cause found for HYG-4.** Every Supabase call was wrapped in a hand-written `as unknown as` shim describing a fake client. This was not carelessness: `@supabase/ssr@0.6`'s generic signature is incompatible with current supabase-js types, so `createServerClient<Database>` collapsed every row type to `never`, making typed access impossible. Upgrading to `@supabase/ssr@0.12` restored inference. All money paths are now typed against the generated schema; shims remain only in `decisions.ts`, `dossiers.ts` and the worker ingest files.
+
+**New risk recorded.** The operator's cash, crypto and equities all sit in one Coinbase account, so the $250k is a policy carve-out rather than an isolated balance. Buying BTC with the same dollars would make PowerFund's cash figure untrue while every reconciliation check still passes. Noted in the seed deposit's note; the ledger cannot detect it.
+
 ### Still open from the P0 set
 
 - **SEC-1 — disable email signup.** This is a dashboard setting and cannot be done from a migration. Until it is off, strangers can still create accounts; they now land as read-only viewers rather than operators, so the severity is reduced from "full control of the book" to "can read everything", but it is still open.

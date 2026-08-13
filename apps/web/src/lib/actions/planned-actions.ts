@@ -2,16 +2,18 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import type { Database } from "@powerfund/db";
 
 import { bookFill } from "@/lib/actions/book-fill";
 import { createClient } from "@/lib/supabase/server";
 
+type PlannedActionInsert =
+  Database["public"]["Tables"]["planned_actions"]["Insert"];
+type PlannedActionType = Database["public"]["Enums"]["planned_action_type"];
+
 export type PlannedActionState = {
   error: string | null;
 };
-
-type PlannedActionType = "buy" | "add" | "reduce" | "sell";
-type PlannedActionStatus = "pending" | "deferred" | "confirmed" | "cancelled";
 
 function emptyToNull(value: FormDataEntryValue | null): string | null {
   if (typeof value !== "string") return null;
@@ -24,40 +26,6 @@ function parsePositiveNumber(raw: string | null): number | null {
   const value = Number(raw);
   if (!Number.isFinite(value) || value <= 0) return null;
   return value;
-}
-
-function plannedDb() {
-  return createClient().then((supabase) => {
-    return supabase as unknown as {
-      from: (table: "planned_actions") => {
-        insert: (
-          values: Record<string, unknown>,
-        ) => Promise<{ error: { message: string } | null }>;
-        update: (values: Record<string, unknown>) => {
-          eq: (
-            column: "id",
-            value: string,
-          ) => Promise<{ error: { message: string } | null }>;
-        };
-        select: (columns: string) => {
-          eq: (
-            column: string,
-            value: string,
-          ) => {
-            maybeSingle: () => Promise<{
-              data: {
-                id: string;
-                instrument_id: string;
-                status: PlannedActionStatus;
-                rationale: string | null;
-              } | null;
-              error: { message: string } | null;
-            }>;
-          };
-        };
-      };
-    };
-  });
 }
 
 function revalidateBook() {
@@ -76,8 +44,7 @@ export async function savePlannedAction(
   const dueBy = emptyToNull(formData.get("due_by"));
   const rationale = emptyToNull(formData.get("rationale"));
   const actionTypeRaw = emptyToNull(formData.get("action_type")) ?? "buy";
-  const actionType: PlannedActionType =
-    actionTypeRaw === "add" ? "add" : "buy";
+  const actionType: PlannedActionType = actionTypeRaw === "add" ? "add" : "buy";
 
   if (!instrumentId) {
     return { error: "Pick an instrument." };
@@ -86,8 +53,8 @@ export async function savePlannedAction(
     return { error: "Planned amount must be a positive dollar amount." };
   }
 
-  const db = await plannedDb();
-  const { error } = await db.from("planned_actions").insert({
+  const supabase = await createClient();
+  const planned: PlannedActionInsert = {
     instrument_id: instrumentId,
     action_type: actionType,
     planned_usd: plannedUsd,
@@ -95,8 +62,9 @@ export async function savePlannedAction(
     due_by: dueBy,
     rationale,
     status: "pending",
-  });
+  };
 
+  const { error } = await supabase.from("planned_actions").insert(planned);
   if (error) {
     return { error: error.message };
   }
@@ -109,8 +77,8 @@ async function setStatus(
   id: string,
   status: "deferred" | "cancelled" | "pending",
 ): Promise<void> {
-  const db = await plannedDb();
-  const { error } = await db
+  const supabase = await createClient();
+  const { error } = await supabase
     .from("planned_actions")
     .update({ status })
     .eq("id", id);
@@ -146,6 +114,7 @@ export async function confirmPlannedAction(
   const id = emptyToNull(formData.get("id"));
   const quantity = parsePositiveNumber(emptyToNull(formData.get("quantity")));
   const price = parsePositiveNumber(emptyToNull(formData.get("price")));
+  const feesRaw = emptyToNull(formData.get("fees"));
   const filledAtRaw = emptyToNull(formData.get("filled_at"));
   const thesisSummary = emptyToNull(formData.get("thesis_summary"));
   const invalidation = emptyToNull(formData.get("invalidation"));
@@ -160,6 +129,11 @@ export async function confirmPlannedAction(
     return { error: "Price per share must be a positive number." };
   }
 
+  const fees = feesRaw == null ? 0 : Number(feesRaw);
+  if (!Number.isFinite(fees) || fees < 0) {
+    return { error: "Fees must be zero or more." };
+  }
+
   const filledAt = filledAtRaw
     ? new Date(filledAtRaw).toISOString()
     : new Date().toISOString();
@@ -167,8 +141,8 @@ export async function confirmPlannedAction(
     return { error: "Invalid fill date." };
   }
 
-  const db = await plannedDb();
-  const { data: planned, error: loadError } = await db
+  const supabase = await createClient();
+  const { data: planned, error: loadError } = await supabase
     .from("planned_actions")
     .select("id, instrument_id, status, rationale")
     .eq("id", id)
@@ -180,6 +154,30 @@ export async function confirmPlannedAction(
   if (!planned) {
     return { error: "Planned action not found." };
   }
+
+  // A unique index guarantees one ledger entry per planned action. Checking for it
+  // first means a retry after a failed queue update repairs the queue instead of
+  // booking the fill a second time.
+  const { data: alreadyBooked } = await supabase
+    .from("transactions")
+    .select("id, decision_id, quantity, price")
+    .eq("planned_action_id", id)
+    .maybeSingle();
+
+  if (alreadyBooked) {
+    const { error: repairError } = await supabase
+      .from("planned_actions")
+      .update({ status: "confirmed" })
+      .eq("id", id);
+    if (repairError) {
+      return {
+        error: `This fill is already booked but the queue could not be updated: ${repairError.message}`,
+      };
+    }
+    revalidateBook();
+    redirect("/portfolio");
+  }
+
   if (planned.status !== "pending" && planned.status !== "deferred") {
     return { error: "This action is no longer open." };
   }
@@ -192,13 +190,15 @@ export async function confirmPlannedAction(
     thesisSummary: thesisSummary ?? planned.rationale,
     invalidation,
     logDecision: true,
+    fees,
+    plannedActionId: id,
   });
 
   if (!result.ok) {
     return { error: result.error };
   }
 
-  const { error: updateError } = await db
+  const { error: updateError } = await supabase
     .from("planned_actions")
     .update({
       status: "confirmed",
@@ -212,7 +212,9 @@ export async function confirmPlannedAction(
 
   if (updateError) {
     return {
-      error: `Fill booked but queue was not updated: ${updateError.message}`,
+      error:
+        `Fill booked but the queue was not updated: ${updateError.message}. ` +
+        "Confirming again is safe — it will only repair the queue.",
     };
   }
 

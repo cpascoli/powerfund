@@ -24,6 +24,8 @@ declare
   v_basis numeric;
   v_failures int;
   v_raised boolean;
+  v_planned uuid;
+  v_other uuid;
 begin
   select id into v_nvda from public.instruments where symbol = 'NVDA';
   if v_nvda is null then
@@ -211,6 +213,66 @@ begin
     raise exception 'FAIL entry shape: a deposit against an instrument was accepted';
   end if;
   raise notice 'PASS malformed entries are rejected by constraints';
+
+  ---------------------------------------------------------------------------
+  -- Guard: cash cannot go negative, so a withdrawal or buy beyond the balance
+  -- is refused even if the application forgets to check.
+  ---------------------------------------------------------------------------
+  v_raised := false;
+  begin
+    insert into public.transactions (occurred_at, kind, cash_delta)
+    values ('2026-08-06 15:00:00+00', 'withdrawal', -99999999.00);
+  exception when others then
+    v_raised := true;
+  end;
+  if not v_raised then
+    raise exception 'FAIL cash floor: overdrawing the book was allowed';
+  end if;
+  raise notice 'PASS cash cannot be overdrawn';
+
+  ---------------------------------------------------------------------------
+  -- Guard: a planned action can only ever be booked once, so retrying a
+  -- confirmation cannot double-book the same intent.
+  ---------------------------------------------------------------------------
+  insert into public.planned_actions (instrument_id, action_type, planned_usd, status)
+  values (v_nvda, 'buy', 1000, 'pending')
+  returning id into v_planned;
+
+  insert into public.transactions (
+    occurred_at, kind, instrument_id, quantity, price, cash_delta, planned_action_id
+  )
+  values ('2026-09-06 15:00:00+00', 'buy', v_nvda, 1, 100, -100.00, v_planned);
+
+  v_raised := false;
+  begin
+    insert into public.transactions (
+      occurred_at, kind, instrument_id, quantity, price, cash_delta, planned_action_id
+    )
+    values ('2026-09-06 15:00:00+00', 'buy', v_nvda, 1, 100, -100.00, v_planned);
+  exception when others then
+    v_raised := true;
+  end;
+  if not v_raised then
+    raise exception 'FAIL idempotency: the same planned action was booked twice';
+  end if;
+  raise notice 'PASS a planned action cannot be booked twice';
+
+  ---------------------------------------------------------------------------
+  -- Fees are capitalised into cost basis, which is the UK CGT treatment.
+  ---------------------------------------------------------------------------
+  select id into v_other from public.instruments where symbol <> 'NVDA' limit 1;
+
+  insert into public.transactions (
+    occurred_at, kind, instrument_id, quantity, price, fees, cash_delta
+  )
+  values ('2026-10-06 15:00:00+00', 'buy', v_other, 10, 50, 7.00, -507.00);
+
+  select avg_cost into v_avg
+  from public.positions where instrument_id = v_other and status = 'open';
+  if v_avg <> 50.7 then
+    raise exception 'FAIL fees: expected average cost 50.7 including fees, got %', v_avg;
+  end if;
+  raise notice 'PASS fees are capitalised into cost basis';
 
   raise notice 'ALL LEDGER TESTS PASSED';
 end $$;

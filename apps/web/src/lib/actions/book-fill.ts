@@ -1,5 +1,6 @@
 "use server";
 
+import { buyCashDelta } from "@powerfund/domain";
 import type { Database } from "@powerfund/db";
 
 import { createClient } from "@/lib/supabase/server";
@@ -16,11 +17,6 @@ export type BookFillResult =
     }
   | { ok: false; error: string };
 
-/** Money is settled in whole cents; the ledger stores `cash_delta` as numeric(20,2). */
-function toCents(value: number): number {
-  return Math.round(value * 100) / 100;
-}
-
 /**
  * Records a buy as a single ledger entry. A database trigger derives the cash
  * debit and the position from it in the same statement, so there is no window
@@ -34,9 +30,13 @@ export async function bookFill(args: {
   thesisSummary: string | null;
   invalidation: string | null;
   logDecision: boolean;
+  fees?: number;
   plannedActionId?: string | null;
 }): Promise<BookFillResult> {
-  const costBasis = toCents(args.quantity * args.avgCost);
+  const fees = args.fees ?? 0;
+  // Fees are capitalised into basis, so cash out is the whole cost.
+  const cashDelta = buyCashDelta(args.quantity, args.avgCost, fees);
+  const costBasis = -cashDelta;
   if (costBasis <= 0) {
     return { ok: false, error: "A fill must cost more than zero." };
   }
@@ -120,7 +120,8 @@ export async function bookFill(args: {
     instrument_id: args.instrumentId,
     quantity: args.quantity,
     price: args.avgCost,
-    cash_delta: -costBasis,
+    fees,
+    cash_delta: cashDelta,
     decision_id: decisionId,
     planned_action_id: args.plannedActionId ?? null,
     notes: args.thesisSummary,
