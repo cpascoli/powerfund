@@ -42,6 +42,7 @@ Other sectors are in scope when they feed the same stack or clear a high bar for
 - A usable research workflow: watchlists, company dossiers, signals, portfolio book, decision journal.
 - At least one automated scoring path beyond price technicals (e.g. fundamentals / CapEx / filings-driven).
 - Measurable process quality: fewer late chase entries; documented invalidations; post-mortems.
+- Honest trade labeling: "early" claims backed by evidence that price has not discounted them; otherwise labeled momentum-with-fundamentals with matching exit discipline (see mandate).
 
 ### Medium term (intelligence edge)
 
@@ -64,7 +65,7 @@ Other sectors are in scope when they feed the same stack or clear a high bar for
 ## Guiding principles
 
 1. **Early ≠ obscure** — early means evidence accumulating before consensus pricing, not microcap lottery tickets by default.
-2. **Preservation enables growth** — survive wrong theses; size for asymmetry.
+2. **Preservation enables growth** — survive wrong theses; size for asymmetry. Stretch return targets are scenarios, never objectives that override risk rules.
 3. **Explainability** — every actionable signal should be inspectable.
 4. **Breadth of data, focus of action** — ingest widely; concentrate decisions on the mandate.
 5. **Process over prediction** — journal, review, and risk rules compound; vibes do not.

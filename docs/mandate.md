@@ -30,12 +30,13 @@ Exact percentages can be tuned; the existence of hard caps cannot.
 1. **Max single-position weight** — cap % of portfolio NAV at cost and/or at market (define one primary rule and stick to it).
 2. **Max theme concentration** — cap combined weight in any one theme (AI infra, Energy, Robotics, Defence, Other).
 3. **Cash buffer** — maintain a minimum cash (or cash-like) percentage for opportunity and stress.
-4. **Thesis invalidation** — every position has written kill criteria; hit → exit or reduce, do not renegotiate emotionally.
+4. **Thesis invalidation** — every position has written kill criteria **recorded before or at fill time**; a fill without invalidation on the book is a mandate violation, not a TODO. Hit → exit or reduce, do not renegotiate emotionally.
 5. **No average-down without new evidence** — adding requires incremental information, not price alone.
-6. **Parabolic / crowded filter** — prefer not initiating full size into vertical, highly crowded moves without a fresh asymmetric catalyst.
+6. **Parabolic / crowded filter** — prefer not initiating full size into vertical, highly crowded moves without a fresh asymmetric catalyst. Crowding is **measured, not felt**: check valuation percentile vs the name's own 5-year history, short interest, extension above the 200-day average, and consensus-revision breadth before entry. "Skip if it feels like chasing" notes are binding — if the note exists and the tape gaps up, the answer is skip.
 7. **Liquidity** — position size must respect average volume and expected exit horizon.
-8. **Kill-switch** — if portfolio drawdown from peak exceeds a defined threshold, reduce risk (trim, halt new risk, or raise cash) until review is complete.
+8. **Kill-switch** — defined on **deployed capital**, not total NAV (a 90%-cash book can never trigger an NAV-level switch, and a fully deployed book in high-vol names makes a tight NAV switch a near-certain forced sale). If deployed-capital drawdown from peak exceeds the threshold, reduce risk (trim, halt new risk, or raise cash) until review is complete.
 9. **AI memory cycle discipline** — HBM/DRAM/NAND names count toward the **AI infrastructure** theme (not a separate core theme). Do not treat peak-cycle EPS or trough trailing multiples as “cheap” without contract coverage, mix shift, and normalized-earnings evidence. Prefer starter sizes; add only on new information. Soft guide: pure memory/storage names ≤ **15% NAV** until the sleeve earns a larger allocation in review.
+10. **Factor concentration (correlation-aware)** — theme labels are not diversification. AI infra, data-center power/cooling, AI-linked energy, GPU clouds, and much of robotics/defence electronics all load on the same factor: **hyperscaler capex sentiment**. Track pairwise correlation of holdings and candidates; cap combined exposure to the AI-capex complex as one position-like risk, and maintain a standing "hyperscaler capex guidance −20%" stress scenario before adding correlated risk. Genuine diversifiers within mandate: uranium fuel cycle, regulated-utility-adjacent power, appropriations-driven defence primes, backlog-based construction — not a third cooling vendor.
 
 *Initial numeric defaults (revise after first live month):*
 
@@ -44,8 +45,9 @@ Exact percentages can be tuned; the existence of hard caps cannot.
 | Max position | 10% NAV |
 | Max theme | 40% NAV |
 | Min cash | 10% NAV |
-| Portfolio drawdown kill-switch | 15% from peak → mandatory review + risk reduction |
+| Drawdown kill-switch | 15% of **deployed capital** from peak → mandatory review + risk reduction |
 | Soft max AI memory/storage sleeve | 15% NAV (inside AI infra) |
+| Soft max AI-capex factor exposure | 70% of deployed capital until Phase 3 risk view exists |
 | Phase-1 invested cap | $75,000 cost |
 
 ## Capital & deployment
@@ -62,6 +64,12 @@ PowerFund **NAV** is the equity book only: **cash + marked stocks**. Starting al
 **NAV** = cash + market value of open positions. Adding a fill **debits cash** by cost basis.
 
 New risk is planned in the **deployment queue** (dollars + window + why) and only hits the book when a fill is confirmed. Do not treat a weekly dollar target as a quota.
+
+**Deployment ladder (pre-committed, not mood-based):** "keeping ammunition for volatility" without pre-commitment is market timing, and the −25% day will not get bought on discretion. Deploy via:
+
+1. A **baseline tranche** per month up to the phase invested cap (size set at monthly review).
+2. **Acceleration tranches** triggered by theme drawdowns (e.g. −10% and −20% from entry), gated by a thesis-intact checklist — not by price alone.
+3. Cash level is a **decision recorded at review**, not drift. If cash exceeds plan for two consecutive reviews, either deploy per ladder or write down why not.
 
 **Phase 1 (first weeks):** stay well under the invested cap. Starter stubs first; add on thesis-intact weakness or confirmation. Do not treat a weekly dollar target as a quota.
 
@@ -87,6 +95,10 @@ We do not define edge as:
 - trading every headline in a hot sector
 - buying solely because a story is fashionable
 - assuming “AI” or “defence” in the name is sufficient
+
+**Label trades honestly.** A datapoint that appears in an IEA flagship report, a NATO communiqué, or hyperscaler guidance is consensus by definition — citing it is not evidence of earliness. When a position does not clear the earliness bar, call it what it is: **momentum with fundamental support**. That label is allowed, but it changes the exit posture from buy-and-hold to trend-following with theme-level exit indicators (see [themes.md](./themes.md)) and makes the crowded filter (rule 6) mandatory, not advisory.
+
+**Stretch targets never override risk rules.** Return scenarios (e.g. doubling over N years) are scenarios, not objectives. If a target implies volatility that makes the kill-switch a near-certain trigger, revise the target — not the kill-switch. (See [2026-08-13 strategy second opinion](./reviews/2026-08-13-strategy-second-opinion.md), finding 3.)
 
 ## Instruments & leverage
 

@@ -69,6 +69,8 @@ Exit criteria: at least one explainable automated scorer in production use that 
 
 **Goal:** Fund-like discipline in software.
 
+**Minimum slice pulled forward (2026-08-13 strategy review):** capital is live while this phase is "not started". Before deployed cost crosses ~$40–50k, stand up — even as a notebook, not a feature — (a) a pairwise correlation matrix of holdings and candidates, (b) an AI-capex factor exposure view (mandate rule 10), and (c) a standing "hyperscaler capex guidance −20%" stress scenario.
+
 - Exposure by theme, factor, geography, commodity beta
 - Concentration and correlation checks
 - Stress scenarios (e.g. AI CapEx pause, energy shock, rates reprice)
@@ -98,6 +100,9 @@ Exit criteria: deliberate go/no-go; no premature multi-tenant complexity before 
 5. [x] Manual research workflow for a starter universe (~15–30 names across core themes).
 6. [ ] Ship one automated scorer (e.g. growth/CapEx inflection + anti-parabolic filter).
 7. [ ] Establish weekly review ritual (queue + book; later, review writes into the queue).
+8. [ ] Backfill written invalidation criteria for all open positions missing them (mandate rule 4 — flagged in the [strategy second opinion](./reviews/2026-08-13-strategy-second-opinion.md)).
+9. [ ] Set the deployment-ladder baseline tranche and drawdown triggers at the next monthly review (mandate: Capital & deployment).
+10. [ ] Minimum viable risk view (correlation matrix + AI-capex stress scenario) before deployed cost crosses ~$40–50k (Phase 3 pull-forward).
 
 ## Sequencing principles
 
@@ -114,5 +119,5 @@ Exit criteria: deliberate go/no-go; no premature multi-tenant complexity before 
 | Phase 0 — Operating model | Complete |
 | Phase 1 — Research OS | In progress (watchlist/dossiers/journal + free market ingest) |
 | Phase 2 — Data & quant pipelines | Started early (EOD bars + quarterly fundamentals ingest) |
-| Phase 3 — Risk & portfolio construction | Not started |
+| Phase 3 — Risk & portfolio construction | Minimum slice pulled forward (correlation + stress view before ~$40–50k deployed) |
 | Phase 4 — Scale / insight product | Not started |
