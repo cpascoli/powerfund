@@ -13,8 +13,13 @@ type CookieToSet = {
 
 export async function updateSession(request: NextRequest) {
   const env = getSupabaseEnv();
+  // Fail closed: without Supabase config there is no way to authenticate, so a
+  // misconfigured deploy must not serve the app unauthenticated.
   if (!env) {
-    return NextResponse.next({ request });
+    if (process.env.NODE_ENV === "development") {
+      return NextResponse.next({ request });
+    }
+    return new NextResponse("Supabase is not configured.", { status: 503 });
   }
 
   let supabaseResponse = NextResponse.next({ request });
