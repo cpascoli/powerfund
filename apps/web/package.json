@@ -13,7 +13,7 @@
     "@powerfund/data-clients": "workspace:*",
     "@powerfund/db": "workspace:*",
     "@powerfund/domain": "workspace:*",
-    "@supabase/ssr": "^0.6.1",
+    "@supabase/ssr": "^0.12.4",
     "@supabase/supabase-js": "^2.49.1",
     "next": "^15.2.2",
     "react": "^19.0.0",

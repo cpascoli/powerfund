@@ -11,6 +11,7 @@
   },
   "scripts": {
     "typecheck": "tsc --noEmit",
+    "db:types": "supabase gen types typescript --linked > src/database.types.ts",
     "lint": "echo \"no lint configured\""
   },
   "dependencies": {

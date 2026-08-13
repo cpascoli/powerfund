@@ -34,3 +34,6 @@ pnpm-debug.log*
 .netlify
 **/.netlify
 apps/*/.netlify
+
+# Scratch file used to compose commit messages
+.commit-msg.tmp

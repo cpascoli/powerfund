@@ -4,23 +4,28 @@ import type { Database } from "@powerfund/db";
 
 import { createClient } from "@/lib/supabase/server";
 
-type PositionInsert = Database["public"]["Tables"]["positions"]["Insert"];
+type TransactionInsert = Database["public"]["Tables"]["transactions"]["Insert"];
+type DecisionInsert = Database["public"]["Tables"]["decisions"]["Insert"];
 
 export type BookFillResult =
   | {
       ok: true;
-      positionId: string;
+      positionId: string | null;
       decisionId: string | null;
       decisionType: "enter" | "add";
     }
   | { ok: false; error: string };
 
-type OpenPositionRow = {
-  id: string;
-  quantity: number;
-  avg_cost: number;
-};
+/** Money is settled in whole cents; the ledger stores `cash_delta` as numeric(20,2). */
+function toCents(value: number): number {
+  return Math.round(value * 100) / 100;
+}
 
+/**
+ * Records a buy as a single ledger entry. A database trigger derives the cash
+ * debit and the position from it in the same statement, so there is no window
+ * in which one is written without the other.
+ */
 export async function bookFill(args: {
   instrumentId: string;
   quantity: number;
@@ -29,68 +34,18 @@ export async function bookFill(args: {
   thesisSummary: string | null;
   invalidation: string | null;
   logDecision: boolean;
+  plannedActionId?: string | null;
 }): Promise<BookFillResult> {
-  const costBasis = args.quantity * args.avgCost;
+  const costBasis = toCents(args.quantity * args.avgCost);
+  if (costBasis <= 0) {
+    return { ok: false, error: "A fill must cost more than zero." };
+  }
+
   const supabase = await createClient();
 
-  const positions = supabase as unknown as {
-    from: (table: "positions") => {
-      select: (columns: string) => {
-        eq: (
-          column: string,
-          value: string,
-        ) => {
-          eq: (
-            column: string,
-            value: string,
-          ) => {
-            limit: (n: number) => {
-              maybeSingle: () => Promise<{
-                data: OpenPositionRow | null;
-                error: { message: string } | null;
-              }>;
-            };
-          };
-        };
-      };
-      insert: (values: PositionInsert) => {
-        select: (columns: "id") => {
-          single: () => Promise<{
-            data: { id: string } | null;
-            error: { message: string } | null;
-          }>;
-        };
-      };
-      update: (values: Record<string, unknown>) => {
-        eq: (
-          column: "id",
-          value: string,
-        ) => Promise<{ error: { message: string } | null }>;
-      };
-    };
-  };
-  const cashDb = supabase as unknown as {
-    from: (table: "portfolio_state") => {
-      select: (columns: "id, cash") => {
-        limit: (n: number) => {
-          maybeSingle: () => Promise<{
-            data: { id: string; cash: number } | null;
-            error: { message: string } | null;
-          }>;
-        };
-      };
-      update: (values: { cash: number }) => {
-        eq: (
-          column: "id",
-          value: string,
-        ) => Promise<{ error: { message: string } | null }>;
-      };
-    };
-  };
-
-  const { data: state, error: stateError } = await cashDb
+  const { data: state, error: stateError } = await supabase
     .from("portfolio_state")
-    .select("id, cash")
+    .select("cash")
     .limit(1)
     .maybeSingle();
 
@@ -100,9 +55,10 @@ export async function bookFill(args: {
   if (!state) {
     return {
       ok: false,
-      error: "Set cash first (Portfolio → Edit cash) before adding a fill.",
+      error: "Record a deposit first (Portfolio → Cash) before adding a fill.",
     };
   }
+  // The `cash >= 0` constraint is the real backstop; this only gives a better message.
   if (Number(state.cash) < costBasis) {
     return {
       ok: false,
@@ -113,9 +69,9 @@ export async function bookFill(args: {
     };
   }
 
-  const { data: existing, error: existingError } = await positions
+  const { data: existing, error: existingError } = await supabase
     .from("positions")
-    .select("id, quantity, avg_cost")
+    .select("id")
     .eq("instrument_id", args.instrumentId)
     .eq("status", "open")
     .limit(1)
@@ -128,96 +84,75 @@ export async function bookFill(args: {
     };
   }
 
-  let positionId: string;
-  let decisionType: "enter" | "add";
+  const decisionType: "enter" | "add" = existing ? "add" : "enter";
 
-  if (existing) {
-    const oldQty = Number(existing.quantity);
-    const oldAvg = Number(existing.avg_cost);
-    const newQty = oldQty + args.quantity;
-    const newAvg = (oldQty * oldAvg + costBasis) / newQty;
-    const { error: updateError } = await positions
-      .from("positions")
-      .update({
-        quantity: newQty,
-        avg_cost: newAvg,
-        thesis_summary: args.thesisSummary,
-        invalidation: args.invalidation,
-      })
-      .eq("id", existing.id);
-    if (updateError) {
-      return { ok: false, error: updateError.message };
-    }
-    positionId = existing.id;
-    decisionType = "add";
-  } else {
-    const payload = {
-      instrument_id: args.instrumentId,
-      status: "open",
-      side: "long",
-      quantity: args.quantity,
-      avg_cost: args.avgCost,
-      opened_at: args.openedAt,
-      thesis_summary: args.thesisSummary,
-      invalidation: args.invalidation,
-    } satisfies PositionInsert;
-
-    const { data, error } = await positions
-      .from("positions")
-      .insert(payload)
-      .select("id")
-      .single();
-
-    if (error || !data) {
-      return { ok: false, error: error?.message ?? "Failed to save position." };
-    }
-    positionId = data.id;
-    decisionType = "enter";
-  }
-
-  const { error: cashError } = await cashDb
-    .from("portfolio_state")
-    .update({ cash: Number(state.cash) - costBasis })
-    .eq("id", state.id);
-  if (cashError) {
-    return {
-      ok: false,
-      error: `Position saved but cash was not updated: ${cashError.message}`,
-    };
-  }
-
+  // The journal entry is written first so the ledger row can reference it, and
+  // is cleaned up if the fill itself is rejected.
   let decisionId: string | null = null;
   if (args.logDecision) {
-    const decisions = supabase as unknown as {
-      from: (table: "decisions") => {
-        insert: (values: Record<string, unknown>) => {
-          select: (columns: "id") => {
-            single: () => Promise<{
-              data: { id: string } | null;
-              error: { message: string } | null;
-            }>;
-          };
-        };
-      };
+    const decision: DecisionInsert = {
+      instrument_id: args.instrumentId,
+      decision_type: decisionType,
+      thesis:
+        args.thesisSummary ??
+        `${decisionType === "add" ? "Added" : "Opened"} ${args.quantity} shares at $${args.avgCost.toFixed(2)}.`,
+      sizing_rationale: `Cost basis $${costBasis.toFixed(2)}.`,
+      invalidation: args.invalidation,
+      action_at: args.openedAt,
     };
-    const { data: decision, error: decisionError } = await decisions
+    const { data, error } = await supabase
       .from("decisions")
-      .insert({
-        instrument_id: args.instrumentId,
-        position_id: positionId,
-        decision_type: decisionType,
-        thesis:
-          args.thesisSummary ??
-          `${decisionType === "add" ? "Added" : "Opened"} ${args.quantity} shares at $${args.avgCost.toFixed(2)}.`,
-        sizing_rationale: `Cost basis ~$${costBasis.toFixed(2)}.`,
-        invalidation: args.invalidation,
-        action_at: args.openedAt,
-      })
+      .insert(decision)
       .select("id")
       .single();
-    if (!decisionError && decision) {
-      decisionId = decision.id;
+    if (error || !data) {
+      return {
+        ok: false,
+        error: `Failed to log the decision: ${error?.message ?? "unknown error"}`,
+      };
     }
+    decisionId = data.id;
+  }
+
+  const entry: TransactionInsert = {
+    occurred_at: args.openedAt,
+    kind: "buy",
+    instrument_id: args.instrumentId,
+    quantity: args.quantity,
+    price: args.avgCost,
+    cash_delta: -costBasis,
+    decision_id: decisionId,
+    planned_action_id: args.plannedActionId ?? null,
+    notes: args.thesisSummary,
+  };
+
+  const { error: ledgerError } = await supabase
+    .from("transactions")
+    .insert(entry);
+
+  if (ledgerError) {
+    if (decisionId) {
+      await supabase.from("decisions").delete().eq("id", decisionId);
+    }
+    return { ok: false, error: ledgerError.message };
+  }
+
+  // The trigger creates or updates the position, so read it back for the link.
+  const { data: position } = await supabase
+    .from("positions")
+    .select("id")
+    .eq("instrument_id", args.instrumentId)
+    .eq("status", "open")
+    .limit(1)
+    .maybeSingle();
+
+  const positionId = position?.id ?? null;
+
+  if (decisionId && positionId) {
+    await supabase
+      .from("decisions")
+      .update({ position_id: positionId })
+      .eq("id", decisionId);
   }
 
   return { ok: true, positionId, decisionId, decisionType };
