@@ -49,6 +49,7 @@ Exact percentages can be tuned; the existence of hard caps cannot.
 | Soft max AI memory/storage sleeve | 15% NAV (inside AI infra) |
 | Soft max AI-capex factor exposure | 70% of deployed capital until Phase 3 risk view exists |
 | Phase-1 invested cap | $75,000 cost |
+| Baseline deployment tranche | ~$10,000/month (set 2026-08-13; revisit at monthly review) |
 
 ## Capital & deployment
 
@@ -67,7 +68,7 @@ New risk is planned in the **deployment queue** (dollars + window + why) and onl
 
 **Deployment ladder (pre-committed, not mood-based):** "keeping ammunition for volatility" without pre-commitment is market timing, and the −25% day will not get bought on discretion. Deploy via:
 
-1. A **baseline tranche** per month up to the phase invested cap (size set at monthly review).
+1. A **baseline tranche** per month up to the phase invested cap. Current: **~$10k/month** (set 2026-08-13), which reaches the $75k Phase-1 cap around January 2027; continuing past the cap is an explicit review decision that opens Phase 2.
 2. **Acceleration tranches** triggered by theme drawdowns (e.g. −10% and −20% from entry), gated by a thesis-intact checklist — not by price alone.
 3. Cash level is a **decision recorded at review**, not drift. If cash exceeds plan for two consecutive reviews, either deploy per ladder or write down why not.
 
