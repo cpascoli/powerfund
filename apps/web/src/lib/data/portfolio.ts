@@ -39,6 +39,8 @@ export type MandateFlag = {
     | "theme_cap"
     | "cash_floor"
     | "phase1_invested"
+    | "drawdown_kill_switch"
+    | "snapshot_stale"
     | "all_clear";
   label: string;
   severity: "warn" | "ok";

@@ -10,7 +10,11 @@ import {
   listInstrumentsWithThemes,
   listThemes,
 } from "@/lib/data/research";
-import { computeDrawdown, listPortfolioSnapshots } from "@/lib/data/snapshots";
+import {
+  computeDrawdown,
+  listPortfolioSnapshots,
+  snapshotFlags,
+} from "@/lib/data/snapshots";
 
 export const dynamic = "force-dynamic";
 
@@ -47,7 +51,10 @@ export default async function BriefingPage() {
   });
 
   const coreThemes = themes.filter((theme) => theme.is_core);
-  const warnFlags = book.flags.filter((flag) => flag.severity === "warn");
+  const warnFlags = [
+    ...snapshotFlags(snapshots, drawdown),
+    ...book.flags,
+  ].filter((flag) => flag.severity === "warn");
   const overdue = upcoming.filter(
     (action) => action.dueBy != null && daysUntil(action.dueBy) < 0,
   );
@@ -115,21 +122,8 @@ export default async function BriefingPage() {
       <div className="grid">
         <section className="panel half">
           <h2>Needs attention</h2>
-          {warnFlags.length > 0 ||
-          drawdown.killSwitchBreached ||
-          overdue.length > 0 ? (
+          {warnFlags.length > 0 || overdue.length > 0 ? (
             <ul className="list">
-              {drawdown.killSwitchBreached ? (
-                <li key="kill-switch">
-                  <span className="is-down">Flag</span>
-                  <span>
-                    Deployed drawdown{" "}
-                    {drawdown.deployedDrawdownPp?.toFixed(1)}% breaches the{" "}
-                    {RISK_DEFAULTS.drawdownKillSwitchPct}% kill-switch — halt
-                    new risk, review the book
-                  </span>
-                </li>
-              ) : null}
               {overdue.map((action) => (
                 <li key={`overdue-${action.id}`}>
                   <span className="is-down">Flag</span>

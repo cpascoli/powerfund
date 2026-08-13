@@ -1,5 +1,6 @@
 import { RISK_DEFAULTS } from "@powerfund/domain";
 
+import type { MandateFlag } from "@/lib/data/portfolio";
 import { createClient } from "@/lib/supabase/server";
 
 export type SnapshotRow = {
@@ -102,4 +103,55 @@ export function computeDrawdown(
       deployedDrawdownPp != null &&
       deployedDrawdownPp >= RISK_DEFAULTS.drawdownKillSwitchPct,
   };
+}
+
+/**
+ * Snapshot-derived mandate flags: the rule-8 kill-switch and a freshness
+ * check on the nightly job. Rendered alongside the book flags on both the
+ * Briefing and the Portfolio mandate tab.
+ */
+export function snapshotFlags(
+  history: SnapshotRow[],
+  drawdown: DrawdownSummary,
+): MandateFlag[] {
+  const flags: MandateFlag[] = [];
+
+  const latest = history.at(-1);
+  if (latest == null) {
+    flags.push({
+      code: "snapshot_stale",
+      severity: "warn",
+      label:
+        "No NAV snapshots yet — drawdown and the kill-switch are blind until the nightly job runs",
+    });
+  } else {
+    const ageDays = Math.floor(
+      (Date.now() - new Date(latest.asOf).getTime()) / 86_400_000,
+    );
+    // > 3 calendar days tolerates weekends; anything older means the
+    // 22:30 UTC weekday job has been failing silently.
+    if (ageDays > 3) {
+      flags.push({
+        code: "snapshot_stale",
+        severity: "warn",
+        label: `Last NAV snapshot is ${ageDays} days old — check the scheduled snapshot function`,
+      });
+    }
+  }
+
+  if (drawdown.killSwitchBreached) {
+    flags.push({
+      code: "drawdown_kill_switch",
+      severity: "warn",
+      label: `Deployed drawdown ${drawdown.deployedDrawdownPp?.toFixed(1)}% breaches the ${RISK_DEFAULTS.drawdownKillSwitchPct}% kill-switch — halt new risk and review the book`,
+    });
+  } else if (drawdown.deployedDrawdownPp != null) {
+    flags.push({
+      code: "drawdown_kill_switch",
+      severity: "ok",
+      label: `Deployed drawdown ${drawdown.deployedDrawdownPp.toFixed(1)}% vs ${RISK_DEFAULTS.drawdownKillSwitchPct}% kill-switch`,
+    });
+  }
+
+  return flags;
 }

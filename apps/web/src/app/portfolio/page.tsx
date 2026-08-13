@@ -20,6 +20,11 @@ import {
 } from "@/lib/data/planned-actions";
 import { getOpenPortfolioBook, withLiveMarks } from "@/lib/data/portfolio";
 import { listInstrumentsWithThemes } from "@/lib/data/research";
+import {
+  computeDrawdown,
+  listPortfolioSnapshots,
+  snapshotFlags,
+} from "@/lib/data/snapshots";
 
 export const dynamic = "force-dynamic";
 
@@ -72,14 +77,22 @@ export default async function PortfolioPage({
   }>;
 }) {
   const { tab, add, cash: cashEdit, plan, confirm, sell } = await searchParams;
-  const [rawBook, instruments, rawQueue, ledger] = await Promise.all([
-    getOpenPortfolioBook(),
-    listInstrumentsWithThemes(),
-    listOpenPlannedActions(),
-    getLedgerSummary(),
-  ]);
+  const [rawBook, instruments, rawQueue, ledger, snapshots] =
+    await Promise.all([
+      getOpenPortfolioBook(),
+      listInstrumentsWithThemes(),
+      listOpenPlannedActions(),
+      getLedgerSummary(),
+      listPortfolioSnapshots(),
+    ]);
   const book = await withLiveMarks(rawBook);
   const queue = buildDeploymentQueue(book, instruments, rawQueue);
+  const drawdown = computeDrawdown(snapshots, {
+    nav: book.nav,
+    invested: book.invested,
+    positionsValue: book.marketValue,
+  });
+  const riskFlags = [...book.flags, ...snapshotFlags(snapshots, drawdown)];
   const showForm = add === "1";
   const showCash = cashEdit === "1";
   const showPlan = plan === "1";
@@ -111,7 +124,7 @@ export default async function PortfolioPage({
     ledger.depositedCapital > 0
       ? ((book.nav - ledger.depositedCapital) / ledger.depositedCapital) * 100
       : null;
-  const bookWarnings = book.flags.filter((flag) => flag.severity === "warn");
+  const bookWarnings = riskFlags.filter((flag) => flag.severity === "warn");
   const queueWarnings = queue.flags.filter((flag) => flag.severity === "warn");
 
   const bookPanel = (
@@ -281,7 +294,7 @@ export default async function PortfolioPage({
     <section className="panel" aria-label="Mandate checks">
       <h2>Mandate</h2>
       <ul className="list">
-        {book.flags.map((flag) => (
+        {riskFlags.map((flag) => (
           <li key={`book-${flag.label}`}>
             <span className={flag.severity === "warn" ? "is-down" : "is-up"}>
               {flag.severity === "warn" ? "Flag" : "OK"}
