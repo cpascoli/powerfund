@@ -9,6 +9,7 @@ import {
   getInstrumentMarketSnapshot,
   getInstrumentPriceHistory,
 } from "@/lib/data/research";
+import { getLiveQuote, quoteCaption } from "@/lib/market/quotes";
 import { computePriceReturns } from "@/lib/market/returns";
 
 export const dynamic = "force-dynamic";
@@ -51,12 +52,15 @@ export default async function InstrumentDossierPage({
   }
 
   const { instrument, dossier } = result;
-  const [market, priceHistory] = await Promise.all([
+  const [market, priceHistory, liveQuote] = await Promise.all([
     getInstrumentMarketSnapshot(instrument.id),
     getInstrumentPriceHistory(instrument.id),
+    getLiveQuote(instrument.symbol),
   ]);
   const returns = computePriceReturns(priceHistory);
   const editing = edit === "1" || !dossier;
+  const displayPrice = liveQuote?.price ?? market.lastClose;
+  const priceCaption = liveQuote ? quoteCaption(liveQuote) : "Close";
 
   const formatUsd = (value: number | null) => {
     if (value == null) return "—";
@@ -114,11 +118,9 @@ export default async function InstrumentDossierPage({
           <strong>{dossier?.status ?? "new"}</strong>
         </div>
         <div className="stat">
-          <span>Last close</span>
+          <span>{priceCaption}</span>
           <strong>
-            {market.lastClose != null
-              ? `$${market.lastClose.toFixed(2)}`
-              : "—"}
+            {displayPrice != null ? `$${displayPrice.toFixed(2)}` : "—"}
           </strong>
         </div>
         <div className="stat">

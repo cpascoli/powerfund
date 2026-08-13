@@ -21,5 +21,8 @@
     "ingest:fundamentals": "pnpm --filter @powerfund/worker ingest:fundamentals",
     "ingest:all": "pnpm --filter @powerfund/worker ingest:all",
     "smoke:market": "pnpm --filter @powerfund/worker smoke:market"
+  },
+  "dependencies": {
+    "@netlify/functions": "^2.4.1"
   }
 }

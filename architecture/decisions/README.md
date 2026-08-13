@@ -22,3 +22,4 @@ Suggested sections:
 | [0003](./0003-nextjs-research-ui.md) | Next.js App Router for the research UI | Accepted |
 | [0004](./0004-netlify-frontend-hosting.md) | Netlify for the research frontend | Accepted |
 | [0005](./0005-free-market-data-vendors.md) | Free-tier market data (Tiingo + Yahoo) | Accepted |
+| [0006](./0006-netlify-scheduled-ingest.md) | EOD ingest via Netlify scheduled + background functions | Accepted |

@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { RISK_DEFAULTS } from "@powerfund/domain";
 
-import { getOpenPortfolioBook } from "@/lib/data/portfolio";
+import { getOpenPortfolioBook, withLiveMarks } from "@/lib/data/portfolio";
 import {
   listInstrumentsWithThemes,
   listThemes,
@@ -13,7 +13,7 @@ export default async function BriefingPage() {
   const [themes, instruments, book] = await Promise.all([
     listThemes(),
     listInstrumentsWithThemes(),
-    getOpenPortfolioBook(),
+    getOpenPortfolioBook().then(withLiveMarks),
   ]);
 
   const coreThemes = themes.filter((theme) => theme.is_core);

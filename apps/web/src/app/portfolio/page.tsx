@@ -3,7 +3,7 @@ import { RISK_DEFAULTS } from "@powerfund/domain";
 
 import { CashForm } from "@/components/cash-form";
 import { PositionForm } from "@/components/position-form";
-import { getOpenPortfolioBook } from "@/lib/data/portfolio";
+import { getOpenPortfolioBook, withLiveMarks } from "@/lib/data/portfolio";
 import { listInstrumentsWithThemes } from "@/lib/data/research";
 
 export const dynamic = "force-dynamic";
@@ -29,10 +29,11 @@ export default async function PortfolioPage({
   searchParams: Promise<{ add?: string; cash?: string }>;
 }) {
   const { add, cash: cashEdit } = await searchParams;
-  const [book, instruments] = await Promise.all([
+  const [rawBook, instruments] = await Promise.all([
     getOpenPortfolioBook(),
     listInstrumentsWithThemes(),
   ]);
+  const book = await withLiveMarks(rawBook);
   const showForm = add === "1";
   const showCash = cashEdit === "1";
 
@@ -42,8 +43,16 @@ export default async function PortfolioPage({
         <div>
           <h1>Portfolio</h1>
           <p>
-            NAV = cash + marked positions. Weights are % of NAV against the
-            mandate (max name {RISK_DEFAULTS.maxPositionPctNav}%, max theme{" "}
+            NAV = cash + marked positions ({book.markLabel.toLowerCase()}
+            {book.markAsOf
+              ? ` as of ${new Date(book.markAsOf).toLocaleTimeString(undefined, {
+                  hour: "numeric",
+                  minute: "2-digit",
+                  timeZoneName: "short",
+                })}`
+              : ""}
+            ). Weights are % of NAV against the mandate (max name{" "}
+            {RISK_DEFAULTS.maxPositionPctNav}%, max theme{" "}
             {RISK_DEFAULTS.maxThemePctNav}%, min cash {RISK_DEFAULTS.minCashPctNav}
             %). BTC and gold stay outside this book.
           </p>
@@ -66,7 +75,7 @@ export default async function PortfolioPage({
 
       <section className="stat-row" aria-label="Book summary">
         <div className="stat">
-          <span>NAV</span>
+          <span>NAV ({book.markLabel.toLowerCase()})</span>
           <strong>{money(book.nav)}</strong>
         </div>
         <div className="stat">
@@ -193,6 +202,9 @@ export default async function PortfolioPage({
                       {position.weightPctNav != null
                         ? ` · ${pct(position.weightPctNav)} NAV`
                         : ""}
+                      {position.priceSource === "live" ? (
+                        <span className="tag"> {book.markLabel}</span>
+                      ) : null}
                       {oversize ? (
                         <span className="tag warn-tag">
                           {" "}

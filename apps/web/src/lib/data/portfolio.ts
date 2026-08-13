@@ -1,4 +1,5 @@
 import { RISK_DEFAULTS } from "@powerfund/domain";
+import { fetchYahooQuotes, type LiveQuote } from "@powerfund/data-clients";
 
 import { createClient } from "@/lib/supabase/server";
 
@@ -18,6 +19,7 @@ export type OpenPositionRow = {
   unrealizedPnl: number | null;
   unrealizedPnlPct: number | null;
   weightPctNav: number | null;
+  priceSource: "live" | "close";
   openedAt: string;
   thesisSummary: string | null;
 };
@@ -54,6 +56,8 @@ export type PortfolioBook = {
   flags: MandateFlag[];
   cashUpdatedAt: string | null;
   cashNotes: string | null;
+  markLabel: string;
+  markAsOf: string | null;
 };
 
 type PositionDbRow = {
@@ -125,6 +129,8 @@ export async function getOpenPortfolioBook(): Promise<PortfolioBook> {
       }),
       cashUpdatedAt,
       cashNotes,
+      markLabel: "Close",
+      markAsOf: null,
     };
   }
 
@@ -240,23 +246,117 @@ export async function getOpenPortfolioBook(): Promise<PortfolioBook> {
       unrealizedPnlPct,
       openedAt: position.opened_at,
       thesisSummary: position.thesis_summary,
+      priceSource: "close" as const,
     };
   });
 
-  const invested = draftRows.reduce((sum, row) => sum + row.costBasis, 0);
-  const marketValue = draftRows.reduce(
+  return assembleBook({
+    cash,
+    cashUpdatedAt,
+    cashNotes,
+    positions: draftRows,
+    markLabel: "Close",
+    markAsOf: null,
+  });
+}
+
+function markCaption(state: LiveQuote["marketState"]): string {
+  switch (state) {
+    case "REGULAR":
+      return "Delayed";
+    case "PRE":
+    case "PREPRE":
+      return "Pre-market";
+    case "POST":
+    case "POSTPOST":
+      return "After-hours";
+    case "CLOSED":
+      return "Last";
+    case "UNKNOWN":
+      return "Delayed";
+    default: {
+      const _exhaustive: never = state;
+      return _exhaustive;
+    }
+  }
+}
+
+function isUsTapeActive(state: LiveQuote["marketState"]): boolean {
+  return state === "REGULAR" || state === "PRE" || state === "POST";
+}
+
+/** Overlay delayed Yahoo last sale onto stored closes. Does not write market_bars. */
+export async function withLiveMarks(
+  book: PortfolioBook,
+): Promise<PortfolioBook> {
+  if (book.positions.length === 0) return book;
+
+  let quotes: LiveQuote[] = [];
+  try {
+    quotes = await fetchYahooQuotes(book.positions.map((row) => row.symbol));
+  } catch (error) {
+    console.error("Live quotes unavailable; using stored closes", error);
+    return book;
+  }
+
+  const bySymbol = new Map(quotes.map((quote) => [quote.symbol, quote]));
+  const positions = book.positions.map((row) => {
+    const quote = bySymbol.get(row.symbol);
+    if (quote == null) return row;
+    const lastClose = quote.price;
+    const marketValue = row.quantity * lastClose;
+    const unrealizedPnl = marketValue - row.costBasis;
+    const unrealizedPnlPct =
+      row.costBasis === 0 ? null : (unrealizedPnl / row.costBasis) * 100;
+    return {
+      ...row,
+      lastClose,
+      marketValue,
+      unrealizedPnl,
+      unrealizedPnlPct,
+      priceSource: "live" as const,
+    };
+  });
+
+  const live = positions
+    .map((row) => bySymbol.get(row.symbol))
+    .filter((quote): quote is LiveQuote => quote != null);
+  const active = live.find((quote) => isUsTapeActive(quote.marketState)) ?? live[0];
+
+  return assembleBook({
+    cash: book.cash,
+    cashUpdatedAt: book.cashUpdatedAt,
+    cashNotes: book.cashNotes,
+    positions,
+    markLabel: active ? markCaption(active.marketState) : book.markLabel,
+    markAsOf: active?.asOf ?? null,
+  });
+}
+
+type DraftPosition = Omit<OpenPositionRow, "weightPctNav"> & {
+  weightPctNav?: number | null;
+};
+
+function assembleBook(args: {
+  cash: number;
+  cashUpdatedAt: string | null;
+  cashNotes: string | null;
+  positions: DraftPosition[];
+  markLabel: string;
+  markAsOf: string | null;
+}): PortfolioBook {
+  const invested = args.positions.reduce((sum, row) => sum + row.costBasis, 0);
+  const marketValue = args.positions.reduce(
     (sum, row) => sum + (row.marketValue ?? row.costBasis),
     0,
   );
-  const nav = cash + marketValue;
-  const cashPctNav = nav > 0 ? (cash / nav) * 100 : 100;
+  const nav = args.cash + marketValue;
+  const cashPctNav = nav > 0 ? (args.cash / nav) * 100 : 100;
 
-  const rows: OpenPositionRow[] = draftRows.map((row) => ({
+  const rows: OpenPositionRow[] = args.positions.map((row) => ({
     ...row,
     weightPctNav:
-      nav > 0 && (row.marketValue ?? row.costBasis) != null
-        ? ((row.marketValue ?? row.costBasis) / nav) * 100
-        : null,
+      nav > 0 ? ((row.marketValue ?? row.costBasis) / nav) * 100 : null,
   }));
 
   const byTheme = new Map<string, ThemeExposure>();
@@ -293,7 +393,7 @@ export async function getOpenPortfolioBook(): Promise<PortfolioBook> {
     marketValue,
     unrealizedPnl: marketValue - invested,
     openCount: rows.length,
-    cash,
+    cash: args.cash,
     nav,
     cashPctNav,
     themeExposures,
@@ -303,8 +403,10 @@ export async function getOpenPortfolioBook(): Promise<PortfolioBook> {
       invested,
       themeExposures,
     }),
-    cashUpdatedAt,
-    cashNotes,
+    cashUpdatedAt: args.cashUpdatedAt,
+    cashNotes: args.cashNotes,
+    markLabel: args.markLabel,
+    markAsOf: args.markAsOf,
   };
 }
 

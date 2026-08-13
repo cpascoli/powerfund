@@ -13,6 +13,7 @@ Investment intelligence for managing and growing capital — thematic focus on A
 ```text
 apps/web          Research OS (Next.js)
 apps/worker       Ingestion (bars + fundamentals)
+netlify/functions Scheduled + background EOD ingest
 packages/domain   Shared types, themes, risk defaults
 packages/db       Typed Supabase client
 packages/data-clients  Tiingo + Yahoo free market clients
@@ -56,7 +57,7 @@ Daily OHLCV + market cap + quarterly fundamentals (revenue, FCF, capex, net debt
 - Fundamentals: SEC companyfacts → Yahoo
 - Free Tiingo key recommended for reliable daily bars: https://www.tiingo.com/
 
-See [ADR 0005](./architecture/decisions/0005-free-market-data-vendors.md).
+See [ADR 0005](./architecture/decisions/0005-free-market-data-vendors.md) and [ADR 0006](./architecture/decisions/0006-netlify-scheduled-ingest.md).
 
 ```bash
 # apps/web/.env.local needs:
@@ -68,6 +69,8 @@ pnpm ingest:bars              # default ~2y daily bars + market caps
 pnpm ingest:fundamentals      # quarterly fundamentals
 pnpm ingest:all               # both
 ```
+
+Production EOD: Netlify scheduled function (weekdays 22:00 UTC) kicks a **background** function that ingests the last 7 days. Set `SUPABASE_SERVICE_ROLE_KEY`, `CRON_SECRET`, and optionally `TIINGO_API_KEY` on the Netlify site (never `NEXT_PUBLIC_*`).
 
 ## Git + Netlify CI
 

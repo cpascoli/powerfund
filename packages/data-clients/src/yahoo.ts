@@ -1,6 +1,12 @@
 import YahooFinance from "yahoo-finance2";
 
-import type { DailyBar, MarketCapPoint, QuarterlyFundamentals } from "./types";
+import type {
+  DailyBar,
+  LiveQuote,
+  MarketCapPoint,
+  MarketState,
+  QuarterlyFundamentals,
+} from "./types";
 
 const yahooFinance = new YahooFinance({
   suppressNotices: ["yahooSurvey", "ripHistorical"],
@@ -60,6 +66,73 @@ export async function fetchYahooMarketCap(
     marketCap,
     source: "yahoo",
   };
+}
+
+function toMarketState(value: unknown): MarketState {
+  switch (value) {
+    case "REGULAR":
+    case "PRE":
+    case "POST":
+    case "CLOSED":
+    case "PREPRE":
+    case "POSTPOST":
+      return value;
+    case "UNKNOWN":
+      return "UNKNOWN";
+    default:
+      return "UNKNOWN";
+  }
+}
+
+function toIso(value: Date | string | number | null | undefined): string | null {
+  if (value == null) return null;
+  const date = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime())) return null;
+  return date.toISOString();
+}
+
+function quoteFromYahoo(
+  symbol: string,
+  raw: {
+    symbol?: string;
+    regularMarketPrice?: number;
+    regularMarketTime?: Date | string | number;
+    regularMarketChange?: number;
+    regularMarketChangePercent?: number;
+    regularMarketPreviousClose?: number;
+    marketState?: string;
+  },
+): LiveQuote | null {
+  const price = num(raw.regularMarketPrice);
+  if (price == null) return null;
+  return {
+    symbol: (raw.symbol ?? symbol).toUpperCase(),
+    price,
+    asOf: toIso(raw.regularMarketTime),
+    marketState: toMarketState(raw.marketState),
+    change: num(raw.regularMarketChange),
+    changePct: num(raw.regularMarketChangePercent),
+    previousClose: num(raw.regularMarketPreviousClose),
+    source: "yahoo",
+  };
+}
+
+/** Delayed last sale. Do not persist into market_bars. */
+export async function fetchYahooQuotes(
+  symbols: string[],
+): Promise<LiveQuote[]> {
+  const unique = [
+    ...new Set(symbols.map((symbol) => symbol.trim().toUpperCase()).filter(Boolean)),
+  ];
+  if (unique.length === 0) return [];
+
+  const result = await yahooFinance.quote(unique.length === 1 ? unique[0]! : unique);
+  const rows = Array.isArray(result) ? result : [result];
+
+  return rows.flatMap((row) => {
+    const quote = quoteFromYahoo(row.symbol ?? unique[0]!, row);
+    return quote ? [quote] : [];
+  });
 }
 
 type FundamentalsRow = Record<string, unknown> & { date?: Date | string };

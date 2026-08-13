@@ -8,11 +8,23 @@ function daysAgoIso(days: number): string {
   return date.toISOString().slice(0, 10);
 }
 
-export async function ingestBars(options: { days: number; pauseMs: number }) {
+export type IngestBarsResult = {
+  startDate: string;
+  instruments: number;
+  succeeded: number;
+  failed: string[];
+};
+
+export async function ingestBars(options: {
+  days: number;
+  pauseMs: number;
+}): Promise<IngestBarsResult> {
   const db = createAdminDb();
   const instruments = await listWatchInstruments(db);
   const startDate = daysAgoIso(options.days);
   const tiingoKey = process.env.TIINGO_API_KEY ?? null;
+  const failed: string[] = [];
+  let succeeded = 0;
 
   console.log(
     `[ingest:bars] ${instruments.length} instruments from ${startDate}` +
@@ -89,10 +101,12 @@ export async function ingestBars(options: { days: number; pauseMs: number }) {
         mcapLabel = `, mcap skipped (${mcapErr instanceof Error ? mcapErr.message : mcapErr})`;
       }
 
+      succeeded += 1;
       console.log(
         `[ingest:bars] ${instrument.symbol}: ${bars.length} bars via ${source}${mcapLabel}`,
       );
     } catch (error) {
+      failed.push(instrument.symbol);
       console.error(
         `[ingest:bars] ${instrument.symbol} failed:`,
         error instanceof Error ? error.message : error,
@@ -101,4 +115,12 @@ export async function ingestBars(options: { days: number; pauseMs: number }) {
 
     await sleep(options.pauseMs);
   }
+
+  return {
+    startDate,
+    instruments: instruments.length,
+    succeeded,
+    failed,
+  };
 }
+

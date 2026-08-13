@@ -22,10 +22,19 @@ Build config lives in root [`netlify.toml`](../netlify.toml).
 5. Ensure Production env vars exist (Site configuration → Environment variables):
    - `NEXT_PUBLIC_SUPABASE_URL` — Project URL (Settings → API Keys / Data API)
    - `NEXT_PUBLIC_SUPABASE_ANON_KEY` — **anon** / **publishable** key only
-6. **Do not** set `SUPABASE_SERVICE_ROLE_KEY`, `service_role`, or `TIINGO_API_KEY` on Netlify. Those are for local/worker ingest only and must never be `NEXT_PUBLIC_*`.
+   - `SUPABASE_SERVICE_ROLE_KEY` — **private** (scheduled ingest only; never `NEXT_PUBLIC_*`)
+   - `CRON_SECRET` — **private** shared secret for the background ingest trigger
+   - `TIINGO_API_KEY` — optional, **private**; preferred for daily bars
+6. **Do not** expose `SUPABASE_SERVICE_ROLE_KEY`, `CRON_SECRET`, or `TIINGO_API_KEY` as `NEXT_PUBLIC_*`.
 7. Trigger a deploy (push to `main` or **Trigger deploy**). After changing `NEXT_PUBLIC_*`, trigger a **new** deploy so Next.js rebuilds with the values.
 
-After linking, every push to `main` that touches the web app or shared packages deploys Production. The `ignore` rule in `netlify.toml` skips builds when only docs/worker/supabase change.
+After linking, every push to `main` that touches the web app, shared packages, worker ingest, or `netlify/functions` deploys Production. The `ignore` rule in `netlify.toml` skips builds when only docs/supabase change.
+
+### Nightly EOD bars
+
+Weekdays at **22:00 UTC**, `scheduled-ingest-bars` kicks `ingest-bars-background` (15-minute budget) to upsert the last 7 days of daily bars. Same CoinStrat pattern: short cron, long background. See [ADR 0006](../architecture/decisions/0006-netlify-scheduled-ingest.md).
+
+Historical backfill stays local: `pnpm ingest:bars`.
 
 ### Manual CLI deploy (fallback)
 

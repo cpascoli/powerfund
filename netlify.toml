@@ -5,12 +5,22 @@
 [build]
   command = "pnpm install --frozen-lockfile && pnpm --filter @powerfund/web build"
   publish = "apps/web/.next"
-  # Skip deploys that do not touch the web app or its shared packages.
-  ignore = "git diff --quiet $CACHED_COMMIT_REF $COMMIT_REF -- apps/web packages/domain packages/db package.json pnpm-lock.yaml pnpm-workspace.yaml netlify.toml"
+  functions = "netlify/functions"
+  # Skip deploys that do not touch the web app, shared packages, or scheduled ingest.
+  ignore = "git diff --quiet $CACHED_COMMIT_REF $COMMIT_REF -- apps/web apps/worker packages/domain packages/db packages/data-clients netlify package.json pnpm-lock.yaml pnpm-workspace.yaml netlify.toml"
 
 [build.environment]
   NODE_VERSION = "22"
   # Netlify uses the packageManager field in package.json (pnpm@9.1.1).
+
+[functions]
+  directory = "netlify/functions"
+  node_bundler = "esbuild"
+
+# Scheduled trigger only kicks ingest-bars-background (30s cap).
+# The `-background` suffix gives the heavy ingest a 15-minute budget.
+[functions."scheduled-ingest-bars"]
+  timeout = 26
 
 [dev]
   command = "pnpm --filter @powerfund/web dev"
@@ -21,3 +31,7 @@
 # Set in the Netlify UI (or CLI) for the site:
 #   NEXT_PUBLIC_SUPABASE_URL
 #   NEXT_PUBLIC_SUPABASE_ANON_KEY
+# Private (never NEXT_PUBLIC_*) for scheduled ingest:
+#   SUPABASE_SERVICE_ROLE_KEY
+#   CRON_SECRET
+#   TIINGO_API_KEY (optional)

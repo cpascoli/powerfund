@@ -10,7 +10,9 @@ import {
 
 export type {
   DailyBar,
+  LiveQuote,
   MarketCapPoint,
+  MarketState,
   QuarterlyFundamentals,
 } from "./types";
 export { fetchTiingoDailyBars } from "./tiingo";
@@ -20,6 +22,7 @@ export {
   fetchYahooDailyBars,
   fetchYahooMarketCap,
   fetchYahooQuarterlyFundamentals,
+  fetchYahooQuotes,
 } from "./yahoo";
 
 export async function sleep(ms: number): Promise<void> {

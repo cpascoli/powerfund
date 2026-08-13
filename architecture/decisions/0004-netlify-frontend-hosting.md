@@ -25,3 +25,4 @@ The repo is a pnpm monorepo; only `apps/web` (plus shared packages) should ship 
 - Heavy viz and SSR stay within Next.js constraints on Netlify; extreme data jobs remain in `apps/worker`, not the edge request path
 - Preferred path: **GitHub `main` → Netlify Production** (see [`docs/deploy.md`](../../docs/deploy.md)); `pnpm deploy:prod` remains a manual fallback
 - `NEXT_PUBLIC_*` env vars must be set on the Production context and a new deploy run after changes
+- Nightly EOD bars run on Netlify scheduled + background functions ([ADR 0006](./0006-netlify-scheduled-ingest.md)); historical backfill stays on `apps/worker`

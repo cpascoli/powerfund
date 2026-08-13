@@ -23,7 +23,8 @@ Constraints we accept:
 - Personal / internal research use only (vendor ToS)
 - Yahoo / Stooq paths are best-effort and may rate-limit or challenge bots; Tiingo is preferred for bars when `TIINGO_API_KEY` is set
 - SEC requires a descriptive User-Agent; coverage is strongest for US `us-gaap` filers
-- No real-time requirement — end-of-day / delayed is enough
+- No real-time requirement for the **book of record** — end-of-day bars in `market_bars` are source of truth
+- Delayed Yahoo `quote()` may be used as a **display overlay** on Portfolio and Explore (not written to `market_bars`)
 - Rate-limit politely (sleep between tickers)
 
 ## Consequences

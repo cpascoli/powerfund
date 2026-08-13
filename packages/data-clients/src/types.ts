@@ -15,6 +15,27 @@ export type MarketCapPoint = {
   source: string;
 };
 
+export type MarketState =
+  | "REGULAR"
+  | "PRE"
+  | "POST"
+  | "CLOSED"
+  | "PREPRE"
+  | "POSTPOST"
+  | "UNKNOWN";
+
+/** Delayed last sale from Yahoo quote() — display overlay, not stored in market_bars. */
+export type LiveQuote = {
+  symbol: string;
+  price: number;
+  asOf: string | null;
+  marketState: MarketState;
+  change: number | null;
+  changePct: number | null;
+  previousClose: number | null;
+  source: "yahoo";
+};
+
 export type QuarterlyFundamentals = {
   periodEnd: string;
   fiscalPeriod: string | null;

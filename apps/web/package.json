@@ -10,6 +10,7 @@
     "lint": "next lint"
   },
   "dependencies": {
+    "@powerfund/data-clients": "workspace:*",
     "@powerfund/db": "workspace:*",
     "@powerfund/domain": "workspace:*",
     "@supabase/ssr": "^0.6.1",
