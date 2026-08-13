@@ -13,6 +13,12 @@ Intelligence for managing and growing capital in the markets — starting with p
 | [ux.md](./ux.md) | Research UI information architecture and viz principles |
 | [deploy.md](./deploy.md) | GitHub → Netlify CI and remote Supabase |
 
+## Reviews
+
+| Review | Scope |
+|--------|-------|
+| [2026-08-13](./reviews/2026-08-13-full-review.md) | Full audit: intent → architecture → plan → implemented features |
+
 ## Related
 
 - [Architecture](../architecture/README.md) — living design docs as the system is built
