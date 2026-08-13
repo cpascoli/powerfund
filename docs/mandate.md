@@ -61,6 +61,8 @@ PowerFund **NAV** is the equity book only: **cash + marked stocks**. Starting al
 
 **NAV** = cash + market value of open positions. Adding a fill **debits cash** by cost basis.
 
+New risk is planned in the **deployment queue** (dollars + window + why) and only hits the book when a fill is confirmed. Do not treat a weekly dollar target as a quota.
+
 **Phase 1 (first weeks):** stay well under the invested cap. Starter stubs first; add on thesis-intact weakness or confirmation. Do not treat a weekly dollar target as a quota.
 
 **Out of scope for this book:** BTC DCA, gold as BTC reserve, and any capital not explicitly moved into PowerFund cash.

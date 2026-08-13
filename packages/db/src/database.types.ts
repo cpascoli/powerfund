@@ -372,6 +372,60 @@ export type Database = {
         };
         Relationships: [];
       };
+      planned_actions: {
+        Row: {
+          id: string;
+          instrument_id: string;
+          action_type: "buy" | "add" | "reduce" | "sell";
+          status: "pending" | "deferred" | "confirmed" | "cancelled";
+          planned_usd: number;
+          window_label: string | null;
+          due_by: string | null;
+          rationale: string | null;
+          position_id: string | null;
+          decision_id: string | null;
+          confirmed_quantity: number | null;
+          confirmed_price: number | null;
+          confirmed_at: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          instrument_id: string;
+          action_type?: "buy" | "add" | "reduce" | "sell";
+          status?: "pending" | "deferred" | "confirmed" | "cancelled";
+          planned_usd: number;
+          window_label?: string | null;
+          due_by?: string | null;
+          rationale?: string | null;
+          position_id?: string | null;
+          decision_id?: string | null;
+          confirmed_quantity?: number | null;
+          confirmed_price?: number | null;
+          confirmed_at?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          instrument_id?: string;
+          action_type?: "buy" | "add" | "reduce" | "sell";
+          status?: "pending" | "deferred" | "confirmed" | "cancelled";
+          planned_usd?: number;
+          window_label?: string | null;
+          due_by?: string | null;
+          rationale?: string | null;
+          position_id?: string | null;
+          decision_id?: string | null;
+          confirmed_quantity?: number | null;
+          confirmed_price?: number | null;
+          confirmed_at?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
       dossiers: {
         Row: {
           id: string;
@@ -539,6 +593,8 @@ export type Database = {
       position_status: "open" | "closed";
       position_side: "long" | "short";
       decision_type: "enter" | "add" | "reduce" | "exit" | "hold" | "watch";
+      planned_action_type: "buy" | "add" | "reduce" | "sell";
+      planned_action_status: "pending" | "deferred" | "confirmed" | "cancelled";
       dossier_status: "watch" | "investigate" | "active_thesis" | "passed";
       document_type:
         | "10-k"

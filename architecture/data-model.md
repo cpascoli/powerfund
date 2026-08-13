@@ -12,8 +12,10 @@ erDiagram
   instruments ||--o{ signals : about
   themes ||--o{ signals : about
   instruments ||--o{ positions : held
+  instruments ||--o{ planned_actions : queued
   instruments ||--o{ decisions : about
   positions ||--o{ decisions : linked
+  planned_actions ||--o| positions : confirms
   signals ||--o{ decisions : linked
   portfolio_snapshots
   portfolio_state
@@ -27,6 +29,7 @@ erDiagram
 | `documents` | Filings, transcripts, press, etc. |
 | `signals` | Manual or scorer-generated candidates |
 | `positions` | Open/closed book |
+| `planned_actions` | Intended buys/adds until a fill is confirmed |
 | `decisions` | Thesis journal entries |
 | `portfolio_snapshots` | Point-in-time NAV/cash/exposures |
 | `portfolio_state` | Live cash; NAV = cash + open-position MTM |
@@ -41,6 +44,8 @@ erDiagram
 - `position_status`: open, closed
 - `position_side`: long, short
 - `decision_type`: enter, add, reduce, exit, hold, watch
+- `planned_action_type`: buy, add, reduce, sell
+- `planned_action_status`: pending, deferred, confirmed, cancelled
 - `document_type`: 10-k, 10-q, 8-k, earnings, transcript, press, other
 
 ## Access

@@ -92,7 +92,7 @@ Chart library choice is deferred until the first real series lands — document 
 | `/explore` → instrument | Dossier | Price + events; filings list; notes |
 | `/signals` | Triage inbox | Confidence/score distribution optional |
 | `/workbench` | Open-ended analysis | Primary heavy-viz home |
-| `/portfolio` | Mandate & book | Exposure by theme, drawdown |
+| `/portfolio` | Mandate, book, and deployment queue | Exposure by theme, drawdown |
 | `/decisions` (Journal) | Process memory | Timeline; optional P&L by decision |
 
 ## Interaction standards

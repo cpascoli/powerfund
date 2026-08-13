@@ -35,6 +35,7 @@ Build:
 - [ ] Filings/earnings links on dossiers
 - [ ] Signal inbox CRUD (manual + later automated)
 - [x] Portfolio book (open positions, cash, NAV, mandate weights)
+- [x] Deployment queue (plan buy → confirm fill)
 - [x] Decision journal CRUD (thesis → action → review)
 
 Technical direction:
@@ -96,7 +97,7 @@ Exit criteria: deliberate go/no-go; no premature multi-tenant complexity before 
 4. [x] Connect UI to Supabase (auth + CRUD).
 5. [x] Manual research workflow for a starter universe (~15–30 names across core themes).
 6. [ ] Ship one automated scorer (e.g. growth/CapEx inflection + anti-parabolic filter).
-7. [ ] Establish weekly review ritual.
+7. [ ] Establish weekly review ritual (queue + book; later, review writes into the queue).
 
 ## Sequencing principles
 

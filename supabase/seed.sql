@@ -404,3 +404,34 @@ select
   ),
   'PowerFund allocated NAV $250k. BTC/gold are outside this book.'
 where not exists (select 1 from public.portfolio_state);
+
+-- This-week starter stubs (idempotent per open queue item).
+insert into public.planned_actions (
+  instrument_id,
+  action_type,
+  planned_usd,
+  window_label,
+  rationale
+)
+select
+  i.id,
+  'buy',
+  v.planned_usd,
+  v.window_label,
+  v.rationale
+from (
+  values
+    ('CLS', 4500::numeric, 'this week', 'AI infra EMS-ODM starter stub; add on thesis-intact weakness.'),
+    ('NVT', 4500::numeric, 'this week', 'Cooling / rack power starter; pair with CLS, not a quota.'),
+    ('MRCY', 2500::numeric, 'this week', 'Defence edge compute starter; keep small until thesis earns size.'),
+    ('NBIS', 1000::numeric, 'this week', 'Optional neocloud stub; skip if tape is crowded.')
+) as v(symbol, planned_usd, window_label, rationale)
+join public.instruments i
+  on i.symbol = v.symbol
+ and i.exchange = 'US'
+where not exists (
+  select 1
+  from public.planned_actions p
+  where p.instrument_id = i.id
+    and p.status in ('pending', 'deferred')
+);
