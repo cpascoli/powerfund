@@ -551,6 +551,11 @@ a {
   background: var(--bg-elevated);
 }
 
+/* A concentrated book needs less room than the full research universe. */
+.treemap-chart.is-compact {
+  height: 300px;
+}
+
 .price-panel-head {
   display: flex;
   align-items: baseline;

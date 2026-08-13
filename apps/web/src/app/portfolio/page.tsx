@@ -5,6 +5,7 @@ import { CashEntryForm } from "@/components/cash-entry-form";
 import { ConfirmFillForm } from "@/components/confirm-fill-form";
 import { PlannedActionForm } from "@/components/planned-action-form";
 import { PositionForm } from "@/components/position-form";
+import { PositionTreemap } from "@/components/position-treemap";
 import { SellForm } from "@/components/sell-form";
 import {
   cancelPlannedAction,
@@ -216,6 +217,11 @@ export default async function PortfolioPage({
           <strong>{ledger.entryCount}</strong>
         </div>
       </section>
+
+      <PositionTreemap
+        positions={book.positions}
+        markLabel={book.markLabel}
+      />
 
       <section className="panel" aria-label="Mandate checks">
         <h2>Mandate</h2>

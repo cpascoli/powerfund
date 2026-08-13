@@ -5,6 +5,7 @@ import { useMemo, useState } from "react";
 import { ResponsiveContainer, Treemap } from "recharts";
 
 import type { WorkbenchNameNode } from "@/lib/data/workbench";
+import { colorForPct } from "@/lib/market/heat";
 import {
   RETURN_WINDOWS,
   type ReturnWindow,
@@ -43,25 +44,6 @@ type TreemapContentProps = {
   marketCap?: number;
   themeName?: string;
 };
-
-function clamp(value: number, min: number, max: number): number {
-  return Math.min(max, Math.max(min, value));
-}
-
-function mixChannel(a: number, b: number, t: number): number {
-  return Math.round(a + (b - a) * t);
-}
-
-function colorForReturn(pct: number | null, scale: number): string {
-  if (pct == null || Number.isNaN(pct)) return "#9aa7b5";
-  const t = clamp(pct / scale, -1, 1);
-  if (t >= 0) {
-    const u = t;
-    return `rgb(${mixChannel(154, 11, u)} ${mixChannel(167, 127, u)} ${mixChannel(181, 117, u)})`;
-  }
-  const u = -t;
-  return `rgb(${mixChannel(154, 155, u)} ${mixChannel(167, 44, u)} ${mixChannel(181, 44, u)})`;
-}
 
 function formatMcap(value: number): string {
   if (value >= 1e12) return `$${(value / 1e12).toFixed(2)}T`;
@@ -152,7 +134,7 @@ function TreemapCell({
     );
   }
 
-  const fill = colorForReturn(returnPct, colorScale);
+  const fill = colorForPct(returnPct, colorScale);
   const showLabel = width > 48 && height > 28;
 
   return (
