@@ -234,15 +234,15 @@ from (
     ),
     (
       'NOVT',
-      'watch',
-      'Robotics picks-and-shovels: precision motion, encoders, force/torque, tool changers, vision — the nervous system and musculature of robots. Interesting physical-AI supplier; valuation not cheap (adjusted mid-40s forward cited).',
-      'If industrial/warehouse/humanoid robots scale, OEMs still need qualified sensors, motors and tooling interfaces. Design-in creates switching costs (mechanical, software, safety, calibration). NVIDIA Halos lab participation is a positioning signal, not proof of revenue.',
-      'Robotics/semicap/advanced industrial mix acceleration; design-win disclosures; margin expansion on robotics SKUs.',
-      'Expensive if growth disappoints. Acquisition accounting noise. Competition across motion/sensing vendors. Physical AI timelines can slip.',
-      'Robotics growth stalls; guidance cuts; multiple stays elevated without earnings catch-up.',
-      'Moat = component qualification into OEM platforms. Track rather than rush; better as watch until valuation or evidence improves.',
-      'Reconcile GAAP vs adjusted EPS; map robotics revenue disclosure; list key OEM exposures.',
-      'OpenAI agent expansion screen + Power Fund triage (Aug 2026) — unverified'
+      'investigate',
+      'Robotics picks-and-shovels upgraded on evidence: Q2 2026 delivered 9% organic growth, bookings +18% YTD (book-to-bill 1.1), and the first significant humanoid servo-drive orders beyond prototyping — hundreds of humanoids for customer training facilities. The quality US-listed vehicle for the robotics theme; valuation remains the gating issue.',
+      'If industrial/warehouse/humanoid robots scale, OEMs need qualified precision motion, encoders, force/torque sensing and tooling. Design-in creates switching costs (mechanical, software, safety, calibration). GenAI-linked applications are already ~17% of revenue growing ~25%; humanoid orders moved from prototype to training-center scale in Q2 2026. FY26 raised: revenue ~$1.13–1.14B (>15% reported, up to 7% organic), adj EBITDA $273–278M (+24–26%). Riverpoint Medical (largest acquisition ever, closed Jul 2026) shifts mix toward minimally invasive surgery.',
+      'Humanoid servo-drive orders converting to commercial-deployment revenue; robotics/automation growth (+13.5% Q2) sustaining; GenAI-linked ~25% growth through H2; Riverpoint integration; Q3 guide $300–304M revenue with gross margin path to 48%.',
+      'Valuation still full; humanoid commercialization timeline uncertain (mgmt: rapidly improving but from a small base); integration risk on largest-ever acquisition; organic growth only up to 7% FY26 — reported growth flattered by M&A; cyclical semicap exposure.',
+      'Humanoid/robotics bookings momentum stalls (book-to-bill below 1 for two quarters); organic growth reverts to low single digits with the multiple elevated; Riverpoint integration misses on margin or leverage; loss of key OEM design-ins.',
+      'Moat = component qualification into OEM platforms. NVIDIA partnership on humanoid safety is a positioning signal. Better vehicle than pre-profit AMBA/OUST for the robotics sleeve; the deepest robotics component moats (Harmonic Drive, Nabtesco, Keyence) are Japan-listed — NOVT is the practical US expression.',
+      'Quantify humanoid order size and margin profile; reconcile GAAP vs adjusted EPS post-acquisition; post-Riverpoint leverage and share count; valuation vs raised FY26 EBITDA.',
+      'Q2 2026 earnings call + releases (6 Aug 2026) + PowerFund strategy second opinion — verify multiples before capital'
     ),
     (
       'AMBA',
@@ -363,6 +363,66 @@ from (
       'Pair with LITE on the optical watchlist; initiate only with margin of safety.',
       'Normalize earnings power; compare product exposure vs LITE; wait for better risk/reward.',
       'OpenAI agent expansion screen + Power Fund triage (Aug 2026) — unverified'
+    ),
+    (
+      'CCJ',
+      'investigate',
+      'Full nuclear fuel-cycle exposure (uranium mining + 49% of Westinghouse): the best diversifier inside the mandate — loads on nuclear buildout and fuel contracting, not directly on hyperscaler capex sentiment. Q2 2026 optically weak (prior-year Westinghouse Dukovany one-time), but pricing is strengthening: realized $93.13/lb (+15%), FY26 realized-price guidance raised to $91–96/lb.',
+      'Structural uranium deficit + western supply discipline + nuclear restart/newbuild cycle. Contract book: >28M lb/yr average deliveries over five years; new market-related contracts carry floors in the high-$70s and ceilings near $160 (escalated). Long-term price in the mid-$90s and likely heading to three digits before replacement-rate contracting has even begun. Westinghouse adds AP1000/AP300/eVinci optionality (91-reactor pipeline; conditional $17.5B DOE support). Net cash balance sheet (~$116M net cash, $1.1B cash).',
+      'Term price momentum toward $100+; contracting cycle reaching replacement rate; Westinghouse newbuild awards (Dukovany-style contributions); production execution at McArthur River / Cigar Lake; utilities re-contracting as data-center PPAs raise coverage needs.',
+      'Operational disruptions are routine (Key Lake and Cigar Lake outages in 2026); quarterly delivery lumpiness confuses the tape; uranium spot corrections; Westinghouse project timing; Kazatomprom supply response; FX.',
+      'Long-term uranium price rolls over materially with contracting stalling; sustained production misses break unit economics; Westinghouse pipeline fails to convert (no new AP1000-class orders in 18–24 months); balance sheet re-levers without offsetting growth.',
+      'Western fuel-cycle champion vs Kazatomprom; geopolitics favor western supply. Enrichment (Centrus, Urenco) is a separate bottleneck not covered here. Counts as a genuine diversifier under mandate rule 10 — correlation to the AI-capex complex is indirect (nuclear policy, utility contracting).',
+      'Contract book sensitivity to spot vs term pricing; 2027+ delivery commitments vs production plan; Westinghouse EBITDA seasonality; Inkai JV status.',
+      'Q2 2026 results + call (Aug 2026) + PowerFund strategy second opinion — verify before capital'
+    ),
+    (
+      'CEG',
+      'investigate',
+      'Largest US clean-power fleet (nuclear + Calpine gas) monetizing the scarcity of firm clean energy. Q2 2026 adj operating EPS $2.55 (+34%), FY26 guidance raised to $11.50–12.50. Signed 920 MW of new 15–20yr nuclear PPAs with investment-grade customers (incl. 176 MW Walmart) starting 2029–2032. The premium-quality expression of the generation side of the #1 theme.',
+      'Data-center and electrification demand reprices firm clean power, and CEG owns the scarce asset: a ~93% capacity-factor nuclear fleet, now paired with Calpine dispatchable gas. Long-term PPAs (~1GW signed within the contemplated range) convert scarcity into visible contracted earnings; the Crane restart (2027) adds capacity; $2.2B of YTD buybacks compound per-share value.',
+      'PJM/FERC large-load rule clarity unlocking further data-center contracts; additional nuclear PPAs and uprates; Crane restart milestones into 2027; Calpine integration synergies; capacity auction pricing.',
+      'Premium multiple prices much of this in — run the crowding checklist before entry; regulatory gating on colocation/large-load rules; heavy planned nuclear outage schedules; $19.1B long-term debt post-Calpine; policy risk on ZEC-style programs; new PPAs start 2029+ so visibility is not near-term earnings.',
+      'PPA pipeline stalls for two-plus quarters on regulatory deadlock; Crane restart slips materially or overruns; power/capacity prices roll over while the multiple stays premium; Calpine integration misses on synergies or leverage.',
+      'vs VST: CEG is the premium-quality nuclear-PPA franchise; VST is cheaper with more merchant/ERCOT torque and has already corrected. Owning one of the two is the decision — owning both doubles the same power-price/policy factor.',
+      'Valuation vs the 2027–29 contracted earnings bridge; PJM capacity auction exposure; post-Calpine debt ladder; explicit risk/reward comparison vs VST at current prices.',
+      'Q2 2026 results + call (Aug 2026) + PowerFund strategy second opinion — verify before capital'
+    ),
+    (
+      'VST',
+      'investigate',
+      'Merchant power + retail with nuclear/gas/solar fleet: the higher-torque, cheaper way to own the generation theme. Q2 2026 ongoing adj EBITDA +31% to $1.77B; FY26 guidance reaffirmed ($6.8–7.6B EBITDA) with results expected at or above midpoint. Roughly $700M of additional 2027 midpoint opportunity from pending Cogentrix + 20-yr Meta nuclear PPAs sits outside guidance. Trading ~36% below its 52-week high (Aug 2026) — the rare theme name that already had its correction.',
+      'Same demand thesis as CEG with more operating leverage and a discount. Hedges (~100% of 2026, ~94% of 2027) plus the nuclear PTC floor protect the downside; Meta PPAs, Cogentrix, and the Helix data-center platform (founding investor alongside KKR/NVIDIA/KIA, up to $1B commitment, preferred power partner) provide contracted upside layers. More than $10B of available cash across 2026–27 funds buybacks plus growth.',
+      'Cogentrix close and guidance re-baseline at the Q3 call; Meta PPA contributions from 2027; ERCOT tightening as data centers energize (mgmt sees 12–15GW of real DC demand by 2030); Helix deal flow; further PJM nuclear contracting.',
+      'ERCOT forward curves are soft and the torque works both ways; Q2 revenue missed estimates on hedge/mix noise; GAAP earnings noisy from hedge marks; retail margin compression; Helix growth capex discipline (up to $1B).',
+      'The 2027 midpoint opportunity ($7.4–7.8B) is abandoned; Meta/Cogentrix fail to close or contribute; the ERCOT data-center demand thesis breaks (load fails to materialize by 2028); the hedge book rolls onto materially lower curves with no offsetting contracts.',
+      'vs CEG: less PPA franchise value, more commodity/merchant torque, better entry after the drawdown. NRG and Talen are the other merchant expressions. The Helix/NVIDIA alignment is an unusual strategic hook for a power name.',
+      'EBITDA sensitivity to ERCOT curves; Meta PPA economics; Cogentrix funding structure; buyback pace vs growth commitments.',
+      'Q2 2026 results + call (Aug 2026) + PowerFund strategy second opinion — verify before capital'
+    ),
+    (
+      'GEV',
+      'investigate',
+      'The generation-equipment bottleneck itself: gas turbines (116GW backlog + slot reservations, mostly sold out through 2030), grid equipment (Electrification backlog $40.6B, +69% YoY), and nuclear (BWRX-300). Q2 2026 orders +88% organic, total backlog $176B, and FY26 free-cash-flow guidance raised massively to $11.5–12.5B. The most direct listed expression of "you cannot build power plants fast enough."',
+      'Whoever wins AI, someone must generate the electricity — GEV sells the turbines, transformers and switchgear with multi-year lead times, funded by customer down payments (negative working capital makes it an FCF machine: $13.1B cash). Capacity expansion from 20GW to 30GW/yr of turbine output by 2030 converts backlog to revenue at improving margins. Data-center Electrification orders exceed $5B YTD, double all of 2025.',
+      'Year-end gas backlog at or above 125GW (street looks for 130–140GW); Electrification margin expansion; the $200B backlog target for 2027; wind losses shrinking; SMR (BWRX-300) orders; continued buybacks.',
+      'Massively rerated since 2024 — the crowding checklist matters most here of the five; slot reservations can defer or cancel if the capex cycle pauses (the 2000–02 bottleneck-supplier analogy applies to exactly this name); wind still losing ~$275M/quarter; execution risk scaling turbine output by 50%.',
+      'Gas order/slot momentum stalls or cancellations appear; Electrification book-to-bill drops below 1; data-center orders roll over; FCF guidance cut; margin expansion stalls while the multiple stays at peak.',
+      'Gas-turbine oligopoly with Siemens Energy and Mitsubishi Power (both non-US-listed — the watchlist gap flagged in the second opinion). Transformer competition: Hitachi Energy, Hyundai Electric, Prolec (now consolidated into GEV). Oligopoly + lead times = pricing power while the cycle lasts; the moat is cyclical, not structural.',
+      'Backlog quality (deposit and cancellation terms on slots); wind path to breakeven; valuation vs mid-cycle (not peak) FCF; slot-to-order conversion rates.',
+      'Q2 2026 results + call (22 Jul 2026) + PowerFund strategy second opinion — verify before capital'
+    ),
+    (
+      'PWR',
+      'investigate',
+      'The labor bottleneck: grid, generation, and data-center balance-of-plant construction at scale. Q2 2026 revenue $9.56B (+41%), record total backlog $53.4B, FY26 guidance raised across all metrics (revenue $39.3–39.7B, adj EPS $16.45–16.95). Management: the 765kV corridor programs and utility mega-projects are "just starting" and mostly not yet in backlog.',
+      'Skilled craft labor, MSA relationships, and execution track record cannot be replicated quickly — the same organizational-moat logic as EME at several times the scale, with deeper utility T&D exposure. Data-center/tech work is already 15–20% of revenue, much of it book-and-burn under MSAs that never appears in backlog (so reported backlog understates demand). The Hyosung HICO JV adds domestic transformer manufacturing. 1.7x levered with a Moody''s upgrade.',
+      'NiSource program entering backlog from H2 2026; 765kV/345kV transmission corridor awards through the decade; continued guidance raises; data-center balance-of-plant expansion; transformer JV ramp.',
+      'The multiple already reflects the narrative (same caveat as HUBB/EME in house view); project execution and bid risk at mega-scale; labor cost inflation; steady acquisition cadence obscures organic trends; state-level data-center permitting pauses.',
+      'Backlog rolls over without corridor-program replacement; margin misses on large fixed-price work; data-center mix shrinks while the multiple stays elevated; FCF conversion (55–60% of EBITDA target) breaks down on M&A.',
+      'vs EME (already on watchlist): PWR is bigger, more utility T&D and generation, more M&A-driven; EME is the focused mission-critical electrical specialist. Owning both doubles the construction-labor factor — pick per entry price. MYR, Primoris, MasTec are smaller comps.',
+      'Organic vs acquired growth split; fixed-price vs cost-plus mix; corridor program timing; EV/EBITDA vs EME and MYR.',
+      'Q2 2026 results + call (30 Jul 2026) + PowerFund strategy second opinion — verify before capital'
     )
 ) as d (
   symbol,
