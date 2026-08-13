@@ -22,6 +22,11 @@
 [functions."scheduled-ingest-bars"]
   timeout = 26
 
+# Nightly NAV snapshot, 30 min after the bars ingest so closes are fresh.
+# Fast enough to run inline in the scheduled budget.
+[functions."scheduled-snapshot-portfolio"]
+  timeout = 26
+
 [dev]
   command = "pnpm --filter @powerfund/web dev"
   targetPort = 3000

@@ -1,5 +1,6 @@
 import { ingestBars } from "./ingest/bars";
 import { ingestFundamentals } from "./ingest/fundamentals";
+import { snapshotPortfolio } from "./snapshot/portfolio";
 import "./env";
 
 function usage() {
@@ -9,6 +10,7 @@ Usage:
   pnpm --filter @powerfund/worker ingest:bars [-- --days=365]
   pnpm --filter @powerfund/worker ingest:fundamentals
   pnpm --filter @powerfund/worker ingest:all
+  pnpm --filter @powerfund/worker snapshot:portfolio
 
 Env:
   SUPABASE_URL or NEXT_PUBLIC_SUPABASE_URL
@@ -42,6 +44,12 @@ async function main() {
     case "all":
       await ingestBars({ days, pauseMs });
       await ingestFundamentals({ pauseMs });
+      break;
+    case "snapshot":
+      console.log(
+        "[snapshot:portfolio]",
+        JSON.stringify(await snapshotPortfolio()),
+      );
       break;
     case "help":
     case "--help":

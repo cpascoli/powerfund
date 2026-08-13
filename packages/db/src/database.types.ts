@@ -523,8 +523,11 @@ export type Database = {
           created_at: string
           exposures: Json
           id: string
+          invested: number
           nav: number
           notes: string | null
+          positions_value: number
+          snapshot_date: string | null
         }
         Insert: {
           as_of: string
@@ -532,8 +535,11 @@ export type Database = {
           created_at?: string
           exposures?: Json
           id?: string
+          invested?: number
           nav: number
           notes?: string | null
+          positions_value?: number
+          snapshot_date?: string | null
         }
         Update: {
           as_of?: string
@@ -541,8 +547,11 @@ export type Database = {
           created_at?: string
           exposures?: Json
           id?: string
+          invested?: number
           nav?: number
           notes?: string | null
+          positions_value?: number
+          snapshot_date?: string | null
         }
         Relationships: []
       }
