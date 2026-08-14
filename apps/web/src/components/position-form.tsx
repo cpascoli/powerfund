@@ -116,6 +116,15 @@ export function PositionForm({ instruments, defaults }: Props) {
         />
       </label>
 
+      <label>
+        Mandate override reason
+        <textarea
+          name="mandate_override_reason"
+          rows={2}
+          placeholder="Required only if this fill would breach a cap, the cash floor, the phase-1 cap, the kill-switch, or the 70% AI-capex factor"
+        />
+      </label>
+
       <label className="checkbox-row">
         <input name="log_decision" type="checkbox" defaultChecked />
         Also log an enter decision in the Journal

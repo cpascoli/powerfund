@@ -93,6 +93,15 @@ export function ConfirmFillForm({ action }: Props) {
         />
       </label>
 
+      <label>
+        Mandate override reason
+        <textarea
+          name="mandate_override_reason"
+          rows={2}
+          placeholder="Required only if this fill would breach a cap, the cash floor, the phase-1 cap, the kill-switch, or the 70% AI-capex factor"
+        />
+      </label>
+
       {state.error ? <p className="form-error">{state.error}</p> : null}
 
       <button type="submit" disabled={pending}>

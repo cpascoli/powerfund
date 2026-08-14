@@ -43,6 +43,9 @@ export async function savePosition(
   const thesisSummary = emptyToNull(formData.get("thesis_summary"));
   const invalidation = emptyToNull(formData.get("invalidation"));
   const alsoLogDecision = formData.get("log_decision") === "on";
+  const mandateOverrideReason = emptyToNull(
+    formData.get("mandate_override_reason"),
+  );
 
   if (!instrumentId) {
     return { error: "Pick an instrument." };
@@ -75,6 +78,7 @@ export async function savePosition(
     invalidation,
     logDecision: alsoLogDecision,
     fees,
+    mandateOverrideReason,
   });
 
   if (!result.ok) {

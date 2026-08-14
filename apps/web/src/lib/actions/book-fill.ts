@@ -3,6 +3,7 @@
 import { buyCashDelta } from "@powerfund/domain";
 import type { Database } from "@powerfund/db";
 
+import { mandateGate } from "@/lib/mandate/enforce";
 import { createClient } from "@/lib/supabase/server";
 
 type TransactionInsert = Database["public"]["Tables"]["transactions"]["Insert"];
@@ -32,6 +33,7 @@ export async function bookFill(args: {
   logDecision: boolean;
   fees?: number;
   plannedActionId?: string | null;
+  mandateOverrideReason?: string | null;
 }): Promise<BookFillResult> {
   const fees = args.fees ?? 0;
   // Fees are capitalised into basis, so cash out is the whole cost.
@@ -39,6 +41,15 @@ export async function bookFill(args: {
   const costBasis = -cashDelta;
   if (costBasis <= 0) {
     return { ok: false, error: "A fill must cost more than zero." };
+  }
+
+  const gate = await mandateGate({
+    instrumentId: args.instrumentId,
+    costUsd: costBasis,
+    overrideReason: args.mandateOverrideReason ?? null,
+  });
+  if (!gate.ok) {
+    return { ok: false, error: gate.error };
   }
 
   const supabase = await createClient();
@@ -124,6 +135,10 @@ export async function bookFill(args: {
     cash_delta: cashDelta,
     decision_id: decisionId,
     planned_action_id: args.plannedActionId ?? null,
+    mandate_override_reason:
+      gate.violations.length > 0
+        ? args.mandateOverrideReason?.trim() || null
+        : null,
     notes: args.thesisSummary,
   };
 

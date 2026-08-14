@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import type { Database } from "@powerfund/db";
 
 import { bookFill } from "@/lib/actions/book-fill";
+import { mandateGate } from "@/lib/mandate/enforce";
 import { createClient } from "@/lib/supabase/server";
 
 type PlannedActionInsert =
@@ -45,12 +46,24 @@ export async function savePlannedAction(
   const rationale = emptyToNull(formData.get("rationale"));
   const actionTypeRaw = emptyToNull(formData.get("action_type")) ?? "buy";
   const actionType: PlannedActionType = actionTypeRaw === "add" ? "add" : "buy";
+  const mandateOverrideReason = emptyToNull(
+    formData.get("mandate_override_reason"),
+  );
 
   if (!instrumentId) {
     return { error: "Pick an instrument." };
   }
   if (plannedUsd == null) {
     return { error: "Planned amount must be a positive dollar amount." };
+  }
+
+  const gate = await mandateGate({
+    instrumentId,
+    costUsd: plannedUsd,
+    overrideReason: mandateOverrideReason,
+  });
+  if (!gate.ok) {
+    return { error: gate.error };
   }
 
   const supabase = await createClient();
@@ -60,7 +73,10 @@ export async function savePlannedAction(
     planned_usd: plannedUsd,
     window_label: windowLabel,
     due_by: dueBy,
-    rationale,
+    rationale:
+      gate.violations.length > 0 && mandateOverrideReason != null
+        ? `Mandate override: ${mandateOverrideReason}${rationale ? `\n${rationale}` : ""}`
+        : rationale,
     status: "pending",
   };
 
@@ -118,6 +134,9 @@ export async function confirmPlannedAction(
   const filledAtRaw = emptyToNull(formData.get("filled_at"));
   const thesisSummary = emptyToNull(formData.get("thesis_summary"));
   const invalidation = emptyToNull(formData.get("invalidation"));
+  const mandateOverrideReason = emptyToNull(
+    formData.get("mandate_override_reason"),
+  );
 
   if (!id) {
     return { error: "Missing planned action." };
@@ -192,6 +211,7 @@ export async function confirmPlannedAction(
     logDecision: true,
     fees,
     plannedActionId: id,
+    mandateOverrideReason,
   });
 
   if (!result.ok) {

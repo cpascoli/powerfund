@@ -126,7 +126,7 @@ Star ratings and "early-mid" labels cannot be wrong, which means they cannot be 
 
 | Mandate rule | Status | Detail |
 |---|---|---|
-| Rule 4 — written invalidation per position | **Violated** | 4 of 5 open positions (CLS, NVT, MRCY, NBIS) have null invalidation in the database. Only VRT has kill criteria. Fix before adding any new risk. |
+| Rule 4 — written invalidation per position | **Fixed 2026-08-13** | Kill criteria written for CLS, NVT, MRCY, and NBIS (VRT already had them). Portfolio shows the text under each position, or a "No kill criteria" warning. |
 | Rule 6 — parabolic / crowded filter | **Bent** | NBIS filled after a +30% gap; the queue rationale itself said "skip if it feels like chasing." $1.5k is harmless — the precedent is not. |
 | Sizing and Phase-1 cap | Compliant | Largest position 2.0% of NAV; $18.5k of the $75k Phase-1 cap used. Genuinely disciplined. |
 | MRCY conditional add | Good process | Small starter into a binary Aug 18 print, with a deferred, evidence-conditional add. This is the template — replicate it. |
@@ -167,7 +167,7 @@ The plan has risk and portfolio construction "not started" while capital is live
 
 ### 6. Fix the immediate compliance gaps
 
-Write invalidation criteria for CLS, NVT, MRCY, and NBIS today — the mandate calls them non-negotiable, and the CLS/NVT dossiers already contain the raw material. Then journal the NBIS entry honestly as a filter violation so the pattern is visible in review rather than repeated.
+Write invalidation criteria for CLS, NVT, MRCY, and NBIS today — the mandate calls them non-negotiable, and the CLS/NVT dossiers already contain the raw material. Then journal the NBIS entry honestly as a filter violation so the pattern is visible in review rather than repeated. **Done 2026-08-13** (criteria on the book; NBIS journal still worth a honest note at the next weekly review).
 
 ---
 

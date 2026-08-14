@@ -120,15 +120,16 @@ Mandate enforcement reality check:
 
 | Rule | Constant exists | Displayed | **Enforced on write** |
 |---|---|---|---|
-| Max 10% position | yes | yes (warn) | **no** |
-| Max 40% theme | yes | yes (warn) | **no** |
-| Min 10% cash | yes | yes (warn) | **no** |
-| $75k phase-1 cap | yes | yes (warn, at cost) | **no** |
-| 15% drawdown kill-switch | yes | **no** | **no** |
+| Max 10% position | yes | yes (warn) | **yes** (override) |
+| Max 40% theme | yes | yes (warn) | **yes** (override) |
+| Min 10% cash | yes | yes (warn) | **yes** (override) |
+| $75k phase-1 cap | yes | yes (warn, at cost) | **yes** (override) |
+| 15% drawdown kill-switch | yes | **yes** | **yes** (override; halt new risk) |
 | 15% memory sleeve | yes | **no** | **no** |
+| 70% AI-capex factor | yes | yes (warn) | **yes** (override) |
 | No average-down w/o evidence | — | no | **no** |
 
-You asked for hard blocking with an override. Today it is advisory only, and two of the seven rules are not even computed.
+You asked for hard blocking with an override. As of 2026-08-14 that is how fills and queued buys work (BOOK-6). The memory sleeve is still uncomputed; average-down-without-evidence is still unenforced.
 
 ### 3.7 Engineering hygiene
 
@@ -168,7 +169,7 @@ Severity: **P0** act now · **P1** this sprint · **P2** soon · **P3** backlog.
 | BOOK-3 | **P0** | schema + `apps/web` | **There is no sell, exit, or reduce path.** `decision_type` and `planned_action_type` include `reduce`/`exit`/`sell`, and `positions.status` has `closed`, but no code closes a position, reduces quantity, or credits cash. The book can only grow. Realized P&L is therefore impossible. | Implement `bookSell`/`bookReduce` with cash credit, realized P&L capture, and `closed_at`. |
 | BOOK-4 | **P1** | `book-fill.ts:91-176` | Read-modify-write race on cash and on position quantity. Two concurrent requests both pass the solvency check. No DB constraint prevents two open positions in the same instrument. | Transaction + `for update`; add `create unique index positions_one_open_per_instrument_idx on positions (instrument_id) where status='open'`. |
 | BOOK-5 | **P1** | `apps/web/src/lib/actions/cash.ts:18-76` | Cash can be overwritten to any value with no reconciliation against `sum(quantity*avg_cost)` and no record of *why*. This is also the de-facto deposit/withdrawal mechanism, which means performance and contributions are indistinguishable. | Introduce `cash_ledger` (signed amounts, `kind in ('deposit','withdrawal','fill','fee','adjustment')`, FK to position/planned action). Derive `portfolio_state.cash`. |
-| BOOK-6 | **P1** | `packages/domain/src/risk.ts` + all actions | Mandate caps are display-only; no write is ever blocked. You asked for hard blocking. | Shared `assertMandateAllows(book, proposedFill)` called by `bookFill` and `savePlannedAction`; on violation, refuse unless an `override_reason` is supplied, and persist the override on the decision. |
+| BOOK-6 | **P1** | `packages/domain/src/risk.ts` + all actions | Mandate caps are display-only; no write is ever blocked. You asked for hard blocking. | **Done 2026-08-14.** Shared `evaluateProposedBuy`; `bookFill` / `savePlannedAction` refuse unless override reason is written. |
 | BOOK-7 | **P1** | `portfolio_snapshots` unwritten | No NAV history → no peak NAV → the 15% kill-switch cannot exist, and neither can an equity curve or TWR. | Nightly snapshot job (extend the Netlify scheduled function) writing `as_of`, `nav`, `cash`, `exposures`. |
 | BOOK-8 | **P2** | `portfolio.ts:350,359,364` | Positions with no market data are marked **at cost** (`marketValue ?? costBasis`) with no visual distinction. Stale or failed ingest silently produces a plausible-looking NAV. | Mark unpriced positions explicitly; show as-of age per position; flag the book when any mark is stale. |
 | BOOK-9 | **P2** | `portfolio.ts:223-224,353`; `book-fill.ts:157` | `side` is read but never used in valuation. A short would *add* to NAV. Nothing creates shorts today, so this is latent. | Sign market value by side, or CHECK-constrain `side='long'` until shorts are supported. |
@@ -255,29 +256,29 @@ A reasonable first scorer, given what you already ingest and what the mandate ca
 
 *Status as of 2026-08-13 evening. See §9 for what was actually applied.*
 
-### Now (today, ~1 hour) — close the door — **3 of 4 done**
+### Now (today, ~1 hour) — close the door — **4 of 4 done**
 
-1. **SEC-1** Disable email signup on the hosted Supabase project. — **OPEN, operator action.** Dashboard-only; cannot be done from a migration. Strangers can still register, but land as `viewer` and cannot write.
+1. **SEC-1** Disable email signup on the hosted Supabase project. — **DONE** (operator, 2026-08-13 evening). Dashboard toggle "Allow new users to sign up" is off.
 2. **SEC-3** Revoke `anon` SELECT grants and the default privilege. — **DONE.** All 90 grants removed; verified 0 remain.
 3. **SEC-4** Make middleware fail closed. — **DONE.**
 4. **SEC-5** Remove authenticated write policies from the three market tables. — **DONE.**
 
 Also closed in the same pass, beyond the original list: **SEC-2** (every `using (true)` write policy replaced with `is_operator()` gating; the role dimension from §8 exists), and half of **SEC-7** (`set_updated_at` search_path pinned; leaked-password protection is still a dashboard toggle).
 
-### Sprint 1 — make the book trustworthy — **3 of 6 done**
+### Sprint 1 — make the book trustworthy — **5 of 6 done**
 
 5. **BOOK-1 + BOOK-2 + BOOK-4** — **DONE**, though not as an RPC. The append-only ledger made a separate transactional function unnecessary: one insert is one statement, the trigger takes `for update`, and a unique index enforces one open position per instrument. BOOK-2 is a unique index on `planned_action_id` plus queue repair on retry.
 6. **BOOK-3** Sell/reduce/close path with realized P&L. — **DONE.** Average-cost pooling, fees, full-exit basis zeroing, UI with a pre-commit preview.
 7. **BOOK-5** cash ledger with deposits/withdrawals/fees; derive the balance. — **DONE**, as `transactions` rather than a separate `cash_ledger`. Cash can no longer be typed in.
-8. **BOOK-7** Nightly NAV snapshot → unlocks drawdown, the kill-switch, and an equity curve. — **OPEN.** `portfolio_snapshots` is still unwritten, so there is no peak NAV and the mandate's 15% kill-switch still cannot exist.
-9. **BOOK-6** Hard mandate enforcement with a written override. — **OPEN.** Caps remain display-only; `transactions.mandate_override_reason` exists and is unused. This is the last structural gap in "trustworthy".
+8. **BOOK-7** Nightly NAV snapshot → unlocks drawdown, the kill-switch, and an equity curve. — **DONE** (2026-08-13 evening). Worker `snapshot` command + Netlify cron `30 22 * * 1-5`; `invested` / `positions_value` / unique `snapshot_date`; Briefing and Portfolio show deployed drawdown vs the 15% kill-switch.
+9. **BOOK-6** Hard mandate enforcement with a written override. — **DONE** (2026-08-14). `evaluateProposedBuy` in `@powerfund/domain` is the shared gate; `bookFill` and `savePlannedAction` refuse unless `mandate_override_reason` is written. Covers position/theme/cash/phase-1/kill-switch/AI-capex factor.
 10. **HYG-1 + HYG-2** Vitest + a CI gate. Also **HYG-4**. — **PARTIAL.** 14 SQL assertions cover the ledger via `pnpm db:test`, but there is no Vitest, no CI gate, and the money helpers in `@powerfund/domain` are untested. HYG-4's root cause is fixed and the money paths are typed; shims remain in `decisions.ts`, `dossiers.ts` and the worker.
 
 Closed opportunistically alongside Sprint 1: **HYG-5** (type generation script, now from the linked project), **BOOK-12** (a failed journal write now aborts the fill instead of silently booking a thesis-less position), and most of **BOOK-13/D-6** (money settles at `numeric(20,2)`, quantities at `numeric(20,8)`, rounding centralised in `@powerfund/domain`). Partially: **D-5** (added the open-position index and the `closed_at` CHECK; the nullable-`exchange` duplicate, `documents (source, external_id)`, and the `positions (instrument_id, status)` index remain), and **BOOK-8** (the new position map flags marks that fell back to cost; the rest of the book still shows them silently).
 
 ### Sprint 2 — make the data honest — **not started**
 
-This is the sprint that serves the stated #1 goal. Nothing here has been touched, and DATA-1 remains the highest-leverage change in the project.
+This is the sprint that serves the stated #1 goal. DATA-1 remains the highest-leverage remaining schema change. The Workbench Risk view (2026-08-14) consumes the five-year bar backfill but does not replace vintages or `price_basis`.
 
 11. **DATA-1** Fundamentals vintages (`filed_at`). Highest-leverage schema change in the project.
 12. **DATA-2** Resolve adjusted vs raw; backfill; add `price_basis`.
@@ -290,7 +291,7 @@ This is the sprint that serves the stated #1 goal. Nothing here has been touched
 
 17. **PROD-1** Signal inbox CRUD (manual first).
 18. Filings/events ingest (`documents` table is already modelled and empty) + filings on dossiers — the last unchecked Phase 1 item.
-19. A features/derived table (relative strength, drawdown from high, revenue/FCF growth, capex acceleration, distance-from-parabolic).
+19. A features/derived table (relative strength, drawdown from high, revenue/FCF growth, capex acceleration, distance-from-parabolic). Crowding extension / 5y percentile now compute live on Workbench → Risk from `market_bars`; they are not persisted as features yet.
 20. Backtest harness over vintage data, then the first scorer, writing into `signals` with a rationale.
 21. **PROD-3** Weekly review ritual surface → closes the Phase 1 exit criterion.
 
@@ -402,5 +403,20 @@ This is a general warning for anything added later: a test that runs as `postgre
 
 ### Still open from the P0 set
 
-- **SEC-1 — disable email signup.** This is a dashboard setting and cannot be done from a migration. Until it is off, strangers can still create accounts; they now land as read-only viewers rather than operators, so the severity is reduced from "full control of the book" to "can read everything", but it is still open.
 - **SEC-6 — `requireOperator()` in server actions.** RLS now rejects viewer writes, but the UI will surface a raw Postgres error rather than hiding the control. Needed before the first viewer account exists.
+
+### 2026-08-13 evening — 2026-08-14 — follow-through (applied after this review)
+
+Closed after the original write-up, against the live project and the app:
+
+| ID | Status | What landed |
+|---|---|---|
+| SEC-1 | **DONE** | Hosted signup disabled in the Supabase dashboard |
+| BOOK-7 | **DONE** | Nightly NAV snapshots; kill-switch and freshness flags on Briefing / Portfolio |
+| Rule 4 invalidations | **DONE** | Kill criteria written on CLS, NVT, MRCY, NBIS; Portfolio shows them (or a violation tag) |
+| DATA-18 | **DONE** | Workbench no longer loads every `market_bars` row; 25-month window per name. Price history pages past the 1,000-row cap. Five-year daily bars backfilled (~52k rows, Aug 2021 → present) |
+| PROD-4 | **DONE** | Briefing no longer displays the max-position *constant* as if it were a live metric |
+| Deployment ladder | **DONE** | Mandate records ~$10k/month baseline to the $75k Phase-1 cap (~Jan 2027) |
+| Playbook | **DONE** | Mandate / Goals / Themes / Plan render from `docs/` under a Playbook nav group |
+| BOOK-6 | **DONE** | Fills and queued buys hard-block on mandate breaches unless an override reason is written |
+| Phase 3 min slice | **DONE** | Workbench → Risk: factor %, capex-pause stress, crowding bands, correlation matrix |

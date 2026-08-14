@@ -102,7 +102,7 @@ Exit criteria: deliberate go/no-go; no premature multi-tenant complexity before 
 7. [ ] Establish weekly review ritual (queue + book; later, review writes into the queue).
 8. [x] Backfill written invalidation criteria for all open positions missing them (mandate rule 4 — flagged in the [strategy second opinion](./reviews/2026-08-13-strategy-second-opinion.md)). Written to the book 2026-08-13; visible per position on the Portfolio page.
 9. [x] Set the deployment-ladder baseline tranche: **~$10k/month** (decided 2026-08-13), reaching the $75k Phase-1 cap ~January 2027. Acceleration-tranche sizes for the −10%/−20% triggers still to be set at a monthly review.
-10. [ ] Minimum viable risk view (correlation matrix + AI-capex stress scenario) before deployed cost crosses ~$40–50k (Phase 3 pull-forward).
+10. [x] Minimum viable risk view (correlation matrix + AI-capex stress scenario) before deployed cost crosses ~$40–50k (Phase 3 pull-forward). Workbench → Risk, 2026-08-14.
 
 ## Sequencing principles
 
@@ -119,5 +119,5 @@ Exit criteria: deliberate go/no-go; no premature multi-tenant complexity before 
 | Phase 0 — Operating model | Complete |
 | Phase 1 — Research OS | In progress (watchlist/dossiers/journal + free market ingest) |
 | Phase 2 — Data & quant pipelines | Started early (EOD bars + quarterly fundamentals ingest) |
-| Phase 3 — Risk & portfolio construction | Minimum slice pulled forward (correlation + stress view before ~$40–50k deployed) |
+| Phase 3 — Risk & portfolio construction | Minimum slice live (Workbench → Risk: correlation, crowding, capex-pause stress) |
 | Phase 4 — Scale / insight product | Not started |

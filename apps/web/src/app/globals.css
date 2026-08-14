@@ -214,6 +214,7 @@ a {
   margin: 0;
   color: var(--danger);
   font-size: 0.9rem;
+  white-space: pre-line;
 }
 
 .crumb {
@@ -879,4 +880,50 @@ a {
 .doc-switch a.is-active {
   background: var(--accent-soft);
   color: var(--accent);
+}
+
+.table-wrap {
+  overflow-x: auto;
+  margin-top: 0.75rem;
+}
+
+.data-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+}
+
+.data-table th,
+.data-table td {
+  padding: 0.45rem 0.6rem;
+  border-bottom: 1px solid var(--line);
+  text-align: left;
+  white-space: nowrap;
+}
+
+.data-table thead th {
+  font-size: 0.75rem;
+  font-weight: 650;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.data-table td .tag {
+  margin-left: 0.4rem;
+}
+
+.corr-table th,
+.corr-table td {
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+.corr-table th:first-child,
+.corr-table td:first-child {
+  text-align: left;
+}
+
+.corr-diag {
+  color: var(--muted);
 }

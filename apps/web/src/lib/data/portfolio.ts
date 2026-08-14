@@ -1,4 +1,4 @@
-import { RISK_DEFAULTS } from "@powerfund/domain";
+import { aiCapexDeployedPct, RISK_DEFAULTS } from "@powerfund/domain";
 import { fetchYahooQuotes, type LiveQuote } from "@powerfund/data-clients";
 
 import { createClient } from "@/lib/supabase/server";
@@ -41,6 +41,7 @@ export type MandateFlag = {
     | "phase1_invested"
     | "drawdown_kill_switch"
     | "snapshot_stale"
+    | "ai_capex_factor"
     | "all_clear";
   label: string;
   severity: "warn" | "ok";
@@ -458,6 +459,25 @@ function buildFlags(args: {
       code: "phase1_invested",
       severity: "warn",
       label: `Invested cost above phase-1 cap ($${RISK_DEFAULTS.phase1InvestedCapUsd.toLocaleString()})`,
+    });
+  }
+
+  const factorPct = aiCapexDeployedPct(
+    args.positions.map((row) => ({
+      symbol: row.symbol,
+      themeSlug: row.themeSlug,
+      marketValue: row.marketValue ?? row.costBasis,
+      costBasis: row.costBasis,
+    })),
+  );
+  if (
+    factorPct != null &&
+    factorPct > RISK_DEFAULTS.maxAiCapexFactorPctDeployed
+  ) {
+    flags.push({
+      code: "ai_capex_factor",
+      severity: "warn",
+      label: `AI-capex complex is ${factorPct.toFixed(1)}% of deployed (soft cap ${RISK_DEFAULTS.maxAiCapexFactorPctDeployed}%)`,
     });
   }
 
