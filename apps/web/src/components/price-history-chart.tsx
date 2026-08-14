@@ -16,6 +16,7 @@ import type { PricePoint } from "@/lib/market/returns";
 type PriceHistoryChartProps = {
   symbol: string;
   points: PricePoint[];
+  liveLast?: boolean;
 };
 
 function formatAxisDate(value: string): string {
@@ -37,7 +38,11 @@ function formatTooltipDate(value: string): string {
   });
 }
 
-export function PriceHistoryChart({ symbol, points }: PriceHistoryChartProps) {
+export function PriceHistoryChart({
+  symbol,
+  points,
+  liveLast = false,
+}: PriceHistoryChartProps) {
   if (points.length === 0) {
     return (
       <section className="panel price-panel" aria-label={`${symbol} price chart`}>
@@ -54,7 +59,9 @@ export function PriceHistoryChart({ symbol, points }: PriceHistoryChartProps) {
       <div className="price-panel-head">
         <h2>Price</h2>
         <p className="muted">
-          Daily adjusted close · drag the brush to zoom
+          {liveLast
+            ? "Daily adjusted close · last point is delayed last sale · drag the brush to zoom"
+            : "Daily adjusted close · drag the brush to zoom"}
         </p>
       </div>
       <div className="price-chart">
@@ -100,10 +107,18 @@ export function PriceHistoryChart({ symbol, points }: PriceHistoryChartProps) {
                 color: "var(--ink)",
               }}
               labelFormatter={(label) => formatTooltipDate(String(label))}
-              formatter={(value) => [
-                typeof value === "number" ? `$${value.toFixed(2)}` : "—",
-                "Close",
-              ]}
+              formatter={(value, _name, item) => {
+                const date =
+                  item && typeof item === "object" && "payload" in item
+                    ? (item.payload as PricePoint | undefined)?.date
+                    : undefined;
+                const lastDate = points[points.length - 1]?.date;
+                const isLive = liveLast && date != null && date === lastDate;
+                return [
+                  typeof value === "number" ? `$${value.toFixed(2)}` : "—",
+                  isLive ? "Last" : "Close",
+                ];
+              }}
             />
             <Area
               type="monotone"

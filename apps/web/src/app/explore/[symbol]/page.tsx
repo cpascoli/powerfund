@@ -9,7 +9,7 @@ import {
   getInstrumentMarketSnapshot,
   getInstrumentPriceHistory,
 } from "@/lib/data/research";
-import { getLiveQuote, quoteCaption } from "@/lib/market/quotes";
+import { getLiveQuote, overlayLiveQuote, quoteCaption } from "@/lib/market/quotes";
 import { computePriceReturns } from "@/lib/market/returns";
 
 export const dynamic = "force-dynamic";
@@ -57,7 +57,8 @@ export default async function InstrumentDossierPage({
     getInstrumentPriceHistory(instrument.id),
     getLiveQuote(instrument.symbol),
   ]);
-  const returns = computePriceReturns(priceHistory);
+  const { points, live } = overlayLiveQuote(priceHistory, liveQuote);
+  const returns = computePriceReturns(points);
   const editing = edit === "1" || !dossier;
   const displayPrice = liveQuote?.price ?? market.lastClose;
   const priceCaption = liveQuote ? quoteCaption(liveQuote) : "Close";
@@ -109,7 +110,11 @@ export default async function InstrumentDossierPage({
         </div>
       </header>
 
-      <PriceHistoryChart symbol={instrument.symbol} points={priceHistory} />
+      <PriceHistoryChart
+        symbol={instrument.symbol}
+        points={points}
+        liveLast={live}
+      />
       <PriceReturnsRow returns={returns} />
 
       <section className="stat-row" aria-label="Dossier status">
