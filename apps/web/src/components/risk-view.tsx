@@ -37,19 +37,19 @@ export function RiskViewPanel({ view }: Props) {
   const lookup = correlationLookup(view.pairs);
   const factorOver =
     view.aiCapexPct != null &&
-    view.aiCapexPct > RISK_DEFAULTS.maxAiCapexFactorPctDeployed;
+    view.aiCapexPct > RISK_DEFAULTS.maxAiCapexFactorPctNav;
 
   return (
     <>
       <section className="stat-row" aria-label="Factor and stress">
         <div className="stat">
-          <span>AI-capex of deployed</span>
+          <span>AI-capex of NAV</span>
           <strong className={factorOver ? "is-down" : undefined}>
             {unsignedPct(view.aiCapexPct, 1)}
           </strong>
         </div>
         <div className="stat">
-          <span>Diversifiers of deployed</span>
+          <span>Diversifiers of NAV</span>
           <strong>{unsignedPct(view.diversifierPct, 1)}</strong>
         </div>
         <div className="stat">
@@ -71,7 +71,7 @@ export function RiskViewPanel({ view }: Props) {
         <h2>Hyperscaler capex −20%</h2>
         <p className="muted">
           Haircut every AI-capex holding by 20% and leave diversifiers (
-          {RISK_DEFAULTS.maxAiCapexFactorPctDeployed}% factor cap; diversifiers
+          {RISK_DEFAULTS.maxAiCapexFactorPctNav}% NAV factor cap; diversifiers
           are CCJ, EME, LMT, NOC, GD, RTX) unchanged. This is the standing
           stress in mandate rule 10 — not a forecast.
         </p>

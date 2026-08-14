@@ -89,15 +89,17 @@ export function projectBookAfterBuy(
   };
 }
 
-export function aiCapexDeployedPct(positions: MandatePosition[]): number | null {
-  const deployed = positions.reduce((sum, row) => sum + row.marketValue, 0);
-  if (deployed <= 0) return null;
+export function aiCapexNavPct(
+  positions: MandatePosition[],
+  nav: number,
+): number | null {
+  if (nav <= 0) return null;
   const complex = positions.reduce(
     (sum, row) =>
       sum + (isAiCapexSymbol(row.symbol) ? row.marketValue : 0),
     0,
   );
-  return pct(complex, deployed);
+  return pct(complex, nav);
 }
 
 export function evaluateMandate(book: MandateBook): MandateViolation[] {
@@ -150,14 +152,14 @@ export function evaluateMandate(book: MandateBook): MandateViolation[] {
     });
   }
 
-  const factorPct = aiCapexDeployedPct(book.positions);
+  const factorPct = aiCapexNavPct(book.positions, nav);
   if (
     factorPct != null &&
-    factorPct > RISK_DEFAULTS.maxAiCapexFactorPctDeployed
+    factorPct > RISK_DEFAULTS.maxAiCapexFactorPctNav
   ) {
     violations.push({
       code: "ai_capex_factor",
-      label: `AI-capex complex would be ${factorPct.toFixed(1)}% of deployed capital (soft cap ${RISK_DEFAULTS.maxAiCapexFactorPctDeployed}%)`,
+      label: `AI-capex complex would be ${factorPct.toFixed(1)}% of NAV (cap ${RISK_DEFAULTS.maxAiCapexFactorPctNav}%)`,
     });
   }
 

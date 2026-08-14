@@ -1,4 +1,4 @@
-import { aiCapexDeployedPct, RISK_DEFAULTS } from "@powerfund/domain";
+import { aiCapexNavPct, RISK_DEFAULTS } from "@powerfund/domain";
 import { fetchYahooQuotes, type LiveQuote } from "@powerfund/data-clients";
 
 import { createClient } from "@/lib/supabase/server";
@@ -130,6 +130,7 @@ export async function getOpenPortfolioBook(): Promise<PortfolioBook> {
         positions: [],
         cashPctNav,
         invested: 0,
+        nav,
         themeExposures: [],
       }),
       cashUpdatedAt,
@@ -407,6 +408,7 @@ function assembleBook(args: {
       positions: rows,
       cashPctNav,
       invested,
+      nav,
       themeExposures,
     }),
     cashUpdatedAt: args.cashUpdatedAt,
@@ -420,6 +422,7 @@ function buildFlags(args: {
   positions: OpenPositionRow[];
   cashPctNav: number;
   invested: number;
+  nav: number;
   themeExposures: ThemeExposure[];
 }): MandateFlag[] {
   const flags: MandateFlag[] = [];
@@ -462,22 +465,23 @@ function buildFlags(args: {
     });
   }
 
-  const factorPct = aiCapexDeployedPct(
+  const factorPct = aiCapexNavPct(
     args.positions.map((row) => ({
       symbol: row.symbol,
       themeSlug: row.themeSlug,
       marketValue: row.marketValue ?? row.costBasis,
       costBasis: row.costBasis,
     })),
+    args.nav,
   );
   if (
     factorPct != null &&
-    factorPct > RISK_DEFAULTS.maxAiCapexFactorPctDeployed
+    factorPct > RISK_DEFAULTS.maxAiCapexFactorPctNav
   ) {
     flags.push({
       code: "ai_capex_factor",
       severity: "warn",
-      label: `AI-capex complex is ${factorPct.toFixed(1)}% of deployed (soft cap ${RISK_DEFAULTS.maxAiCapexFactorPctDeployed}%)`,
+      label: `AI-capex complex is ${factorPct.toFixed(1)}% of NAV (cap ${RISK_DEFAULTS.maxAiCapexFactorPctNav}%)`,
     });
   }
 

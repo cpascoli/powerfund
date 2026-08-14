@@ -9,10 +9,11 @@ export const RISK_DEFAULTS = {
   /** Soft cap on invested cost during phase-1 deployment. */
   phase1InvestedCapUsd: 75000,
   /**
-   * Combined AI-capex complex as a share of deployed (positions) capital.
-   * Mandate rule 10 — theme labels are not diversification.
+   * Combined AI-capex complex as a share of NAV (cash included).
+   * Mandate rule 10 — theme labels are not diversification; aligned with
+   * the theme cap so one factor cannot exceed a single theme.
    */
-  maxAiCapexFactorPctDeployed: 70,
+  maxAiCapexFactorPctNav: 40,
 } as const;
 
 export type RiskDefaults = typeof RISK_DEFAULTS;

@@ -1,5 +1,5 @@
 import {
-  aiCapexDeployedPct,
+  aiCapexNavPct,
   computeCrowding,
   isAiCapexSymbol,
   pairwiseCorrelations,
@@ -205,16 +205,18 @@ export async function getRiskView(): Promise<RiskView> {
     inComplex: isAiCapexSymbol(row.symbol),
   }));
   const deployed = holdings.reduce((sum, row) => sum + row.marketValue, 0);
-  const aiCapexPct = aiCapexDeployedPct(
-    book.positions.map((row) => ({
-      symbol: row.symbol,
-      themeSlug: row.themeSlug,
-      marketValue: row.marketValue ?? row.costBasis,
-      costBasis: row.costBasis,
-    })),
-  );
+  const mandatePositions = book.positions.map((row) => ({
+    symbol: row.symbol,
+    themeSlug: row.themeSlug,
+    marketValue: row.marketValue ?? row.costBasis,
+    costBasis: row.costBasis,
+  }));
+  const aiCapexPct = aiCapexNavPct(mandatePositions, book.nav);
   const complexValue = holdings
     .filter((row) => row.inComplex)
+    .reduce((sum, row) => sum + row.marketValue, 0);
+  const diversifierValue = holdings
+    .filter((row) => !row.inComplex)
     .reduce((sum, row) => sum + row.marketValue, 0);
   const stressNavDelta = 0.2 * complexValue;
   const stressNav = book.nav - stressNavDelta;
@@ -223,7 +225,7 @@ export async function getRiskView(): Promise<RiskView> {
     deployed,
     aiCapexPct,
     diversifierPct:
-      deployed > 0 && aiCapexPct != null ? 100 - aiCapexPct : null,
+      book.nav > 0 ? (diversifierValue / book.nav) * 100 : null,
     stressNav,
     stressNavDelta,
     stressNavDeltaPct: book.nav > 0 ? (stressNavDelta / book.nav) * 100 : null,

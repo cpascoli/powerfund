@@ -36,7 +36,7 @@ Exact percentages can be tuned; the existence of hard caps cannot.
 7. **Liquidity** — position size must respect average volume and expected exit horizon.
 8. **Kill-switch** — defined on **deployed capital**, not total NAV (a 90%-cash book can never trigger an NAV-level switch, and a fully deployed book in high-vol names makes a tight NAV switch a near-certain forced sale). If deployed-capital drawdown from peak exceeds the threshold, reduce risk (trim, halt new risk, or raise cash) until review is complete.
 9. **AI memory cycle discipline** — HBM/DRAM/NAND names count toward the **AI infrastructure** theme (not a separate core theme). Do not treat peak-cycle EPS or trough trailing multiples as “cheap” without contract coverage, mix shift, and normalized-earnings evidence. Prefer starter sizes; add only on new information. Soft guide: pure memory/storage names ≤ **15% NAV** until the sleeve earns a larger allocation in review.
-10. **Factor concentration (correlation-aware)** — theme labels are not diversification. AI infra, data-center power/cooling, AI-linked energy, GPU clouds, and much of robotics/defence electronics all load on the same factor: **hyperscaler capex sentiment**. Track pairwise correlation of holdings and candidates; cap combined exposure to the AI-capex complex as one position-like risk, and maintain a standing "hyperscaler capex guidance −20%" stress scenario before adding correlated risk. Genuine diversifiers within mandate: uranium fuel cycle, regulated-utility-adjacent power, appropriations-driven defence primes, backlog-based construction — not a third cooling vendor.
+10. **Factor concentration (correlation-aware)** — theme labels are not diversification. AI infra, data-center power/cooling, AI-linked energy, GPU clouds, and much of robotics/defence electronics all load on the same factor: **hyperscaler capex sentiment**. Track pairwise correlation of holdings and candidates; cap combined exposure to the AI-capex complex as one position-like risk **vs NAV (cash included)**, aligned with the theme cap, and maintain a standing "hyperscaler capex guidance −20%" stress scenario before adding correlated risk. Genuine diversifiers within mandate: uranium fuel cycle, regulated-utility-adjacent power, appropriations-driven defence primes, backlog-based construction — not a third cooling vendor. Cash is a diversifier versus this factor; the kill-switch (rule 8) stays on deployed capital.
 
 *Initial numeric defaults (revise after first live month):*
 
@@ -47,7 +47,7 @@ Exact percentages can be tuned; the existence of hard caps cannot.
 | Min cash | 10% NAV |
 | Drawdown kill-switch | 15% of **deployed capital** from peak → mandatory review + risk reduction |
 | Soft max AI memory/storage sleeve | 15% NAV (inside AI infra) |
-| Soft max AI-capex factor exposure | 70% of deployed capital until Phase 3 risk view exists |
+| Soft max AI-capex factor exposure | 40% NAV (cash included; same number as the theme cap) |
 | Phase-1 invested cap | $75,000 cost |
 | Baseline deployment tranche | ~$10,000/month (set 2026-08-13; revisit at monthly review) |
 
