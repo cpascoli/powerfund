@@ -62,6 +62,8 @@ function scaleForWindow(window: ReturnWindow): number {
   switch (window) {
     case "1d":
       return 5;
+    case "1w":
+      return 8;
     case "1m":
       return 15;
     case "3m":

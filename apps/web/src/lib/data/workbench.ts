@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import {
   computeReturnPct,
+  RETURN_WINDOWS,
   type PricePoint,
   type ReturnWindow,
 } from "@/lib/market/returns";
@@ -19,15 +20,7 @@ export type WorkbenchUniverse = {
   names: WorkbenchNameNode[];
 };
 
-const RETURN_KEYS: ReturnWindow[] = [
-  "1d",
-  "1m",
-  "3m",
-  "6m",
-  "ytd",
-  "1y",
-  "2y",
-];
+const RETURN_KEYS: ReturnWindow[] = RETURN_WINDOWS.map((window) => window.key);
 
 export async function getWorkbenchUniverse(): Promise<WorkbenchUniverse> {
   const supabase = await createClient();

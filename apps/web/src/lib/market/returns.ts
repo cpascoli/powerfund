@@ -5,6 +5,7 @@ export type PricePoint = {
 
 export type ReturnWindow =
   | "1d"
+  | "1w"
   | "1m"
   | "3m"
   | "6m"
@@ -20,6 +21,7 @@ export type PriceReturn = {
 
 export const RETURN_WINDOWS: Array<{ key: ReturnWindow; label: string }> = [
   { key: "1d", label: "1D" },
+  { key: "1w", label: "1W" },
   { key: "1m", label: "1M" },
   { key: "3m", label: "3M" },
   { key: "6m", label: "6M" },
@@ -37,6 +39,12 @@ function parseUtcDate(iso: string): Date {
 
 function formatUtcDate(date: Date): string {
   return date.toISOString().slice(0, 10);
+}
+
+function addCalendarDays(date: Date, days: number): Date {
+  const next = new Date(date.getTime());
+  next.setUTCDate(next.getUTCDate() + days);
+  return next;
 }
 
 function addCalendarMonths(date: Date, months: number): Date {
@@ -86,6 +94,13 @@ export function computePriceReturns(points: PricePoint[]): PriceReturn[] {
         if (points.length < 2) return null;
         return points[points.length - 2]!.close;
       }
+      case "1w":
+        // 7 calendar days, last bar on or before — the usual "1-week"
+        // lookback (~5 sessions), not week-to-date.
+        return closeOnOrBefore(
+          points,
+          formatUtcDate(addCalendarDays(lastDate, -7)),
+        );
       case "1m":
         return closeOnOrBefore(
           points,
