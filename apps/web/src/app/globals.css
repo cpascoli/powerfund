@@ -843,3 +843,40 @@ a {
 .doc tbody tr:nth-child(even) {
   background: rgba(11, 127, 117, 0.03);
 }
+
+.doc-check {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  list-style: none;
+  margin-left: -1.4rem;
+}
+
+.doc-check input {
+  margin-top: 0.35rem;
+  accent-color: var(--accent);
+}
+
+.doc-switch {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin: 0 0 1.25rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid var(--line);
+}
+
+.doc-switch a {
+  padding: 0.2rem 0.65rem;
+  border-radius: 6px;
+  background: var(--bg-elevated);
+  color: var(--muted);
+  font-size: 0.85rem;
+  font-weight: 650;
+  text-decoration: none;
+}
+
+.doc-switch a.is-active {
+  background: var(--accent-soft);
+  color: var(--accent);
+}

@@ -28,4 +28,5 @@ Intelligence for managing and growing capital in the markets — starting with p
 
 - Update **mandate** and **themes** when the investment process changes.
 - Update **plan** when scope or sequencing changes.
+- The four operator docs (mandate, goals, themes, plan) also render in the app under **Playbook**.
 - Put system design, data models, and pipeline decisions under `architecture/` — not here.

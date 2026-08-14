@@ -1,9 +1,11 @@
 import type { CSSProperties, ReactNode } from "react";
 
+import { playbookHref } from "@/lib/docs";
+
 /**
- * Minimal, dependency-free Markdown renderer for our own docs (e.g. the
- * mandate). It supports exactly the constructs we author: ATX headings,
- * paragraphs, ordered/unordered lists, GFM tables, horizontal rules, and inline
+ * Minimal, dependency-free Markdown renderer for our own docs. It supports
+ * exactly the constructs we author: ATX headings, paragraphs, ordered/unordered
+ * lists (including task checkboxes), GFM tables, horizontal rules, and inline
  * bold / italic / code / links. It deliberately does not handle raw HTML, so
  * rendering a trusted repo document cannot inject markup.
  */
@@ -45,16 +47,22 @@ function renderInline(text: string, keyPrefix: string): ReactNode[] {
       case "link": {
         const label = best.match[1] ?? "";
         const href = best.match[2] ?? "";
-        const external = /^https?:\/\//.test(href);
-        if (external) {
+        const routed = playbookHref(href);
+        if (routed) {
+          nodes.push(
+            <a key={key} href={routed}>
+              {renderInline(label, key)}
+            </a>,
+          );
+        } else if (/^https?:\/\//.test(href)) {
           nodes.push(
             <a key={key} href={href} target="_blank" rel="noreferrer">
               {renderInline(label, key)}
             </a>,
           );
         } else {
-          // Relative links point at repo files that are not app routes; show
-          // the label as a marked reference rather than a broken anchor.
+          // Relative links to files that are not Playbook routes (reviews,
+          // architecture) stay as marked references rather than broken anchors.
           nodes.push(
             <span key={key} className="doc-ref" title={href}>
               {renderInline(label, key)}
@@ -211,9 +219,26 @@ export function renderMarkdown(markdown: string): ReactNode {
       const listKey = `b${key++}`;
       blocks.push(
         <ul key={listKey}>
-          {items.map((item, itemIndex) => (
-            <li key={`${listKey}-${itemIndex}`}>{renderInline(item, `${listKey}-${itemIndex}`)}</li>
-          ))}
+          {items.map((item, itemIndex) => {
+            const itemKey = `${listKey}-${itemIndex}`;
+            const checkbox = /^\[([ xX])\]\s+/.exec(item);
+            if (checkbox) {
+              const checked = checkbox[1] !== " ";
+              const rest = item.slice(checkbox[0].length);
+              return (
+                <li key={itemKey} className="doc-check">
+                  <input
+                    type="checkbox"
+                    disabled
+                    defaultChecked={checked}
+                    tabIndex={-1}
+                  />
+                  <span>{renderInline(rest, itemKey)}</span>
+                </li>
+              );
+            }
+            return <li key={itemKey}>{renderInline(item, itemKey)}</li>;
+          })}
         </ul>,
       );
       continue;

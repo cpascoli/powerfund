@@ -295,7 +295,7 @@ export default async function PortfolioPage({
       <h2>Mandate</h2>
       <p className="muted">
         Live compliance vs the book. Full rules on the{" "}
-        <Link href="/mandate">Mandate page</Link>.
+        <Link href="/docs/mandate">Mandate page</Link>.
       </p>
       <ul className="list">
         {riskFlags.map((flag) => (
