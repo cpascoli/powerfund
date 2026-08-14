@@ -747,3 +747,99 @@ a {
     align-items: flex-start;
   }
 }
+
+/* Rendered markdown docs (e.g. the Mandate page) */
+.doc {
+  max-width: 60rem;
+  line-height: 1.6;
+  color: var(--ink);
+}
+
+.doc h2 {
+  margin: 2rem 0 0.6rem;
+  padding-top: 1.25rem;
+  border-top: 1px solid var(--line);
+  font-family: var(--font-display);
+  font-size: 1.2rem;
+  letter-spacing: -0.02em;
+}
+
+.doc h3 {
+  margin: 1.4rem 0 0.4rem;
+  font-family: var(--font-display);
+  font-size: 1rem;
+}
+
+.doc h2:first-child {
+  margin-top: 0;
+  padding-top: 0;
+  border-top: none;
+}
+
+.doc p {
+  margin: 0.7rem 0;
+  color: var(--ink);
+}
+
+.doc ul,
+.doc ol {
+  margin: 0.6rem 0;
+  padding-left: 1.4rem;
+}
+
+.doc li {
+  margin: 0.35rem 0;
+}
+
+.doc li::marker {
+  color: var(--muted);
+}
+
+.doc a {
+  color: var(--accent);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.doc code {
+  padding: 0.1rem 0.35rem;
+  border-radius: 5px;
+  background: var(--accent-soft);
+  font-size: 0.85em;
+}
+
+.doc hr {
+  margin: 1.75rem 0;
+  border: none;
+  border-top: 1px solid var(--line);
+}
+
+.doc-ref {
+  color: var(--muted);
+  font-style: italic;
+}
+
+.doc table {
+  width: 100%;
+  margin: 1rem 0;
+  border-collapse: collapse;
+  font-size: 0.92rem;
+}
+
+.doc th,
+.doc td {
+  padding: 0.5rem 0.75rem;
+  border: 1px solid var(--line);
+  text-align: left;
+  vertical-align: top;
+}
+
+.doc thead th {
+  background: var(--bg-elevated);
+  font-family: var(--font-display);
+  font-weight: 650;
+}
+
+.doc tbody tr:nth-child(even) {
+  background: rgba(11, 127, 117, 0.03);
+}

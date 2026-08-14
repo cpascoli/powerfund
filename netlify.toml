@@ -6,8 +6,9 @@
   command = "pnpm install --frozen-lockfile && pnpm --filter @powerfund/web build"
   publish = "apps/web/.next"
   functions = "netlify/functions"
-  # Skip deploys that do not touch the web app, shared packages, or scheduled ingest.
-  ignore = "git diff --quiet $CACHED_COMMIT_REF $COMMIT_REF -- apps/web apps/worker packages/domain packages/db packages/data-clients netlify package.json pnpm-lock.yaml pnpm-workspace.yaml netlify.toml"
+  # Skip deploys that do not touch the web app, shared packages, scheduled
+  # ingest, or docs (the Mandate page is rendered from docs/mandate.md at build).
+  ignore = "git diff --quiet $CACHED_COMMIT_REF $COMMIT_REF -- apps/web apps/worker packages/domain packages/db packages/data-clients netlify docs package.json pnpm-lock.yaml pnpm-workspace.yaml netlify.toml"
 
 [build.environment]
   NODE_VERSION = "22"

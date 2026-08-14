@@ -293,6 +293,10 @@ export default async function PortfolioPage({
   const mandatePanel = (
     <section className="panel" aria-label="Mandate checks">
       <h2>Mandate</h2>
+      <p className="muted">
+        Live compliance vs the book. Full rules on the{" "}
+        <Link href="/mandate">Mandate page</Link>.
+      </p>
       <ul className="list">
         {riskFlags.map((flag) => (
           <li key={`book-${flag.label}`}>
