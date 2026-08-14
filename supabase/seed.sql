@@ -452,6 +452,465 @@ on conflict (instrument_id) do update
     source = excluded.source,
     updated_at = timezone('utc', now());
 
+-- Full researched dossier refresh (2026-08-14).
+-- Priority is portfolio-specific: mandate fit + current evidence + crowding,
+-- not a permanent ranking of business quality.
+insert into public.dossiers (
+  instrument_id,
+  status,
+  summary,
+  thesis,
+  catalysts,
+  risks,
+  invalidation,
+  competitive_notes,
+  next_diligence,
+  source
+)
+select
+  i.id,
+  d.status::public.dossier_status,
+  d.summary,
+  d.thesis,
+  d.catalysts,
+  d.risks,
+  d.invalidation,
+  d.competitive_notes,
+  d.next_diligence,
+  d.source
+from (
+  values
+    (
+      'CEG',
+      'investigate',
+      $$Priority 1/23. Best direct generation/PPA candidate for the next tranche and currently below its 200-day average. Q2 adjusted operating EPS was $2.55; FY26 guidance rose to $11.50–12.50. Calpine broadens the fleet but adds leverage and integration risk.$$,
+      $$Constellation owns scarce firm power: the largest US nuclear fleet plus Calpine gas, geothermal, storage and retail. Another 920 MW of 15–20 year nuclear PPAs gradually converts merchant exposure into visible contracted earnings; Crane is targeted for a 2027 restart.$$,
+      $$Further nuclear PPAs and uprates; Crane restart milestones; Calpine synergies; PJM capacity pricing; closing the $860M Brazos Valley divestiture.$$,
+      $$About $19.1B of long-term debt post-Calpine; nuclear outage/NRC risk; undisclosed PPA economics; gas and retail volatility; Crane delay or cost overrun; policy intervention in wholesale power.$$,
+      $$Reduce or exit if Crane slips beyond 2028 or cost rises >25%; owned nuclear capacity factor is below 90% for two non-outage-season quarters; Calpine is not accretive during 2027; leverage misses the stated path; or new PPAs require unattractive capex/returns.$$,
+      $$CEG has a larger nuclear/PPA franchise than VST; regulated utilities are safer but cannot monetize scarcity as directly. Calpine diversifies operations, not necessarily financial risk. Do not own CEG and VST as if they were independent factors.$$,
+      $$Model PPA strike/escalation and termination terms; plant-level license/outage/capex schedule; Calpine regional hedge profile; Crane downside case; leverage reduction vs adjusted EPS accretion.$$,
+      $$Constellation Q2 2026 results and 8-K (2026-08-06); PowerFund research 2026-08-14$$
+    ),
+    (
+      'NOC',
+      'investigate',
+      $$Priority 2/23. Best current defence-prime setup for diversification: strategic nuclear-modernization programs, roughly 19x forward earnings, and price below the 200-day average. Q2 sales rose 5% to $10.9B; backlog reached $104.7B.$$,
+      $$B-21, Sentinel, TACAMO, missile defence and restricted space align with priorities likely to survive budget changes. Q2 awards included $7.6B for Sentinel and $4.3B of restricted work; FY26 sales/EPS guidance increased.$$,
+      $$B-21 production acceleration; Sentinel ramp; GPI/IBCS/MESA awards; restricted-space conversion; Mission Systems margins near 15%; backlog converting into growth above 5%.$$,
+      $$B-21/Sentinel concentration and cost/schedule risk; recurring estimate-at-completion charges; restricted-program opacity; segment margin fell to 10.6%; budget support does not guarantee margin protection.$$,
+      $$Invalidate on additional material B-21/Sentinel charges; segment margin below 10.5% through 2027; FY26 adjusted FCF below $3.1B; program resets that cut guidance; or backlog rising while book-to-cash conversion deteriorates.$$,
+      $$More concentrated than LMT/RTX but better positioned in long-duration strategic systems. B-21 is effectively sole-source; Sentinel incumbency is deep but oversight is intense. Less commercial-cycle exposure than GD/RTX.$$,
+      $$Quantify B-21 lot economics and Sentinel re-baseline; funded vs unfunded backlog; restricted-program cash conversion; separate operating improvement from below-line EPS effects.$$,
+      $$Northrop Grumman Q2 2026 release/slides (2026-07-21); PowerFund research 2026-08-14$$
+    ),
+    (
+      'CCJ',
+      'investigate',
+      $$Priority 3/23. Most differentiated factor exposure: Tier-1 uranium mines, fuel services and 49% of Westinghouse. Price is below its 200-day average, but ~70x forward earnings means this is strategic scarcity, not a defensive-value stock.$$,
+      $$Western uranium security, disciplined contracting and reactor-service exposure are hard to replicate. Contracts average >28M lb/year through 2030; Q2 realized uranium pricing rose 15% to C$93.13/lb and FY26 price/revenue guidance increased.$$,
+      $$Long-term contracting at higher floors/escalators; uranium/conversion pricing; McArthur/Key Lake and Cigar Lake execution; Westinghouse new-build/service wins; western enrichment policy and utility inventory rebuilding.$$,
+      $$Mine disruptions and rising cash costs; lumpy Westinghouse earnings; Kazakhstan/Inkai and FX exposure; spot purchases to meet commitments; exceptional expectations already embedded in valuation.$$,
+      $$Invalidate if 2026 attributable output falls below 19.5M lb without force majeure; cash cost remains >C$60/lb as prices weaken; long-term uranium stays below US$75/lb for six months with weak contracting; post-2028 deliveries shrink without replacement; or Westinghouse trailing EBITDA turns negative.$$,
+      $$Kazatomprom is lower-cost but geopolitically exposed; Orano is the closest integrated peer but not similarly investable. Smaller miners offer more beta but lack Cameco's assets, conversion capacity, balance sheet and Westinghouse.$$,
+      $$Model contract floors/ceilings by delivery year; produced vs purchased pounds; normalize Westinghouse excluding one-offs; mine-by-mine costs/reliability; track conversion/enrichment separately from spot uranium.$$,
+      $$Cameco Q2 2026 results/MD&A (2026-07-31); PowerFund research 2026-08-14$$
+    ),
+    (
+      'EME',
+      'investigate',
+      $$Priority 4/23. Best operating evidence/backlog balance: Q2 revenue +19.8%, EPS +34.8%, and RPOs +43.9% to $17.14B, about 95% organic growth. Strong business, but price is in the 97th percentile of its five-year history.$$,
+      $$EMCOR is one of few scaled contractors able to deliver complex electrical/mechanical data centres, fabs, healthcare and water infrastructure. The moat is labor organization, bonding capacity, customer trust and project selection—not IP.$$,
+      $$Conversion of $13.02B of RPO expected within 12 months; network/communications growth; broad water/healthcare bookings; selective bidding and cost-plus mix; accretive specialist acquisitions.$$,
+      $$Larger projects raise execution and labor risk; only 75–76% of RPO expected to burn within a year vs ~85% historically; guaranteed-maximum-price exposure; permitting/interconnection delays; peak construction margins.$$,
+      $$Invalidate if RPO declines sequentially for two quarters; network RPO falls >15% YoY without replacement; US electrical/mechanical margin is below 10% for two quarters; material charges take consolidated margin below 8.5%; or trailing cash conversion is below 75%.$$,
+      $$Competes with Quanta, Comfort Systems, Southland and regional firms. Scale, bonding, skilled labor and combined electrical/mechanical delivery narrow the field. It owns execution scarcity, not equipment scarcity.$$,
+      $$RPO by end market/customer/contract type; hyperscaler concentration; reconcile slower burn with 2027 revenue; change-order/GMP exposure; normalized margins vs FIX/PWR.$$,
+      $$EMCOR Q2 2026 results and 10-Q (2026-07-30); PowerFund research 2026-08-14$$
+    ),
+    (
+      'LMT',
+      'investigate',
+      $$Priority 5/23. Best balance of funded defence scale, valuation and cash generation. Q2 sales rose 11% to $20.1B, FCF was $2.9B and guidance increased; $230.4B backlog is real but unusually concentrated in a $35B THAAD award.$$,
+      $$Missile defence, munitions and F-35 sustainment provide durable demand. FY26 guidance calls for $79.75–81.75B sales and $7.0–7.2B FCF; roughly 19x forward earnings is below the defence-tech scarcity multiples.$$,
+      $$THAAD/PAC-3/PrSM/NGI rate increases; F-35 delivery normalization; funded Golden Dome production; international F-16/missile orders; FCF above the raised floor.$$,
+      $$THAAD is ~15% of backlog; fixed-price/classified-program charges; F-35 concentration and acceptance timing; capacity investment before revenue; budget categories may not map to LMT contracts.$$,
+      $$Invalidate on two quarters of segment margin below 10%; FY26 FCF below $7B without a timing reversal; new material reach-forward losses; H2 F-35 deliveries failing to recover; or THAAD/munitions backlog not producing sustained MFC growth by FY27.$$,
+      $$Broadest integrated missile/aircraft/space portfolio. RTX has stronger commercial aerospace diversification; NOC has more B-21/nuclear modernization. Scale and incumbency protect cash flows but limit transformative growth.$$,
+      $$Funded content and annual production assumptions behind THAAD; F-35 cadence/cash/lot profitability; remaining loss reserves; FCF normalized for pension and working capital.$$,
+      $$Lockheed Martin Q2 2026 results/tables (2026-07-23); PowerFund research 2026-08-14$$
+    ),
+    (
+      'BWXT',
+      'investigate',
+      $$Priority 6/23. Scarce naval-nuclear and commercial-nuclear supplier with $8.4B backlog (+~40%) and price below its 200-day average. Strategic quality is high; ~34–40x forward earnings still demands patience.$$,
+      $$BWXT has sole-source-like US naval propulsion positions and qualified nuclear manufacturing barriers. Q2 revenue was $902M; Government Operations adjusted EBITDA margin was 20.9%; FY26 revenue/EBITDA/FCF guidance increased.$$,
+      $$Columbia/Virginia production; commercial life extensions; PCG/Kinectrics integration; medical-sale proceeds; advanced-reactor work moving from demonstrations to funded repeat production.$$,
+      $$Scarcity premium; commercial margin diluted by expansion; capex may approach 7% of sales; long-cycle quality/execution risk; AI-power narrative can price revenue years early.$$,
+      $$Invalidate if Government Operations margin falls below 19%; FY26 FCF misses $345M; commercial organic growth remains weak ex-acquisitions; integrations create excess charges; or advanced-reactor awards lack a production path by 2028.$$,
+      $$A critical qualified supplier, not a prime or power merchant. Rolls-Royce, Curtiss-Wright and specialists compete in pieces, but not across the full naval franchise. Current earnings remain government/naval—not data-centre SMRs.$$,
+      $$Split funded government/commercial/options backlog; medical-sale proceeds/stranded cost; post-acquisition capex and FCF; identify advanced-reactor contracts with repeat manufacturing economics.$$,
+      $$BWXT Q2 2026 results (2026-08-03); PowerFund research 2026-08-14$$
+    ),
+    (
+      'AVAV',
+      'investigate',
+      $$Priority 7/23. Credible autonomy/loitering-munition platform after a large retracement and below its 200-day average, but reported growth is acquisition-heavy and the BlueHalo integration still has to earn the valuation.$$,
+      $$Combat-proven Switchblade plus BlueHalo creates a broader autonomy, counter-UAS, space, cyber and directed-energy portfolio. FY26 revenue reached $1.98B and funded backlog $1.2B; FY27 guidance implies ~10% growth.$$,
+      $$Switchblade/autonomy awards; BlueHalo cross-selling and synergies; allied replenishment; counter-UAS production programs; return to GAAP profitability.$$,
+      $$FY26 growth was mostly acquired; $265M net loss and $241M goodwill impairment; ~$2.49B goodwill and ~$729M debt; large GAAP/adjusted EPS gap; funded backlog covers only just over half of guidance.$$,
+      $$Invalidate if FY27 organic growth is below mid-single digits; funded backlog falls below ~$1B or rolling book-to-bill <1; another impairment/control failure appears; adjusted EBITDA margin misses ~14%; or BlueHalo produces no visible cross-sell awards by FY28.$$,
+      $$Competes with primes, Anduril, Shield AI, Teledyne FLIR and low-cost drone vendors. Battlefield evidence is an advantage, but platform incumbency is shallower than at the primes and procurement can shift quickly.$$,
+      $$Acquisition-adjusted revenue/bookings; backlog conversion by program; recurring GAAP adjustments; BlueHalo purchase accounting and control remediation.$$,
+      $$AeroVironment FY26/Q4 results (2026-06-29); PowerFund research 2026-08-14$$
+    ),
+    (
+      'GD',
+      'investigate',
+      $$Priority 8/23. High-quality diversification across submarines, combat systems, IT and Gulfstream. Q2 revenue rose 8.1% to $14.1B and backlog reached $136.5B, but the stock is near a five-year high and already prices shipyard/Gulfstream recovery.$$,
+      $$Columbia/Virginia demand and Gulfstream margin recovery provide internal improvement without requiring a new program. Company book-to-bill was 1.4x and first-half FCF about $3.6B.$$,
+      $$G700/G800 deliveries; Marine productivity; vehicle/munitions awards; half the backlog converting by end-2027; debt reduction and cash conversion.$$,
+      $$Marine margin only 7.3%; labor/supplier execution; Gulfstream cyclicality; $50.4B potential value is options/IDIQ, not backlog; valuation ~22–24x leaves little room.$$,
+      $$Invalidate if Marine margin fails to approach high single digits in 2027; 2026 Gulfstream deliveries miss ~160 or Aerospace margin <14%; rolling FCF conversion <90%; firm backlog quality weakens; or submarine schedules slip again.$$,
+      $$Unique nuclear-shipbuilding plus business-jet mix. More cyclical but more diversified than LMT/NOC. BWXT supplies naval nuclear components; it is not a shipyard competitor.$$,
+      $$Firm vs potential backlog and escalation clauses; ship-by-ship milestones/margin sensitivity; Gulfstream deposits/cancellations; normalize first-half working capital.$$,
+      $$General Dynamics Q2 2026 results/materials (2026-07-29); PowerFund research 2026-08-14$$
+    ),
+    (
+      'HUBB',
+      'investigate',
+      $$Priority 9/23. Focused North American grid-component franchise with Q2 organic growth of 10%, utility book-to-bill ~1.2x and data-centre sales +~65%. Quality is high, but five-year price percentile is 96% and NSI acquisition leverage reduces defensiveness.$$,
+      $$Certified, critical utility hardware represents little of total project cost, supporting pricing and entrenched channel relationships. FY26 guidance implies 9–11% organic growth and adjusted EPS $20.25–20.55.$$,
+      $$Transmission/substation build; 2027 order conversion; data-centre growth and NSI cross-sell; NSI synergies/deleveraging; price/productivity offsetting tariffs.$$,
+      $$Pro-forma leverage ~2.9x and debt ~$4.8B; Q2 adjusted margin down 50 bp; Grid Automation only ~1% growth; overlap with crowded electrical names; distributor inventory and input costs.$$,
+      $$Invalidate if utility book-to-bill <1 for two quarters; organic Utility growth turns negative despite capex; adjusted margin <22% outside temporary integration; leverage >2.5x at end-2027; or NSI misses accretion/synergies.$$,
+      $$Entrenched niche utility components vs broader Eaton/ABB/Schneider systems. Less turbine/HVDC upside than GEV but more focused component economics. Owning HUBB+GEV+EME is one grid/data-centre factor.$$,
+      $$Separate organic vs NSI effects; NSI margins/synergies/debt plan; replacement vs new-load utility orders; distributor inventory; valuation/incremental margins vs ETN/NVT.$$,
+      $$Hubbell Q2 2026 results/10-Q (2026-07-28/29); NSI filing; PowerFund research 2026-08-14$$
+    ),
+    (
+      'TSM',
+      'investigate',
+      $$Priority 10/23. Best AI-industry control point and broadest winner-agnostic exposure, but price is in the 98th percentile and 19% above its 200-day average. Q2 revenue was $40.2B (+33.7%) with 67.7% gross margin.$$,
+      $$Near-monopoly economics at leading-edge logic, advanced packaging and process integration. The 2nm ramp and AI/HPC mix can extend above-industry growth regardless of which accelerator designer wins.$$,
+      $$Q3 revenue delivery; 2nm ramp; CoWoS capacity; FY26 USD revenue growth slightly above 40%; customer prepayments supporting expansion.$$,
+      $$Irreducible Taiwan tail risk; $60–64B capex and future overcapacity; 2nm/overseas-fab margin dilution; rising AI concentration; extreme current crowding.$$,
+      $$Invalidate on material share loss for two nodes; 2nm yield delays that move customers; gross margin <55% absent FX while utilization is high; AI/HPC growth <15% while capex stays >$55B; or material Taiwan disruption.$$,
+      $$Samsung and Intel Foundry are alternatives but lack TSMC's combined yield, scale, packaging and ecosystem. Customer self-fabrication is a longer-term threat. Geopolitics—not competition—is the dominant unhedgeable risk.$$,
+      $$Capacity-prepayment/cancellation protection; normalized overseas-fab margins; CoWoS supply; ADR value under blockade/sanctions/geographic-diversification cases.$$,
+      $$TSMC Q2 2026 release/transcript (2026-07-16); PowerFund research 2026-08-14$$
+    ),
+    (
+      'AVGO',
+      'investigate',
+      $$Priority 11/23. High-quality custom-ASIC/networking exposure plus VMware cash flow. Q2 FY26 revenue was $22.2B (+48%) with $10.3B FCF, but the stock is at the 98th percentile of its five-year range.$$,
+      $$Broadcom is the premier custom accelerator/networking partner for hyperscalers seeking alternatives to merchant GPUs. VMware adds recurring high-margin cash flow that supports debt reduction and capital returns.$$,
+      $$New custom-accelerator customers and ramps; OpenAI processor deployment; VMware cross-sell; deleveraging; Q3 results on 2026-09-02.$$,
+      $$Few-customer AI concentration; in-sourcing/product-transition risk; VMware attrition/regulatory pushback; acquisition debt; large GAAP/non-GAAP gap from ~$2B quarterly amortization.$$,
+      $$Invalidate if AI semiconductor growth <20% while customer capex rises; a major ASIC generation is cancelled; VMware recurring revenue contracts; FCF <35% of revenue for two quarters; or net leverage stops declining.$$,
+      $$Marvell is the closest custom-silicon rival; NVIDIA owns merchant accelerated computing; hyperscaler silicon teams are customer and competitor. Broadcom's scale and software cash flow are superior to narrow connectivity names.$$,
+      $$Revenue/backlog by ASIC customer; VMware seat contraction vs price; value semiconductor/software separately on GAAP cash economics; debt maturity path.$$,
+      $$Broadcom Q2 FY2026 results and FY2026 10-Q; PowerFund research 2026-08-14$$
+    ),
+    (
+      'RTX',
+      'investigate',
+      $$Priority 12/23. Strong operating momentum and genuine diversification, but it is the most crowded large prime: near the top of its five-year range and ~16% above the 200-day average. Q2 sales +14%, adjusted EPS +21%, backlog $289B.$$,
+      $$Pratt aftermarket, Collins content and Raytheon missile demand provide three engines. FY26 guidance rose to $95–96B sales and $8.5–8.75B FCF. This is aerospace/defence—not a pure defence stock.$$,
+      $$GTF aircraft-on-ground reduction; higher-margin shop visits; Patriot/AMRAAM/classified conversion; commercial production recovery; international replenishment.$$,
+      $$~28–30x forward earnings; long-tail GTF powder-metal remediation; ~60% commercial backlog; Boeing/Airbus constraints; adjusted metrics exclude economically relevant costs.$$,
+      $$Invalidate if GTF AOG stops declining or cash cost rises; FY26 FCF < $8.5B; Collins aftermarket falls to low-single-digit growth; Raytheon margin <11.5% despite growth; or estimates stop rising while P/E >25x.$$,
+      $$Best commercial installed-base economics in the group; Raytheon competes with LMT in missiles. Engine aftermarket is durable but adds product-liability risk absent from pure primes.$$,
+      $$GTF reserves/reimbursements/cash outflow; price-volume-aftermarket bridge; funded defence backlog/export timing; sum-of-parts for Collins/Pratt/Raytheon.$$,
+      $$RTX Q2 2026 results/materials (2026-07-23); PowerFund research 2026-08-14$$
+    ),
+    (
+      'EQIX',
+      'investigate',
+      $$Priority 13/23. Durable interconnection compounder and lower-beta AI infrastructure, but still crowded: 97th percentile and ~15% above the 200-day average. Q2 revenue was $2.63B (+16%); normalized AFFO/share +18%.$$,
+      $$Dense interconnection ecosystems create switching costs. Global footprint benefits from hybrid cloud and distributed inference; xScale JVs share hyperscaler development capital.$$,
+      $$Record interconnection adds; double-digit recurring revenue; xScale growth; raised 2026/2029 outlook; easing financing costs.$$,
+      $$$5–6B annual capex and rate sensitivity; one-time xScale fees flattered Q2; power/construction constraints; hyperscaler self-build; REIT financing dependence.$$,
+      $$Invalidate if normalized MRR growth <6%; AFFO/share declines two quarters; churn rises or interconnection adds turn negative; development yields fall below cost of capital; leverage rises as occupancy/bookings weaken.$$,
+      $$Digital Realty is the closest global peer; hyperscalers dominate wholesale campuses. EQIX differentiates through interconnection density, not lowest-cost bulk capacity.$$,
+      $$Strip one-time xScale fees; same-store occupancy/churn/power pass-through; JV guarantees; AFFO after recurring maintenance capex and stock compensation.$$,
+      $$Equinix Q2 2026 results/8-K (2026-07-29); PowerFund research 2026-08-14$$
+    ),
+    (
+      'GEV',
+      'watch',
+      $$Priority 14/23. Best power-equipment momentum, hardest entry: Q2 orders +88%, backlog $176B, but price is 94th percentile and ~23% above its 200-day average at ~49x forward earnings.$$,
+      $$GEV owns two acute bottlenecks: large gas turbines and grid equipment. Gas backlog/reservations reached 116 GW; Electrification equipment backlog $40.6B; service installed base supports margins.$$,
+      $$Reservation-to-order conversion; capacity ramp to 24 GW in 2028/30 GW in 2030; service growth; HVDC/transformer awards; Prolec integration; wind losses shrinking.$$,
+      $$Slot reservations may cancel; customers face permitting/interconnection/gas constraints; capacity execution; Wind lost $275M EBITDA in Q2; FCF is boosted by customer advances; near-flawless execution priced.$$,
+      $$Invalidate if gas backlog/reservations fall two quarters or cancellations >10%; 2028 capacity misses >10%; Electrification book-to-bill <1 twice; Wind loss >$600M in 2026; or Power/Electrification margins <15% while growing.$$,
+      $$Gas turbines are an oligopoly with Siemens Energy/Mitsubishi. Grid competitors include Siemens, Hitachi Energy, ABB, Schneider. Breadth is useful but embeds wind liabilities absent from purer names.$$,
+      $$Firm orders vs refundable reservations; backlog margins/escalators; normalize FCF for advances; supplier/capacity capex; standalone Wind liability; implied 2030 earnings.$$,
+      $$GE Vernova Q2 2026 results/8-K (2026-07-22); PowerFund research 2026-08-14$$
+    ),
+    (
+      'ANET',
+      'watch',
+      $$Priority 15/23. Elite Ethernet franchise with Q2 revenue +37.7% and 45.4% GAAP operating margin, but the most crowded setup in the group: ~100th percentile and ~38% above its 200-day average.$$,
+      $$EOS software, reliability and cloud engineering relationships create switching costs. Ethernet is gaining credibility for scale-out and scale-up AI fabrics; enterprise/campus is a second engine.$$,
+      $$1.6T and liquid-cooled fabrics; Q3 ~$3.3B revenue; scale-up Ethernet wins; customer diversification beyond Microsoft/Meta.$$,
+      $$Microsoft/Meta concentration; hyperscaler timing and internal networking; NVIDIA Spectrum-X/InfiniBand; white-box competition; ~44x forward earnings/18x sales tolerates no stumble.$$,
+      $$Invalidate if growth <15% for two quarters while capex remains strong; gross margin <60% or operating margin <38%; customer spending falls without replacement; AI wins remain confined to two customers; or EOS attach weakens.$$,
+      $$Cisco has enterprise breadth; NVIDIA owns integrated GPU/networking; white box competes on price. Arista's defence is EOS consistency and cloud-scale operating experience.$$,
+      $$Current Microsoft/Meta concentration; AI vs traditional cloud mix; prove scale-up wins in production; wait for valuation/downside protection.$$,
+      $$Arista Q2 2026 results (2026-08-04) and concentration filings; PowerFund research 2026-08-14$$
+    ),
+    (
+      'NVDA',
+      'watch',
+      $$Priority 16/23. Strongest AI operating platform, but a >$5T consensus holding at ~100th percentile and ~16% above its 200-day average. Q1 FY27 revenue was $81.6B (+85%); Data Center $75.2B.$$,
+      $$CUDA, networking, systems and developers create a platform moat beyond GPUs. Architecture cadence sustains performance-per-dollar leadership; the multiple is supportable only if hyperscaler capex and estimates hold.$$,
+      $$Blackwell scale; Vera Rubin transition; inference/sovereign/enterprise demand; networking and software monetization.$$,
+      $$Top-three direct customers were 21%/17%/16%; $119B supply commitments; China/export controls; hyperscaler ASICs; neocloud financing/circular demand; product-transition inventory.$$,
+      $$Invalidate if Data Center sequential growth is negative twice outside transition; gross margin settles <68%; CSP capex falls >15% as inventory rises; CUDA workload share erodes; or commitments outgrow revenue while inventory >100 days.$$,
+      $$AMD is the merchant competitor; customer ASICs are the larger economic threat. NVIDIA's networking/software integration is its strongest defence. It adds no diversification to the current book.$$,
+      $$End consumption vs ODM/neocloud shipments; utilization and inference economics; commitments/inventory/prepayments by architecture; China downside.$$,
+      $$NVIDIA Q1 FY2027 results/10-Q (2026-05-20); PowerFund research 2026-08-14$$
+    ),
+    (
+      'KTOS',
+      'watch',
+      $$Priority 17/23. Strong organic defence-tech growth and price below its 200-day average, but valuation (~68–96x forward earnings) assumes opportunities become high-rate programs. Q2 revenue +30.5%; funded backlog $1.57B.$$,
+      $$Kratos self-funds low-cost engines, Valkyrie and hypersonic/rocket capacity where primes wait for customer funding. FY26 guidance rose, but current GAAP economics do not yet support the option value.$$,
+      $$Valkyrie program-of-record; 3,000-engine output in 2027; hypersonic/space/propulsion awards; customer funding replacing self-funding; 2027 margin improvement.$$,
+      $$Q2 operating loss; FY26 FCF use $85–105M; $250–275M investment partly for opportunities, not orders; Unmanned backlog flat; 1.0x book-to-bill; $15B bid pipeline is not backlog.$$,
+      $$Invalidate if Valkyrie fails to reach ~1.5/month in 2027; Unmanned rolling book-to-bill <1 or backlog falls twice; FCF use >$105M without awards; engine demand trails built capacity; or 2027 EBITDA margin misses +100 bp.$$,
+      $$Nimble and willing to self-fund; competes with primes, General Atomics, Anduril and others. Prime partnerships can accelerate adoption but leave KTOS with supplier economics.$$,
+      $$Committed orders vs opportunity inventory/capex; Valkyrie unit economics/cancellation; contracted engine volume; backlog duration/margin/funding; value established operations separately from options.$$,
+      $$Kratos Q2 2026 results (2026-08-04); PowerFund research 2026-08-14$$
+    ),
+    (
+      'IREN',
+      'watch',
+      $$Priority 18/23. Power/site optionality with real Microsoft/NVIDIA validation and price below its 200-day average, but current revenue/cash flow do not yet validate the planned AI-cloud capital structure.$$,
+      $$Scarce grid-connected land can be converted into GPU capacity; Horizon 1 was accepted by Microsoft on 2026-08-13. The thesis is project delivery and contract economics—not contracted-ARR headlines.$$,
+      $$Horizon 2–4 delivery; ramp toward $3.7B contracted ARR; 480 MW 2026 capacity; FY26 results 2026-08-27; financing at attractive project returns.$$,
+      $$Q3 revenue only $145M with $248M net loss; construction/GPU/power/financing risk; Microsoft/NVIDIA concentration; NVIDIA share rights; residual bitcoin volatility.$$,
+      $$Invalidate if Horizon 2–4 slips >1 quarter; capacity fails acceptance; funding drives project returns <12%; contracted ARR misses $3B by end-2026; or debt rises without proportional commissioned capacity.$$,
+      $$CoreWeave has more scale/software; hyperscalers self-build. IREN's differentiator is power access and vertical site development, not a proven cloud moat.$$,
+      $$Contract cash-flow waterfalls incl GPU refresh/debt; termination/availability/customer-credit clauses; reconcile contracted ARR with GAAP backlog/revenue timing.$$,
+      $$IREN Q3 FY2026 update and Horizon acceptance 8-K (2026-05-07/08-13); PowerFund research 2026-08-14$$
+    ),
+    (
+      'ALAB',
+      'watch',
+      $$Priority 19/23. Exceptional rack-connectivity growth and economics, but concentration and entry risk are extreme: Q2 revenue +104%, gross margin >73%, price 94th percentile and ~50% above its 200-day average.$$,
+      $$PCIe/CXL retimers and Scorpio fabric switches address rack-scale bottlenecks; Scorpio broadens Astera beyond retimers. Net cash and high margins fund focused R&D.$$,
+      $$Scorpio X/P production; PCIe 6.0 mix; optical/custom design wins; Scorpio becoming the largest family.$$,
+      $$Four direct customers were 29%/25%/15%/13%; top-three end customers 86% in 2025; foundry/packaging dependence; short cycles; unusual Q2 tax benefit; valuation requires perfect execution.$$,
+      $$Invalidate if Scorpio is not largest family in Q3; growth <30% before diversification; gross margin <68%; a top customer cuts >25% without replacement; or integrated accelerators reduce attach.$$,
+      $$Broadcom/Marvell/Credo have broader portfolios; hyperscalers can design custom silicon. Astera's edge is focused system-level execution and early qualifications.$$,
+      $$Map invoiced to end customers; normalize Q2 tax/earnings; establish whether Scorpio wins span customers/platforms; refresh valuation after extension.$$,
+      $$Astera Labs Q2 2026 results/10-Q (2026-08-04); PowerFund research 2026-08-14$$
+    ),
+    (
+      'CRDO',
+      'watch',
+      $$Priority 20/23. Outstanding AEC growth but one of the most crowded/concentrated names: FY26 revenue tripled to $1.34B; price ~99th percentile and ~56% above the 200-day average.$$,
+      $$AECs solve power/density/reliability inside AI clusters; strong cash and high margins fund optics/DSP/chiplet expansion. Customer concentration improved but remains the core risk.$$,
+      $$800G/1.6T AEC ramps; ZeroFlap optics/OmniConnect; broader hyperscaler adoption; reduced original-customer concentration.$$,
+      $$Top ten customers ~90% of sales; two >10%; few cluster architectures; copper reach limits and optical substitution; ~80x trailing earnings embeds hypergrowth.$$,
+      $$Invalidate if quarterly growth <25% before diversification; largest end customer returns >50%; gross margin <62%; AEC content per rack falls at 1.6T; or optical products are immaterial by FY28.$$,
+      $$Astera competes in retimers/fabrics; Marvell/Broadcom in DSP/optics; optical vendors in transceivers. Credo's edge is low-power SerDes/AEC specialization.$$,
+      $$Current end-customer—not contract manufacturer—percentages; AEC content under alternative rack topologies; optics revenue milestones; normalized valuation.$$,
+      $$Credo FY2026 results/10-K (2026-06-01); PowerFund research 2026-08-14$$
+    ),
+    (
+      'MRVL',
+      'watch',
+      $$Priority 21/23. Credible AI optics/switching/custom-silicon recovery, but weaker economics and execution visibility. Q1 FY27 revenue +28%; price ~98th percentile and ~58% above its 200-day average.$$,
+      $$Broad portfolio across custom compute, electro-optics, DSP and switching can outgrow legacy carrier/storage. Celestial AI adds scale-up optionality if integration works.$$,
+      $$Q2 ~$2.7B guidance; 1.6T optics/51.2T switching; custom ramps; Q2 results 2026-08-27; Investor Day 2026-10-06.$$,
+      $$Broadcom scale advantage; large GAAP/non-GAAP gap; acquisition/dilution risk; project delays; AI growth may not convert into GAAP profits.$$,
+      $$Invalidate if data-centre growth <20% while peers >30%; Q2 misses midpoint >5%; non-GAAP gross margin <56%; GAAP profit stays negligible after AI exceeds half of sales; or major ASIC ramps slip >2 quarters.$$,
+      $$Broadcom has greater ASIC scale; NVIDIA owns integrated systems; Credo/Astera attack focused niches. Breadth helps, but has not yet produced peer economics.$$,
+      $$Bridge recurring GAAP adjustments; customer/program concentration and economics; Celestial AI assumptions; wait for results and de-crowding.$$,
+      $$Marvell Q1 FY2027 results/10-Q (2026-05-28); PowerFund research 2026-08-14$$
+    ),
+    (
+      'SMCI',
+      'watch',
+      $$Priority 22/23. AI-server demand is real, but accounting and working-capital quality remain unresolved. Q4 sales were $11.1B and gross margin jumped to 17.5%; price is still ~23% above its 200-day average.$$,
+      $$Fast time-to-market, liquid cooling and building-block designs win accelerator ramps. The equity may be inexpensive only if audited margins and cash conversion prove repeatable.$$,
+      $$Audited FY26 10-K; backlog delivery; sustained gross margin >14%; inventory/receivable normalization; control remediation.$$,
+      $$March inventory $11.1B and receivables $8.4B; Q3 operating cash outflow $6.6B; abrupt margin jump needs audit; related-party suppliers/prior filing issues; low differentiation.$$,
+      $$Invalidate if 10-K is delayed/qualified or reveals new weaknesses; gross margin <10%; inventory+receivables >60% of trailing sales; rolling four-quarter OCF negative; or revenue reversal/channel/related-party issues emerge.$$,
+      $$Dell/HPE/ODMs and internal hyperscaler designs have stronger balance sheets or captive demand. SMCI competes on speed/customization, not durable software.$$,
+      $$Do not rely on unaudited Q4 before 10-K; trace deposits/cancellation, receivable aging and inventory ownership; review Ablecom/Compuware and remediation.$$,
+      $$Supermicro unaudited Q4/FY2026 results (2026-08-11) and Q3 10-Q; PowerFund research 2026-08-14$$
+    ),
+    (
+      'CRWV',
+      'watch',
+      $$Priority 23/23. Genuine $104B backlog and strategic GPU demand, but common equity is the fragile residual beneath extreme leverage. Q2 revenue was $2.58B; net loss $626M and net interest expense $640M.$$,
+      $$Purpose-built AI cloud and scarce GPUs attract top customers; backlog can create visibility if facilities deliver. Software/orchestration may differentiate beyond rental, but cost of capital is structural.$$,
+      $$Backlog conversion; 1.5 GW active capacity; lower borrowing costs; customer diversification; utilization and delivery execution.$$,
+      $$Top customers 45%/20%; debt around $24.9B at Q1; massive negative FCF/refinancing; GPU obsolescence faster than debt/leases; backlog contingent on delivery/performance.$$,
+      $$Invalidate if backlog falls ex-delivery; interest remains >20% of revenue after 2027; net debt/annualized revenue fails below 2x; top-two concentration remains >60% after 2027; utilization <75% or financing exceeds project returns.$$,
+      $$AWS/Azure/Google/Oracle have cheaper capital and integrated services; IREN/other neoclouds compete on capacity. CoreWeave has specialization/speed but a structurally worse funding base.$$,
+      $$Analyze each SPV/lien/guarantee/cross-default; match contract duration to GPU life/debt/leases; take-or-pay vs performance-terminable backlog; equity downside in refinancing cases.$$,
+      $$CoreWeave Q2 2026 results (2026-08-11) and Q1 10-Q; PowerFund research 2026-08-14$$
+    )
+) as d (
+  symbol,
+  status,
+  summary,
+  thesis,
+  catalysts,
+  risks,
+  invalidation,
+  competitive_notes,
+  next_diligence,
+  source
+)
+join public.instruments i
+  on i.symbol = d.symbol
+ and i.exchange = 'US'
+on conflict (instrument_id) do update
+  set
+    status = excluded.status,
+    summary = excluded.summary,
+    thesis = excluded.thesis,
+    catalysts = excluded.catalysts,
+    risks = excluded.risks,
+    invalidation = excluded.invalidation,
+    competitive_notes = excluded.competitive_notes,
+    next_diligence = excluded.next_diligence,
+    source = excluded.source,
+    updated_at = timezone('utc', now());
+
+-- Remaining researched dossier refresh (2026-08-14).
+-- Priority is specific to PowerFund's current factor exposure and entry setup.
+insert into public.dossiers (
+  instrument_id,
+  status,
+  summary,
+  thesis,
+  catalysts,
+  risks,
+  invalidation,
+  competitive_notes,
+  next_diligence,
+  source
+)
+select
+  i.id,
+  d.status::public.dossier_status,
+  d.summary,
+  d.thesis,
+  d.catalysts,
+  d.risks,
+  d.invalidation,
+  d.competitive_notes,
+  d.next_diligence,
+  d.source
+from (
+  values
+    (
+      'ISRG',
+      'investigate',
+      $$Priority 1/6. Exceptional surgical-robotics franchise and the cleanest factor diversifier in the remaining list. Q2 revenue grew 19% to $2.89B, combined procedures 16%, and recurring revenue was 85% of sales. At ~$401 the stock was 16% below its 200-day average, though ~35.5x forward earnings is still demanding.$$,
+      $$The moat is an ecosystem: 11,710 da Vinci systems, surgeon training, workflow integration, clinical evidence, service density and proprietary per-procedure instruments. Procedure growth and utilization monetize the installed base through consumables, leases and service. Da Vinci 5, Ion and SP create distinct growth vectors; Q2 Ion procedures rose 36% and SP procedures 61%. The balance sheet held $8.63B of cash/investments.$$,
+      $$Da Vinci 5 international approvals and force-feedback instruments; Japanese reimbursement additions; SP indications and Japan stapler rollout; Ion international/diagnostic expansion; lower-cost XiR/refurbished systems; further procedure and utilization growth.$$,
+      $$Absolute valuation still leaves limited room for low-teens growth; Medtronic Hugo and J&J Ottava introduce credible competition; US procedure growth moderated to 12% and bariatric volumes declined; China tender/pricing pressure; 54% of Q2 placements were leases, moving utilization/residual-value risk onto ISRG; inventory reached $2.03B; sole-source components and tariff effects.$$,
+      $$Reduce or exit if da Vinci procedure growth is below 10% for two quarters or FY26 below 13.5%; utilization declines >3% YoY twice while installed base grows >8%; normalized non-GAAP gross margin is below 67% twice; inventory grows >25% while systems revenue grows <5% twice; or placements decline >15% twice alongside sub-10% procedures. Do not add above ~45x forward earnings without at least 15% forward-EPS estimate growth.$$,
+      $$Hugo and Ottava begin with narrower indications and tiny US fleets. ISRG's defence is its installed base, ~70 multi-port instruments, training, service and procedure data. The likely long-term threat is hospital bundling/price compression from Medtronic or J&J, not abrupt displacement. China is more vulnerable to domestic competitors and procurement policy.$$,
+      $$Split placements into new sites, replacements and trade-ins; procedures per installed system by platform/geography; operating-lease ROIC and residual values; competitor installations/indications/consumable pricing; reconcile inventory with lease placements; track China tenders and pricing limits.$$,
+      $$Intuitive Q2 2026 earnings release (2026-07-16), Q2 10-Q (2026-07-21), 2025 10-K; market data through 2026-08-13; PowerFund research 2026-08-14$$
+    ),
+    (
+      'ROK',
+      'investigate',
+      $$Priority 2/6. Genuine earnings recovery with better factor diversification than the semiconductor names, but not a cheap entry: Q3 organic sales rose 10%, adjusted EPS 22%, and enterprise margin expanded 280 bp to 22.3%. At ~$446, ROK was in the 95th percentile of its five-year range and ~7.5% above its 200-day average.$$,
+      $$Rockwell's North American Allen-Bradley/Logix installed base, distributor network and switching costs support pricing and upgrades. Software & Control grew 18% organically with 34.8% margin; semiconductor, data-centre and warehouse demand can drive growth without a broad factory-capex recovery. Automotive, life sciences and process recovery remain optionality, not a base-case fact.$$,
+      $$FY26 delivery at the top of 7.5–9.5% organic growth and $13.00–13.30 adjusted EPS; FY27 mid-single-digit growth without a broad rebound; Lifecycle book-to-bill returning above 1; 15%+ Software & Control growth; Clearpath/Production Logistics profitability; automotive/life-science project activity becoming named orders.$$,
+      $$~34x FY26 adjusted earnings; strongest verticals still overlap AI/semiconductor capex; Lifecycle organic sales fell 2% and book-to-bill was 0.97; no broad food/beverage or process recovery; negative price/cost; margin help from restructuring and Sensia dissolution; $3.26B debt and $4.5B goodwill/intangibles.$$,
+      $$Reduce or exit if FY26 organic growth is below 7.5% or adjusted EPS below $13; enterprise margin below 20.5% in either of the next two quarters; Lifecycle book-to-bill below 0.95 twice or 0.90 once; Software & Control growth below 8% with software ARR below 5%; FY27 guidance below 3% organic growth or 5% EPS growth; or next-12-month RPO falls >10% from $820M by Q2 FY27.$$,
+      $$Rockwell is strongest in North American discrete automation. Siemens is broader globally and in engineering software; Schneider pairs automation with electrical distribution; ABB has broader motion/robotics; Emerson and Honeywell are stronger in process control. Pure-play focus creates upside leverage but fewer offsets in a downturn.$$,
+      $$Obtain backlog by segment beyond RPO; isolate Sensia's margin contribution; track distributor sell-through vs restocking; identify named automotive/life-science orders; compare normalized EBIT/FCF with Siemens, Schneider, ABB and Emerson; wait for a better valuation or stronger revisions.$$,
+      $$Rockwell Automation Q3 FY2026 release, presentation and 10-Q (2026-08-04), FY2025 10-K; market data through 2026-08-13; PowerFund research 2026-08-14$$
+    ),
+    (
+      'ETN',
+      'watch',
+      $$Priority 3/6. Excellent backlog-supported electrification compounder, but currently one of the most crowded names: Q2 revenue was $8.53B (+14% organic), firm backlog $24.1B, and Electrical book-to-bill ~1.2. At ~$453, ETN was at the 99.8th percentile and 21% above its 200-day average, with material overlap to VRT/NVT.$$,
+      $$ETN can compound through data-centre power/cooling, grid electrification and aerospace. Electrical plus Aerospace provide broader earnings than a data-centre pure play; Boyd Thermal fills a cooling gap and the Mobility separation should raise growth/margin mix. The underwrite is the firm $24.1B backlog—not the quoted 307 GW industry pipeline, most of which is unpermitted and not Eaton orders.$$,
+      $$Electrical and Aerospace backlog conversion; sustained data-centre order growth; Boyd cross-selling and margin improvement; Mobility separation and ~$1.1B distribution in Q1 2027; aerospace aftermarket/Ultra PCS integration; higher-voltage DC and solid-state transformer adoption; capacity additions easing bottlenecks.$$,
+      $$Crowding and ~30x forward earnings; non-firm data-centre announcements may cancel; gross debt rose to ~$20.6B after Boyd/Ultra PCS; interest expense nearly tripled; wider GAAP/non-GAAP gap; Electrical Americas margin remained below prior year despite growth; competition from Schneider, Vertiv, ABB and Siemens; direct AI-capex factor overlap.$$,
+      $$Reduce or exit if combined Electrical book-to-bill is below 1.0 twice or backlog turns negative YoY by Q2 2027; data-centre orders decline twice or revenue growth is below 10% by H1 2027; segment margin is below 22% twice; FY26 FCF below $3.9B; gross debt fails to fall at least $2B by end-2027; or Boyd annualized revenue falls below $1.6B without margin progress.$$,
+      $$ETN's advantage is qualification and breadth from utility equipment through rack-level power/cooling. Schneider has the closest end-to-end portfolio; VRT is more concentrated in data-centre thermal infrastructure; ABB is strong in medium voltage and automation. Breadth lowers company risk but does not make ETN independent of the hyperscaler-capex factor.$$,
+      $$Track quarterly data-centre revenue/orders consistently; split hyperscaler/colo/enterprise exposure; isolate Boyd revenue, backlog and margin; reconcile firm backlog with the 307 GW industry pipeline; compare ETN/VRT/NVT correlations and capex-pause stress; reassess after de-extension.$$,
+      $$Eaton Q2 2026 earnings release, presentation and 10-Q (2026-07-31/August), Q1 2026 end-market presentation; market data through 2026-08-13; PowerFund research 2026-08-14$$
+    ),
+    (
+      'PATH',
+      'watch',
+      $$Priority 4/6. Capital-light automation turnaround with improving profitability, but the stock moved ~57% in three weeks without a new earnings print and sat 31% above its 200-day average. Q1 FY27 revenue grew 17% to $418M, ARR 12% to $1.901B and net retention was 109%. Wait for the 2026-09-03 Q2 report.$$,
+      $$UiPath can combine deterministic automation, agents, document processing, testing and cross-application orchestration for regulated enterprises. Q1 evidence included AI in 16 of the top 20 deals and larger AI expansions; customers above $1M ARR rose to 374. Governance and auditability may be more defensible than standalone agents. The thesis requires ARR/retention/cohort proof—not customer anecdotes.$$,
+      $$Q2 revenue guidance of $395–400M and ARR $1.929–1.934B; FY27 guidance of $1.776–1.781B revenue and $2.058–2.063B ARR; Maestro/agentic/IXP/Test Cloud production conversion; WorkFusion integration; larger-customer expansion; potential short-covering after a strong print.$$,
+      $$Total customers were flat; 109% net retention is modest; Microsoft can bundle Power Automate while ServiceNow, Salesforce, Automation Anywhere and AI-native tools compete; computer-use agents may commoditize RPA; ARR is invoiced value, not revenue/backlog; Q1 SBC was 12.7% of revenue; dual-class founder control; rally makes the September print binary.$$,
+      $$Reduce/pass if Q2 ARR is below $1.929B or FY27 ARR guidance below $2.058B; net retention below 105% twice; net-new ARR below $40M twice or $180M for FY27; >$100K customers fail to grow twice; GAAP operating margin turns negative while SBC exceeds 15% twice; or FY27 operating cash flow less capex is below $300M. Do not initiate full size >25% above the 200-day average without a beat and guidance raise.$$,
+      $$UiPath is strongest in complex, regulated, cross-application automation. Microsoft is the structural threat through bundling; ServiceNow and Salesforce are stronger when workflows stay inside their systems. UiPath must prove multi-vendor orchestration improves retention and contract size rather than merely generating pilots.$$,
+      $$Request agentic/Maestro ARR, production-customer counts and renewal rates; organic ARR ex-WorkFusion/FX; gross retention and account cohorts; Microsoft/ServiceNow win-loss data; owner earnings after SBC and buybacks; WorkFusion acquired ARR/retention; reassess after September 3.$$,
+      $$UiPath Q1 FY2027 release (2026-05-28), Q1 10-Q (2026-06-04), FY2026 10-K, Q2 reporting-date notice (2026-08-06); market data through 2026-08-13; PowerFund research 2026-08-14$$
+    ),
+    (
+      'TER',
+      'watch',
+      $$Priority 5/6. Exceptional AI-test momentum but a parabolic, concentrated entry: Q2 revenue doubled to $1.329B, Semiconductor Test rose 128% and non-GAAP operating margin reached 33.7%. At ~$411, TER was at the 99th percentile, 37% above its 200-day average and up ~269% YoY.$$,
+      $$AI accelerators require more test insertions, longer test times, power handling and HBM/DRAM testing. Teradyne is broadening from mobile SoC into compute, memory, system-level test, photonics and interconnect. Peak volumes produce excellent incremental margins; Product Test and Robotics add options. More than 60% of Q2 revenue was AI-driven, so this is AI infrastructure—not a portfolio-diversifying robotics position.$$,
+      $$Q3 above the $1.2–1.3B guide; memory revenue exceeding Q2's $212M; merchant-GPU qualifications; ATE market expansion and share gains; MultiLane/Omny photonics wins; Robotics sustaining >20% growth; FY27 guidance confirming growth against difficult comparisons.$$,
+      $$~42x forward earnings after a 2026 surge; limited hard backlog and cancellable orders; >60% AI exposure; specifying/purchasing-customer concentration; compute/memory lumpiness and peak margins; Advantest competition; lower-margin memory mix; Robotics is only 7.5% of revenue and faces major robot OEMs.$$,
+      $$Reduce/pass if Q3 revenue is below $1.2B or EPS below $1.85; Q4 revenue below $1.15B; non-GAAP gross margin below 58% twice or operating margin below 27% once before Q2 2027; Semiconductor Test below $950M twice; FY27 guidance below 10% revenue growth or no EPS growth; Robotics below $90M twice; or a material >10% customer loss occurs.$$,
+      $$Teradyne's test qualifications and installed platforms create switching costs, but Advantest is at least as exposed to leading-edge compute/memory. Cohu/SPEA compete in niches. Product Test faces Keysight/Rohde & Schwarz/Anritsu. Universal Robots has cobot ecosystem strength, but robotics is not the current earnings engine.$$,
+      $$Determine TER vs Advantest share by compute/HBM/DRAM/merchant GPU; identify >10% customers and cadence; normalize margins by segment; test WFE-to-ATE purchase lag; verify merchant-GPU qualifications; track Robotics units/ASPs/channel inventory; wait for a meaningful pullback or 2027 order proof.$$,
+      $$Teradyne Q2 2026 release (2026-07-28), Q2 10-Q (2026-07-31), earnings presentation/call, FY2025 10-K; market data through 2026-08-13; PowerFund research 2026-08-14$$
+    ),
+    (
+      'AMD',
+      'watch',
+      $$Priority 6/6. Genuine data-centre inflection but the worst current entry setup: Q2 revenue reached $11.54B (+50%) and Data Center $6.72B (+107%), yet at ~$483 AMD was 50% above its 200-day average and up ~176% YoY. Helios upside is offset by unproven customer economics, warrants and partner commitments.$$,
+      $$EPYC provides a mature server-share route while Instinct/Helios offers hyperscalers a credible second platform to NVIDIA. Helios' memory capacity may suit inference, but the thesis requires named gigawatt agreements to convert into profitable, repeatable deployments while holding mid-50s gross margin. Customer commitments alone are insufficient after economic concessions.$$,
+      $$Meta/OpenAI initial deployments; Helios availability at major CSPs; Anthropic's first gigawatt in H1 2027; EPYC Venice share gains; MI500/Helios 500 in 2027; ROCm production adoption; gross margin above 56% as Data Center mix rises.$$,
+      $$NVIDIA CUDA/networking moat and custom ASICs; future concentration in Meta/OpenAI/Anthropic; Meta/OpenAI warrants could create ~20% maximum dilution; $4.1B lease guarantees, $30.3B purchase/cloud commitments and up to $5B investments; TSMC/export-control risk; annual roadmap execution; extreme crowding/beta.$$,
+      $$Reduce/pass if Data Center revenue declines sequentially twice or FY27 growth is below 40%; Data Center margin below 28% twice or company non-GAAP gross margin below 54% by Q2 2027; Meta/OpenAI first deployments slip beyond Q1 2027 or Anthropic beyond Q3 2027; MI500 is not shipping by Q4 2027; matched testing shows Helios >15% worse total cost/token than Rubin; or commitments grow faster than revenue while Data Center sequential growth is below 5% twice.$$,
+      $$AMD is the credible second merchant platform with open standards, high memory capacity and CPU/GPU/networking integration. NVIDIA retains major advantages in CUDA, NVLink/NCCL, developers and proven cluster operations; hyperscaler ASICs threaten stable inference workloads. Warrants demonstrate commitment but also that AMD shared substantial economics to win anchors.$$,
+      $$Build customer deployment schedules separating binding purchases from up-to frameworks; model warrant dilution by milestone; split EPYC and Instinct gross profit; track independent Helios/Rubin utilization and cost; audit guarantees/investments/commitments by counterparty; measure production ROCm adoption; wait for de-extension or hard deployment evidence.$$,
+      $$AMD Q2 2026 release/presentation (2026-08-04), Q2 10-Q (2026-08-05), Helios roadmap, Meta/OpenAI agreement filings; market data through 2026-08-13; PowerFund research 2026-08-14$$
+    )
+) as d (
+  symbol,
+  status,
+  summary,
+  thesis,
+  catalysts,
+  risks,
+  invalidation,
+  competitive_notes,
+  next_diligence,
+  source
+)
+join public.instruments i
+  on i.symbol = d.symbol
+ and i.exchange = 'US'
+on conflict (instrument_id) do update
+  set
+    status = excluded.status,
+    summary = excluded.summary,
+    thesis = excluded.thesis,
+    catalysts = excluded.catalysts,
+    risks = excluded.risks,
+    invalidation = excluded.invalidation,
+    competitive_notes = excluded.competitive_notes,
+    next_diligence = excluded.next_diligence,
+    source = excluded.source,
+    updated_at = timezone('utc', now());
+
 -- Live cash (NAV = cash + MTM). Do not overwrite an existing row.
 insert into public.portfolio_state (cash, notes)
 select
