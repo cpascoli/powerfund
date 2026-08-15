@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { DossierForm } from "@/components/dossier-form";
 import { PriceHistoryChart } from "@/components/price-history-chart";
 import { PriceReturnsRow } from "@/components/price-returns-row";
+import { renderMarkdown } from "@/lib/markdown";
 import {
   getInstrumentDossier,
   getInstrumentMarketSnapshot,
@@ -35,7 +36,7 @@ function Section({
   return (
     <section className="panel">
       <h2>{title}</h2>
-      <p className="dossier-body">{body}</p>
+      <article className="doc">{renderMarkdown(body)}</article>
     </section>
   );
 }
@@ -178,9 +179,11 @@ export default async function InstrumentDossierPage({
         <>
           <section className="panel">
             <h2>Summary</h2>
-            <p className="dossier-body">{dossier?.summary}</p>
+            <article className="doc">{renderMarkdown(dossier?.summary ?? "")}</article>
             {dossier?.source ? (
-              <p className="muted">Source: {dossier.source}</p>
+              <article className="doc muted">
+                {renderMarkdown(dossier.source)}
+              </article>
             ) : null}
           </section>
           <Section title="Thesis" body={dossier?.thesis} />

@@ -769,6 +769,16 @@ a {
   color: var(--ink);
 }
 
+.panel .doc {
+  max-width: none;
+}
+
+.panel .doc.muted {
+  margin-top: 0.85rem;
+  color: var(--muted);
+  font-size: 0.92rem;
+}
+
 .doc h2 {
   margin: 2rem 0 0.6rem;
   padding-top: 1.25rem;
