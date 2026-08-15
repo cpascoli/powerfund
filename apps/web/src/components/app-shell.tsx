@@ -93,7 +93,19 @@ export function AppShell({ children }: { children: ReactNode }) {
           <SignOutButton />
         </div>
       </aside>
-      <main className="main">{children}</main>
+      <main className="main">
+        <div className="main-content">{children}</div>
+        <footer className="site-footer">
+          <p>© {new Date().getFullYear()} Power Fund</p>
+          <a
+            href="https://github.com/cpascoli/powerfund"
+            target="_blank"
+            rel="noreferrer"
+          >
+            GitHub
+          </a>
+        </footer>
+      </main>
     </div>
   );
 }
