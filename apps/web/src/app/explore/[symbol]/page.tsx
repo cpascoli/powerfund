@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
+import { dossierResearchLevelLabel } from "@powerfund/domain";
+
 import { DossierForm } from "@/components/dossier-form";
 import { PriceHistoryChart } from "@/components/price-history-chart";
 import { PriceReturnsRow } from "@/components/price-returns-row";
@@ -122,6 +124,14 @@ export default async function InstrumentDossierPage({
         <div className="stat">
           <span>Status</span>
           <strong>{dossier?.status ?? "new"}</strong>
+        </div>
+        <div className="stat">
+          <span>Research</span>
+          <strong>
+            {dossier
+              ? dossierResearchLevelLabel(dossier.research_level)
+              : "—"}
+          </strong>
         </div>
         <div className="stat">
           <span>{priceCaption}</span>

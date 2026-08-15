@@ -86,6 +86,18 @@ export function openApiDocument(origin: string) {
           },
         },
       },
+      "/api/v1/performance": {
+        get: {
+          summary: "Benchmark performance",
+          operationId: "getPerformance",
+          responses: {
+            "200": {
+              description:
+                "NAV and deployed returns vs SPY and QQQ. Percentages only.",
+            },
+          },
+        },
+      },
       "/api/v1/journal": {
         get: {
           summary: "Decision journal",

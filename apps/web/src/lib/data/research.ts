@@ -1,3 +1,5 @@
+import type { DossierResearchLevel, DossierStatus } from "@powerfund/domain";
+
 import { createClient } from "@/lib/supabase/server";
 
 export type ThemeRow = {
@@ -23,7 +25,8 @@ export type InstrumentWithTheme = {
 
 export type DossierRow = {
   id: string;
-  status: "watch" | "investigate" | "active_thesis" | "passed";
+  status: DossierStatus;
+  research_level: DossierResearchLevel;
   summary: string;
   thesis: string | null;
   catalysts: string | null;
@@ -32,6 +35,9 @@ export type DossierRow = {
   competitive_notes: string | null;
   next_diligence: string | null;
   source: string | null;
+  as_of_at: string | null;
+  verified_at: string | null;
+  next_review_at: string | null;
   updated_at: string;
 };
 
@@ -86,6 +92,7 @@ export async function listInstrumentsWithThemes(): Promise<
         .from("instruments")
         .select("id, symbol, name, asset_class, status, notes")
         .neq("status", "archived")
+        .eq("is_benchmark", false)
         .order("symbol", { ascending: true }),
       supabase
         .from("instrument_themes")
@@ -225,7 +232,7 @@ export async function getInstrumentDossier(
   const { data, error } = await supabase
     .from("dossiers")
     .select(
-      "id, status, summary, thesis, catalysts, risks, invalidation, competitive_notes, next_diligence, source, updated_at",
+      "id, status, research_level, summary, thesis, catalysts, risks, invalidation, competitive_notes, next_diligence, source, as_of_at, verified_at, next_review_at, updated_at",
     )
     .eq("instrument_id", instrument.id)
     .maybeSingle();

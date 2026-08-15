@@ -57,12 +57,42 @@ export type Database = {
         }
         Relationships: []
       }
+      benchmarks: {
+        Row: {
+          created_at: string
+          instrument_id: string
+          label: string
+          role: Database["public"]["Enums"]["benchmark_role"]
+        }
+        Insert: {
+          created_at?: string
+          instrument_id: string
+          label: string
+          role: Database["public"]["Enums"]["benchmark_role"]
+        }
+        Update: {
+          created_at?: string
+          instrument_id?: string
+          label?: string
+          role?: Database["public"]["Enums"]["benchmark_role"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "benchmarks_instrument_id_fkey"
+            columns: ["instrument_id"]
+            isOneToOne: true
+            referencedRelation: "instruments"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       decisions: {
         Row: {
           action_at: string
           catalysts: string | null
           created_at: string
           decision_type: Database["public"]["Enums"]["decision_type"]
+          dossier_version_id: string | null
           id: string
           instrument_id: string | null
           invalidation: string | null
@@ -80,6 +110,7 @@ export type Database = {
           catalysts?: string | null
           created_at?: string
           decision_type: Database["public"]["Enums"]["decision_type"]
+          dossier_version_id?: string | null
           id?: string
           instrument_id?: string | null
           invalidation?: string | null
@@ -97,6 +128,7 @@ export type Database = {
           catalysts?: string | null
           created_at?: string
           decision_type?: Database["public"]["Enums"]["decision_type"]
+          dossier_version_id?: string | null
           id?: string
           instrument_id?: string | null
           invalidation?: string | null
@@ -110,6 +142,13 @@ export type Database = {
           thesis?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "decisions_dossier_version_id_fkey"
+            columns: ["dossier_version_id"]
+            isOneToOne: false
+            referencedRelation: "dossier_versions"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "decisions_instrument_id_fkey"
             columns: ["instrument_id"]
@@ -180,8 +219,44 @@ export type Database = {
           },
         ]
       }
+      dossier_versions: {
+        Row: {
+          change_reason: string
+          created_at: string
+          dossier_id: string
+          id: string
+          snapshot: Json
+          version_number: number
+        }
+        Insert: {
+          change_reason: string
+          created_at?: string
+          dossier_id: string
+          id?: string
+          snapshot: Json
+          version_number: number
+        }
+        Update: {
+          change_reason?: string
+          created_at?: string
+          dossier_id?: string
+          id?: string
+          snapshot?: Json
+          version_number?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "dossier_versions_dossier_id_fkey"
+            columns: ["dossier_id"]
+            isOneToOne: false
+            referencedRelation: "dossiers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       dossiers: {
         Row: {
+          as_of_at: string | null
           catalysts: string | null
           competitive_notes: string | null
           created_at: string
@@ -189,14 +264,18 @@ export type Database = {
           instrument_id: string
           invalidation: string | null
           next_diligence: string | null
+          next_review_at: string | null
+          research_level: Database["public"]["Enums"]["dossier_research_level"]
           risks: string | null
           source: string | null
           status: Database["public"]["Enums"]["dossier_status"]
           summary: string
           thesis: string | null
           updated_at: string
+          verified_at: string | null
         }
         Insert: {
+          as_of_at?: string | null
           catalysts?: string | null
           competitive_notes?: string | null
           created_at?: string
@@ -204,14 +283,18 @@ export type Database = {
           instrument_id: string
           invalidation?: string | null
           next_diligence?: string | null
+          next_review_at?: string | null
+          research_level?: Database["public"]["Enums"]["dossier_research_level"]
           risks?: string | null
           source?: string | null
           status?: Database["public"]["Enums"]["dossier_status"]
           summary: string
           thesis?: string | null
           updated_at?: string
+          verified_at?: string | null
         }
         Update: {
+          as_of_at?: string | null
           catalysts?: string | null
           competitive_notes?: string | null
           created_at?: string
@@ -219,12 +302,15 @@ export type Database = {
           instrument_id?: string
           invalidation?: string | null
           next_diligence?: string | null
+          next_review_at?: string | null
+          research_level?: Database["public"]["Enums"]["dossier_research_level"]
           risks?: string | null
           source?: string | null
           status?: Database["public"]["Enums"]["dossier_status"]
           summary?: string
           thesis?: string | null
           updated_at?: string
+          verified_at?: string | null
         }
         Relationships: [
           {
@@ -329,6 +415,7 @@ export type Database = {
           currency: string
           exchange: string | null
           id: string
+          is_benchmark: boolean
           name: string
           notes: string | null
           status: Database["public"]["Enums"]["instrument_status"]
@@ -341,6 +428,7 @@ export type Database = {
           currency?: string
           exchange?: string | null
           id?: string
+          is_benchmark?: boolean
           name: string
           notes?: string | null
           status?: Database["public"]["Enums"]["instrument_status"]
@@ -353,6 +441,7 @@ export type Database = {
           currency?: string
           exchange?: string | null
           id?: string
+          is_benchmark?: boolean
           name?: string
           notes?: string | null
           status?: Database["public"]["Enums"]["instrument_status"]
@@ -826,6 +915,7 @@ export type Database = {
     Enums: {
       app_role: "operator" | "viewer"
       asset_class: "equity" | "etf" | "commodity_proxy" | "other"
+      benchmark_role: "success" | "style"
       decision_type: "enter" | "add" | "reduce" | "exit" | "hold" | "watch"
       document_type:
         | "10-k"
@@ -835,6 +925,11 @@ export type Database = {
         | "transcript"
         | "press"
         | "other"
+      dossier_research_level:
+        | "draft"
+        | "screened"
+        | "primary_verified"
+        | "investment_ready"
       dossier_status: "watch" | "investigate" | "active_thesis" | "passed"
       instrument_status: "watchlist" | "active" | "archived"
       planned_action_status: "pending" | "deferred" | "confirmed" | "cancelled"
@@ -984,6 +1079,7 @@ export const Constants = {
     Enums: {
       app_role: ["operator", "viewer"],
       asset_class: ["equity", "etf", "commodity_proxy", "other"],
+      benchmark_role: ["success", "style"],
       decision_type: ["enter", "add", "reduce", "exit", "hold", "watch"],
       document_type: [
         "10-k",
@@ -993,6 +1089,12 @@ export const Constants = {
         "transcript",
         "press",
         "other",
+      ],
+      dossier_research_level: [
+        "draft",
+        "screened",
+        "primary_verified",
+        "investment_ready",
       ],
       dossier_status: ["watch", "investigate", "active_thesis", "passed"],
       instrument_status: ["watchlist", "active", "archived"],

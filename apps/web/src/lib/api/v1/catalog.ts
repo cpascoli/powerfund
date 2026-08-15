@@ -20,6 +20,7 @@ export type PublicWatchName = {
 
 export type PublicDossier = {
   status: string;
+  research_level: string;
   summary: string;
   thesis: string | null;
   catalysts: string | null;
@@ -28,6 +29,9 @@ export type PublicDossier = {
   competitive_notes: string | null;
   next_diligence: string | null;
   source: string | null;
+  as_of_at: string | null;
+  verified_at: string | null;
+  next_review_at: string | null;
   updated_at: string;
 };
 
@@ -91,6 +95,7 @@ export async function listPublicWatchlist(): Promise<PublicWatchName[]> {
         .from("instruments")
         .select("id, symbol, name, asset_class, status")
         .neq("status", "archived")
+        .eq("is_benchmark", false)
         .order("symbol", { ascending: true }),
       supabase
         .from("instrument_themes")
@@ -197,7 +202,7 @@ export async function getPublicCompany(
   const { data, error } = await supabase
     .from("dossiers")
     .select(
-      "status, summary, thesis, catalysts, risks, invalidation, competitive_notes, next_diligence, source, updated_at",
+      "status, research_level, summary, thesis, catalysts, risks, invalidation, competitive_notes, next_diligence, source, as_of_at, verified_at, next_review_at, updated_at",
     )
     .eq("instrument_id", instrument.id)
     .maybeSingle();
@@ -265,6 +270,12 @@ export function companyMarkdown(company: PublicCompany): string {
   }
 
   sections.push(`- Dossier status: ${dossier.status}`);
+  sections.push(`- Research level: ${dossier.research_level}`);
+  if (dossier.as_of_at) sections.push(`- Valuation as of: ${dossier.as_of_at}`);
+  if (dossier.verified_at) sections.push(`- Verified: ${dossier.verified_at}`);
+  if (dossier.next_review_at) {
+    sections.push(`- Next review: ${dossier.next_review_at}`);
+  }
   if (dossier.source) sections.push(`- Source: ${dossier.source}`);
   sections.push(`- Updated: ${dossier.updated_at}`, "");
   sections.push("## Summary", "", dossier.summary, "");

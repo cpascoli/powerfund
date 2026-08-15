@@ -7,7 +7,7 @@ function usage() {
   console.log(`Power Fund worker
 
 Usage:
-  pnpm --filter @powerfund/worker ingest:bars [-- --days=365]
+  pnpm --filter @powerfund/worker ingest:bars [-- --days=365 --symbols=SPY,QQQ]
   pnpm --filter @powerfund/worker ingest:fundamentals
   pnpm --filter @powerfund/worker ingest:all
   pnpm --filter @powerfund/worker snapshot:portfolio
@@ -33,10 +33,15 @@ async function main() {
   const command = process.argv[2] ?? "help";
   const days = Number(readFlag("days", "730"));
   const pauseMs = Number(readFlag("pauseMs", "1200"));
+  const symbolsFlag = readFlag("symbols", "");
+  const symbols = symbolsFlag
+    .split(",")
+    .map((symbol) => symbol.trim())
+    .filter((symbol) => symbol.length > 0);
 
   switch (command) {
     case "bars":
-      await ingestBars({ days, pauseMs });
+      await ingestBars({ days, pauseMs, symbols });
       break;
     case "fundamentals":
       await ingestFundamentals({ pauseMs });

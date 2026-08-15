@@ -19,6 +19,7 @@ erDiagram
   signals ||--o{ decisions : linked
   portfolio_snapshots
   portfolio_state
+  instruments ||--o| benchmarks : proxies
 ```
 
 | Table | Role |
@@ -34,11 +35,13 @@ erDiagram
 | `portfolio_snapshots` | Point-in-time NAV/cash/exposures |
 | `portfolio_state` | Live cash; NAV = cash + open-position MTM |
 | `dossiers` | Research stubs: thesis, risks, invalidation, next diligence |
+| `benchmarks` | Success (SPY) and style (QQQ) index proxies; not research names |
 
 ## Enums
 
 - `asset_class`: equity, etf, commodity_proxy, other
 - `instrument_status`: watchlist, active, archived
+- `benchmark_role`: success, style
 - `signal_source`: manual, scorer
 - `signal_status`: new, reviewing, acted, dismissed
 - `position_status`: open, closed

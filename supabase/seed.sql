@@ -911,6 +911,55 @@ on conflict (instrument_id) do update
     source = excluded.source,
     updated_at = timezone('utc', now());
 
+-- Index proxies for mandate benchmarks. No theme on purpose: research
+-- lists drop unthemed names, and `is_benchmark` keeps them off the public
+-- watchlist even if someone tags them later.
+insert into public.instruments (
+  symbol, name, asset_class, exchange, status, is_benchmark, notes
+)
+values
+  (
+    'SPY',
+    'SPDR S&P 500 ETF Trust',
+    'etf',
+    'US',
+    'watchlist',
+    true,
+    'Success benchmark: investable S&P 500 total-return proxy. Not a research name.'
+  ),
+  (
+    'QQQ',
+    'Invesco QQQ Trust',
+    'etf',
+    'US',
+    'watchlist',
+    true,
+    'Style benchmark: investable Nasdaq-100 total-return proxy. Not a research name.'
+  )
+on conflict (symbol, exchange) do update
+  set
+    is_benchmark = true,
+    notes = excluded.notes,
+    updated_at = timezone('utc', now());
+
+insert into public.benchmarks (role, instrument_id, label)
+select
+  v.role::public.benchmark_role,
+  i.id,
+  v.label
+from (
+  values
+    ('success', 'SPY', 'S&P 500 total return (SPY)'),
+    ('style', 'QQQ', 'Nasdaq-100 total return (QQQ)')
+) as v(role, symbol, label)
+join public.instruments i
+  on i.symbol = v.symbol
+ and i.exchange = 'US'
+on conflict (role) do update
+  set
+    instrument_id = excluded.instrument_id,
+    label = excluded.label;
+
 -- Live cash (NAV = cash + MTM). Do not overwrite an existing row.
 insert into public.portfolio_state (cash, notes)
 select

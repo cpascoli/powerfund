@@ -20,6 +20,7 @@ import {
 } from "@/lib/data/planned-actions";
 import { getOpenPortfolioBook, withLiveMarks } from "@/lib/data/portfolio";
 import { listInstrumentsWithThemes } from "@/lib/data/research";
+import { getPerformanceReport } from "@/lib/data/performance";
 import {
   computeDrawdown,
   listPortfolioSnapshots,
@@ -28,12 +29,13 @@ import {
 
 export const dynamic = "force-dynamic";
 
-type PortfolioTab = "book" | "queue" | "mandate" | "ledger";
+type PortfolioTab = "book" | "queue" | "mandate" | "performance" | "ledger";
 
 const TABS: Array<{ id: PortfolioTab; label: string }> = [
   { id: "book", label: "Open book" },
   { id: "queue", label: "Deployment queue" },
   { id: "mandate", label: "Mandate" },
+  { id: "performance", label: "Performance" },
   { id: "ledger", label: "Ledger" },
 ];
 
@@ -57,6 +59,7 @@ function parseTab(raw: string | undefined): PortfolioTab | null {
     case "book":
     case "queue":
     case "mandate":
+    case "performance":
     case "ledger":
       return raw;
     default:
@@ -86,6 +89,12 @@ export default async function PortfolioPage({
       listPortfolioSnapshots(),
     ]);
   const book = await withLiveMarks(rawBook);
+  const performance = await getPerformanceReport({
+    asOf: book.markAsOf ?? new Date().toISOString(),
+    nav: book.nav,
+    invested: book.invested,
+    positionsValue: book.marketValue,
+  });
   const queue = buildDeploymentQueue(book, instruments, rawQueue);
   const drawdown = computeDrawdown(snapshots, {
     nav: book.nav,
@@ -290,6 +299,109 @@ export default async function PortfolioPage({
     </section>
   );
 
+  const inception = performance.windows.find((row) => row.id === "inception");
+  const signedClass = (value: number | null | undefined) =>
+    value == null
+      ? undefined
+      : value > 0
+        ? "is-up"
+        : value < 0
+          ? "is-down"
+          : undefined;
+
+  const performancePanel = (
+    <section className="panel" aria-label="Benchmark performance">
+      <h2>Performance</h2>
+      <p className="muted">
+        Success = S&amp;P 500 total return (SPY). Style = Nasdaq-100 total
+        return (QQQ). NAV includes cash and grades the cash decision; the
+        deployed sleeve grades stock picking. No blended policy portfolio.
+      </p>
+      {performance.windows.length === 0 ? (
+        <p className="empty">
+          Need two NAV marks to score a window. The nightly snapshot job
+          builds the series.
+        </p>
+      ) : (
+        <div className="table-wrap">
+          <table className="data-table">
+            <thead>
+              <tr>
+                <th>Window</th>
+                <th>NAV</th>
+                <th>vs SPY</th>
+                <th>vs QQQ</th>
+                <th>Deployed</th>
+                <th>vs SPY</th>
+                <th>vs QQQ</th>
+              </tr>
+            </thead>
+            <tbody>
+              {performance.windows.map((row) => (
+                <tr key={row.id}>
+                  <td>
+                    {row.label}
+                    <div className="muted">
+                      {row.start} → {row.end}
+                    </div>
+                  </td>
+                  <td className={signedClass(row.navReturn)}>
+                    {pct(row.navReturn == null ? null : row.navReturn * 100, true)}
+                  </td>
+                  <td className={signedClass(row.navVsSuccess)}>
+                    {pct(
+                      row.navVsSuccess == null ? null : row.navVsSuccess * 100,
+                      true,
+                    )}
+                  </td>
+                  <td className={signedClass(row.navVsStyle)}>
+                    {pct(
+                      row.navVsStyle == null ? null : row.navVsStyle * 100,
+                      true,
+                    )}
+                  </td>
+                  <td className={signedClass(row.deployedReturn)}>
+                    {pct(
+                      row.deployedReturn == null
+                        ? null
+                        : row.deployedReturn * 100,
+                      true,
+                    )}
+                  </td>
+                  <td className={signedClass(row.deployedVsSuccess)}>
+                    {pct(
+                      row.deployedVsSuccess == null
+                        ? null
+                        : row.deployedVsSuccess * 100,
+                      true,
+                    )}
+                  </td>
+                  <td className={signedClass(row.deployedVsStyle)}>
+                    {pct(
+                      row.deployedVsStyle == null
+                        ? null
+                        : row.deployedVsStyle * 100,
+                      true,
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+      {performance.notes.length > 0 ? (
+        <ul className="list">
+          {performance.notes.map((note) => (
+            <li key={note}>
+              <span className="muted">{note}</span>
+            </li>
+          ))}
+        </ul>
+      ) : null}
+    </section>
+  );
+
   const mandatePanel = (
     <section className="panel" aria-label="Mandate checks">
       <h2>Mandate</h2>
@@ -432,6 +544,9 @@ export default async function PortfolioPage({
     case "mandate":
       tabContent = mandatePanel;
       break;
+    case "performance":
+      tabContent = performancePanel;
+      break;
     case "ledger":
       tabContent = (
         <>
@@ -536,7 +651,7 @@ export default async function PortfolioPage({
         </div>
       </section>
 
-      <section className="stat-row" aria-label="Capital and realized results">
+      <section className="stat-row stats-5" aria-label="Capital and realized results">
         <div className="stat">
           <span>Capital in</span>
           <strong>{money(ledger.depositedCapital)}</strong>
@@ -555,6 +670,17 @@ export default async function PortfolioPage({
             }
           >
             {pct(totalReturnPct, true)}
+          </strong>
+        </div>
+        <div className="stat">
+          <span>NAV vs SPY</span>
+          <strong className={signedClass(inception?.navVsSuccess)}>
+            {pct(
+              inception?.navVsSuccess == null
+                ? null
+                : inception.navVsSuccess * 100,
+              true,
+            )}
           </strong>
         </div>
         <div className="stat">

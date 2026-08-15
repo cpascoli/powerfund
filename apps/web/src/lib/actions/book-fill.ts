@@ -3,6 +3,7 @@
 import { buyCashDelta } from "@powerfund/domain";
 import type { Database } from "@powerfund/db";
 
+import { loadJournalDossierFields } from "@/lib/dossiers/versions";
 import { mandateGate } from "@/lib/mandate/enforce";
 import { createClient } from "@/lib/supabase/server";
 
@@ -101,14 +102,18 @@ export async function bookFill(args: {
   // is cleaned up if the fill itself is rejected.
   let decisionId: string | null = null;
   if (args.logDecision) {
+    const dossier = await loadJournalDossierFields(supabase, args.instrumentId);
     const decision: DecisionInsert = {
       instrument_id: args.instrumentId,
       decision_type: decisionType,
       thesis:
         args.thesisSummary ??
         `${decisionType === "add" ? "Added" : "Opened"} ${args.quantity} shares at $${args.avgCost.toFixed(2)}.`,
+      catalysts: dossier.catalysts,
+      risks: dossier.risks,
       sizing_rationale: `Cost basis $${costBasis.toFixed(2)}.`,
-      invalidation: args.invalidation,
+      invalidation: args.invalidation ?? dossier.invalidation,
+      dossier_version_id: dossier.dossierVersionId,
       action_at: args.openedAt,
     };
     const { data, error } = await supabase

@@ -40,6 +40,38 @@ export const DOSSIER_STATUSES: readonly DossierStatus[] = [
   "passed",
 ] as const;
 
+export type DossierResearchLevel =
+  | "draft"
+  | "screened"
+  | "primary_verified"
+  | "investment_ready";
+
+export const DOSSIER_RESEARCH_LEVELS: readonly DossierResearchLevel[] = [
+  "draft",
+  "screened",
+  "primary_verified",
+  "investment_ready",
+] as const;
+
+export function dossierResearchLevelLabel(
+  level: DossierResearchLevel,
+): string {
+  switch (level) {
+    case "draft":
+      return "draft";
+    case "screened":
+      return "screened";
+    case "primary_verified":
+      return "primary verified";
+    case "investment_ready":
+      return "investment ready";
+    default: {
+      const _exhaustive: never = level;
+      return _exhaustive;
+    }
+  }
+}
+
 export const DECISION_TYPES: readonly DecisionType[] = [
   "enter",
   "add",

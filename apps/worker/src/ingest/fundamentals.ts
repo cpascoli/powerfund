@@ -7,7 +7,7 @@ import { createAdminDb, listWatchInstruments } from "../db";
 
 export async function ingestFundamentals(options: { pauseMs: number }) {
   const db = createAdminDb();
-  const instruments = await listWatchInstruments(db);
+  const instruments = await listWatchInstruments(db, { researchOnly: true });
 
   console.log(
     `[ingest:fundamentals] ${instruments.length} instruments (chain: sec→yahoo)`,

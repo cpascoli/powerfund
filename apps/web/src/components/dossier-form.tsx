@@ -1,7 +1,11 @@
 "use client";
 
 import { useActionState } from "react";
-import { DOSSIER_STATUSES } from "@powerfund/domain";
+import {
+  DOSSIER_RESEARCH_LEVELS,
+  DOSSIER_STATUSES,
+  dossierResearchLevelLabel,
+} from "@powerfund/domain";
 
 import {
   saveDossier,
@@ -10,6 +14,11 @@ import {
 import type { DossierRow } from "@/lib/data/research";
 
 const initialState: DossierActionState = { error: null };
+
+function toDateInput(value: string | null | undefined): string {
+  if (!value) return "";
+  return value.slice(0, 10);
+}
 
 type Props = {
   instrumentId: string;
@@ -34,6 +43,47 @@ export function DossierForm({ instrumentId, symbol, dossier }: Props) {
             </option>
           ))}
         </select>
+      </label>
+
+      <label>
+        Research level
+        <select
+          name="research_level"
+          defaultValue={dossier?.research_level ?? "draft"}
+        >
+          {DOSSIER_RESEARCH_LEVELS.map((level) => (
+            <option key={level} value={level}>
+              {dossierResearchLevelLabel(level)}
+            </option>
+          ))}
+        </select>
+      </label>
+
+      <label>
+        Valuation as of
+        <input
+          type="date"
+          name="as_of_at"
+          defaultValue={toDateInput(dossier?.as_of_at)}
+        />
+      </label>
+
+      <label>
+        Verified on
+        <input
+          type="date"
+          name="verified_at"
+          defaultValue={toDateInput(dossier?.verified_at)}
+        />
+      </label>
+
+      <label>
+        Next review
+        <input
+          type="date"
+          name="next_review_at"
+          defaultValue={toDateInput(dossier?.next_review_at)}
+        />
       </label>
 
       <label>

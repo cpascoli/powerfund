@@ -44,6 +44,12 @@ export const PUBLIC_RESOURCES = [
       "Open book as NAV weights and theme mix. No dollars, quantities, or planned trades.",
   },
   {
+    path: "/api/v1/performance",
+    title: "Performance",
+    description:
+      "NAV and deployed-sleeve returns vs S&P 500 (SPY) and QQQ. Percentages only.",
+  },
+  {
     path: "/api/v1/journal",
     title: "Journal",
     description:

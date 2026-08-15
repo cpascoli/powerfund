@@ -43,6 +43,7 @@ Other sectors are in scope when they feed the same stack or clear a high bar for
 - At least one automated scoring path beyond price technicals (e.g. fundamentals / CapEx / filings-driven).
 - Measurable process quality: fewer late chase entries; documented invalidations; post-mortems.
 - Honest trade labeling: "early" claims backed by evidence that price has not discounted them; otherwise labeled momentum-with-fundamentals with matching exit discipline (see mandate).
+- Performance judged against the S&P 500 (success) and QQQ (style), on both NAV and the deployed sleeve. See [mandate.md](./mandate.md).
 
 ### Medium term (intelligence edge)
 

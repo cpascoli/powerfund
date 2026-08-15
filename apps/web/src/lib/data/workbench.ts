@@ -35,6 +35,7 @@ export async function getWorkbenchUniverse(): Promise<WorkbenchUniverse> {
       .from("instruments")
       .select("id, symbol, name, status")
       .neq("status", "archived")
+      .eq("is_benchmark", false)
       .order("symbol", { ascending: true }),
     supabase
       .from("themes")

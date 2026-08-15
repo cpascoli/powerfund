@@ -1,4 +1,5 @@
 import { createAdminDb, type AdminDb } from "../db";
+import { backfillMissingSnapshots } from "./backfill";
 
 export type SnapshotPortfolioResult = {
   asOf: string;
@@ -9,6 +10,7 @@ export type SnapshotPortfolioResult = {
   positions: number;
   /** Symbols marked at cost because no stored close exists yet. */
   staleMarks: string[];
+  backfilled: string[];
 };
 
 type OpenPositionRow = {
@@ -42,6 +44,7 @@ async function latestClose(
  */
 export async function snapshotPortfolio(): Promise<SnapshotPortfolioResult> {
   const db = createAdminDb();
+  const { written: backfilled } = await backfillMissingSnapshots(db);
   const asOf = new Date().toISOString();
 
   const [
@@ -165,5 +168,6 @@ export async function snapshotPortfolio(): Promise<SnapshotPortfolioResult> {
     positionsValue,
     positions: positions.length,
     staleMarks,
+    backfilled,
   };
 }

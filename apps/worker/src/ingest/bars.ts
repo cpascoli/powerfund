@@ -18,9 +18,15 @@ export type IngestBarsResult = {
 export async function ingestBars(options: {
   days: number;
   pauseMs: number;
+  symbols?: string[];
 }): Promise<IngestBarsResult> {
   const db = createAdminDb();
-  const instruments = await listWatchInstruments(db);
+  const wanted = options.symbols?.map((symbol) => symbol.toUpperCase());
+  const instruments = (await listWatchInstruments(db)).filter((instrument) =>
+    wanted == null || wanted.length === 0
+      ? true
+      : wanted.includes(instrument.symbol.toUpperCase()),
+  );
   const startDate = daysAgoIso(options.days);
   const tiingoKey = process.env.TIINGO_API_KEY ?? null;
   const failed: string[] = [];

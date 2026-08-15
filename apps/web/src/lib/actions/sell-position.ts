@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { sellCashDelta } from "@powerfund/domain";
 import type { Database } from "@powerfund/db";
 
+import { loadJournalDossierFields } from "@/lib/dossiers/versions";
 import { createClient } from "@/lib/supabase/server";
 
 type TransactionInsert = Database["public"]["Tables"]["transactions"]["Insert"];
@@ -103,15 +104,23 @@ export async function sellPosition(
   // Written first so the ledger entry can cite it, removed if the sale is rejected.
   let decisionId: string | null = null;
   if (logDecision) {
+    const dossier = await loadJournalDossierFields(
+      supabase,
+      position.instrument_id,
+    );
     const decision: DecisionInsert = {
       instrument_id: position.instrument_id,
       decision_type: isFullExit ? "exit" : "reduce",
       thesis:
         rationale ??
         `${isFullExit ? "Exited" : "Reduced"} ${quantity} units at $${price.toFixed(2)}.`,
+      catalysts: dossier.catalysts,
+      risks: dossier.risks,
+      invalidation: dossier.invalidation,
       sizing_rationale: `Proceeds $${proceeds.toFixed(2)} against average cost $${Number(
         position.avg_cost,
       ).toFixed(2)}.`,
+      dossier_version_id: dossier.dossierVersionId,
       action_at: soldAt,
       position_id: position.id,
     };

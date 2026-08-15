@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import type { Database } from "@powerfund/db";
 import { DECISION_TYPES, type DecisionType } from "@powerfund/domain";
 
+import { loadJournalDossierFields } from "@/lib/dossiers/versions";
 import { createClient } from "@/lib/supabase/server";
 
 type DecisionInsert = Database["public"]["Tables"]["decisions"]["Insert"];
@@ -49,20 +50,28 @@ export async function saveDecision(
     return { error: "Invalid action date." };
   }
 
+  const supabase = await createClient();
+  const dossier = instrumentId
+    ? await loadJournalDossierFields(supabase, instrumentId)
+    : null;
+
   const payload = {
     instrument_id: instrumentId,
     decision_type: decisionTypeRaw,
     thesis,
-    catalysts: emptyToNull(formData.get("catalysts")),
-    risks: emptyToNull(formData.get("risks")),
-    invalidation: emptyToNull(formData.get("invalidation")),
+    catalysts:
+      emptyToNull(formData.get("catalysts")) ?? dossier?.catalysts ?? null,
+    risks: emptyToNull(formData.get("risks")) ?? dossier?.risks ?? null,
+    invalidation:
+      emptyToNull(formData.get("invalidation")) ??
+      dossier?.invalidation ??
+      null,
     sizing_rationale: emptyToNull(formData.get("sizing_rationale")),
     action_at: actionAt,
     outcome_notes: emptyToNull(formData.get("outcome_notes")),
     outcome_grade: emptyToNull(formData.get("outcome_grade")),
+    ...(id ? {} : { dossier_version_id: dossier?.dossierVersionId ?? null }),
   } satisfies DecisionInsert;
-
-  const supabase = await createClient();
   // Database typings currently resolve mutation builders to `never`; runtime API is fine.
   const decisions = supabase as unknown as {
     from: (table: "decisions") => {

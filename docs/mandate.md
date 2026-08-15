@@ -23,6 +23,19 @@ Universe preference: liquid names where exits are realistic. Illiquid microcaps 
 - **Constraint**: drawdowns and thesis failure must be survivable; no “double down to get back to even” without new evidence.
 - **Style**: long-biased thematic; hedges and shorts optional later, not required for MVP.
 
+## Benchmarks
+
+Success is measured against public total-return indices, not against a homemade blend and not against the two-year doubling scenario.
+
+| Role | Benchmark | Question it answers |
+|------|-----------|---------------------|
+| **Success (primary)** | S&P 500 total return | Did the book beat owning the market? |
+| **Style (secondary)** | Nasdaq-100 (QQQ) total return | Did the thematic sleeve earn its growth beta? |
+
+Judge both **NAV** (cash included — this grades the cash decision) and the **deployed sleeve** (stock picking only). Prefer rolling three-year windows once the history exists; until then, report since inception and since each review.
+
+Do not introduce a blended S&P/QQQ policy portfolio. Do not change the primary benchmark to make a period look better.
+
 ## Risk rules (non-negotiable)
 
 Exact percentages can be tuned; the existence of hard caps cannot.
