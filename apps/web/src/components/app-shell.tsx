@@ -19,12 +19,12 @@ type NavGroup = {
 
 const NAV_GROUPS: readonly NavGroup[] = [
   {
-    label: "Operate",
+    label: "Playbook",
     items: [
-      { href: "/", label: "Briefing", match: "exact" },
-      { href: "/signals", label: "Signals" },
-      { href: "/portfolio", label: "Portfolio" },
-      { href: "/decisions", label: "Journal" },
+      { href: "/docs/goals", label: "Goals" },
+      { href: "/docs/mandate", label: "Mandate" },
+      { href: "/docs/themes", label: "Themes" },
+      { href: "/docs/plan", label: "Plan" },
     ],
   },
   {
@@ -35,12 +35,12 @@ const NAV_GROUPS: readonly NavGroup[] = [
     ],
   },
   {
-    label: "Playbook",
+    label: "Operate",
     items: [
-      { href: "/docs/mandate", label: "Mandate" },
-      { href: "/docs/goals", label: "Goals" },
-      { href: "/docs/themes", label: "Themes" },
-      { href: "/docs/plan", label: "Plan" },
+      { href: "/", label: "Briefing", match: "exact" },
+      { href: "/signals", label: "Signals" },
+      { href: "/portfolio", label: "Portfolio" },
+      { href: "/decisions", label: "Journal" },
     ],
   },
 ] as const;

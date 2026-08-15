@@ -11,17 +11,17 @@ export type PlaybookDoc = {
 /** Operator-facing docs rendered in the app. Engineering docs (ux, deploy) stay in the repo. */
 export const PLAYBOOK_DOCS: readonly PlaybookDoc[] = [
   {
+    slug: "goals",
+    file: "goals.md",
+    title: "Goals",
+    description: "Why Power Fund exists and what success looks like.",
+  },
+  {
     slug: "mandate",
     file: "mandate.md",
     title: "Mandate",
     description:
       "The investment constitution — risk rules, deployment ladder, and process.",
-  },
-  {
-    slug: "goals",
-    file: "goals.md",
-    title: "Goals",
-    description: "Why Power Fund exists and what success looks like.",
   },
   {
     slug: "themes",
