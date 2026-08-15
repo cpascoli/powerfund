@@ -24,9 +24,8 @@ export function LoginForm() {
         ? await supabase.auth.signInWithPassword({ email, password })
         : await supabase.auth.signUp({ email, password });
 
-    setPending(false);
-
     if (result.error) {
+      setPending(false);
       setError(result.error.message);
       return;
     }
@@ -43,6 +42,7 @@ export function LoginForm() {
           type="email"
           autoComplete="email"
           required
+          disabled={pending}
           value={email}
           onChange={(event) => setEmail(event.target.value)}
         />
@@ -54,6 +54,7 @@ export function LoginForm() {
           autoComplete={mode === "signin" ? "current-password" : "new-password"}
           required
           minLength={6}
+          disabled={pending}
           value={password}
           onChange={(event) => setPassword(event.target.value)}
         />
@@ -61,13 +62,23 @@ export function LoginForm() {
 
       {error ? <p className="form-error">{error}</p> : null}
 
-      <button type="submit" disabled={pending}>
-        {pending ? "Working…" : mode === "signin" ? "Sign in" : "Create account"}
+      <button type="submit" disabled={pending} aria-busy={pending}>
+        {pending ? (
+          <>
+            <span className="auth-spinner" aria-hidden="true" />
+            {mode === "signin" ? "Signing in…" : "Creating account…"}
+          </>
+        ) : mode === "signin" ? (
+          "Sign in"
+        ) : (
+          "Create account"
+        )}
       </button>
 
       <button
         type="button"
         className="linkish"
+        disabled={pending}
         onClick={() => {
           setMode((current) => (current === "signin" ? "signup" : "signin"));
           setError(null);

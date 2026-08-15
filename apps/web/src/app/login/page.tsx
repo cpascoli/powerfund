@@ -1,4 +1,5 @@
 import { LoginForm } from "@/components/login-form";
+import { SiteFooter } from "@/components/site-footer";
 
 export const metadata = {
   title: "Sign in",
@@ -16,6 +17,7 @@ export default function LoginPage() {
         </p>
         <LoginForm />
       </div>
+      <SiteFooter />
     </div>
   );
 }

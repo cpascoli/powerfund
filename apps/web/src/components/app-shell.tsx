@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 
 import { SignOutButton } from "@/components/sign-out-button";
+import { SiteFooter } from "@/components/site-footer";
 
 type NavItem = {
   href: string;
@@ -95,16 +96,7 @@ export function AppShell({ children }: { children: ReactNode }) {
       </aside>
       <main className="main">
         <div className="main-content">{children}</div>
-        <footer className="site-footer">
-          <p>© {new Date().getFullYear()} Power Fund</p>
-          <a
-            href="https://github.com/cpascoli/powerfund"
-            target="_blank"
-            rel="noreferrer"
-          >
-            GitHub
-          </a>
-        </footer>
+        <SiteFooter />
       </main>
     </div>
   );

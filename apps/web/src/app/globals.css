@@ -134,15 +134,21 @@ a {
 
 .auth-shell {
   min-height: 100vh;
-  display: grid;
-  place-items: center;
-  padding: 2rem 1rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 2rem 1.25rem 0;
 }
 
 .auth-panel {
   width: min(420px, 100%);
+  margin: auto;
   padding: 1.5rem 0;
   border-top: 1px solid var(--line);
+}
+
+.auth-shell .site-footer {
+  width: 100%;
 }
 
 .auth-eyebrow {
@@ -185,6 +191,10 @@ a {
 }
 
 .auth-form button[type="submit"] {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.55rem;
   border: none;
   border-radius: 8px;
   padding: 0.75rem 1rem;
@@ -199,6 +209,21 @@ a {
   cursor: wait;
 }
 
+.auth-spinner {
+  width: 0.95rem;
+  height: 0.95rem;
+  border: 2px solid rgba(255, 255, 255, 0.35);
+  border-top-color: white;
+  border-radius: 50%;
+  animation: auth-spin 0.7s linear infinite;
+}
+
+@keyframes auth-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
 .auth-form .linkish {
   border: none;
   background: none;
@@ -208,6 +233,11 @@ a {
   cursor: pointer;
   text-decoration: underline;
   text-underline-offset: 2px;
+}
+
+.auth-form .linkish:disabled {
+  opacity: 0.55;
+  cursor: wait;
 }
 
 .form-error {
@@ -267,6 +297,13 @@ a {
 
 .site-footer p {
   margin: 0;
+}
+
+.site-footer a {
+  color: var(--accent);
+  text-decoration: underline;
+  text-decoration-color: rgba(11, 127, 117, 0.35);
+  text-underline-offset: 2px;
 }
 
 .page-header {
