@@ -10,7 +10,7 @@ export async function GET(request: Request) {
       "# Power Fund",
       "",
       "> Read-only research catalog for AI agents. No authentication.",
-      "> Does not include portfolio dollars, planned trades, or the decision journal.",
+      "> Weights and research text only. No dollars or planned trades.",
       "",
       "## Docs",
       "",

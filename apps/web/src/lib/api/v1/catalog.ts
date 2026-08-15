@@ -24,6 +24,7 @@ export type PublicDossier = {
   thesis: string | null;
   catalysts: string | null;
   risks: string | null;
+  invalidation: string | null;
   competitive_notes: string | null;
   next_diligence: string | null;
   source: string | null;
@@ -196,7 +197,7 @@ export async function getPublicCompany(
   const { data, error } = await supabase
     .from("dossiers")
     .select(
-      "status, summary, thesis, catalysts, risks, competitive_notes, next_diligence, source, updated_at",
+      "status, summary, thesis, catalysts, risks, invalidation, competitive_notes, next_diligence, source, updated_at",
     )
     .eq("instrument_id", instrument.id)
     .maybeSingle();
@@ -270,6 +271,9 @@ export function companyMarkdown(company: PublicCompany): string {
   if (dossier.thesis) sections.push("## Thesis", "", dossier.thesis, "");
   if (dossier.catalysts) sections.push("## Catalysts", "", dossier.catalysts, "");
   if (dossier.risks) sections.push("## Risks", "", dossier.risks, "");
+  if (dossier.invalidation) {
+    sections.push("## Invalidation", "", dossier.invalidation, "");
+  }
   if (dossier.competitive_notes) {
     sections.push("## Competitive notes", "", dossier.competitive_notes, "");
   }

@@ -18,7 +18,7 @@ export async function GET(request: Request) {
       version: API_VERSION,
       as_of: new Date().toISOString(),
       description:
-        "Read-only research catalog. No auth. No dollars, planned trades, or journal.",
+        "Read-only research catalog. No auth. No dollars, quantities, or planned trades.",
       formats: ["application/json", "text/markdown"],
       rate_limit: "60 requests per 60 seconds per IP",
       resources: PUBLIC_RESOURCES.map((row) => ({

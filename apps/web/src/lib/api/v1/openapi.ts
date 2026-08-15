@@ -11,7 +11,7 @@ export function openApiDocument(origin: string) {
         "Read-only research catalog for external agents. No authentication. " +
         "JSON by default; send Accept: text/markdown or ?format=md for markdown. " +
         `Rate limit: ${RATE_LIMIT_MAX} requests per ${RATE_LIMIT_WINDOW_SECONDS}s per IP. ` +
-        "Does not include portfolio dollars, planned trades, or the decision journal.",
+        "Does not include dollar amounts, quantities, or planned trades.",
     },
     servers: [{ url: origin }],
     paths: {
@@ -72,6 +72,28 @@ export function openApiDocument(origin: string) {
           responses: {
             "200": { description: "Company research stub" },
             "404": { description: "Symbol is not on the public watchlist" },
+          },
+        },
+      },
+      "/api/v1/portfolio": {
+        get: {
+          summary: "Portfolio weights",
+          operationId: "getPortfolio",
+          responses: {
+            "200": {
+              description: "Open book as NAV weights. No dollars.",
+            },
+          },
+        },
+      },
+      "/api/v1/journal": {
+        get: {
+          summary: "Decision journal",
+          operationId: "getJournal",
+          responses: {
+            "200": {
+              description: "Theses, invalidation, and outcomes. No dollars.",
+            },
           },
         },
       },

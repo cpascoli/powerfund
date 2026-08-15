@@ -35,17 +35,25 @@ export const PUBLIC_RESOURCES = [
     path: "/api/v1/companies/{symbol}",
     title: "Company dossier",
     description:
-      "Published research stub for a watchlist name. Omits invalidation levels.",
+      "Published research stub: thesis, risks, invalidation, next diligence.",
+  },
+  {
+    path: "/api/v1/portfolio",
+    title: "Portfolio",
+    description:
+      "Open book as NAV weights and theme mix. No dollars, quantities, or planned trades.",
+  },
+  {
+    path: "/api/v1/journal",
+    title: "Journal",
+    description:
+      "Decision log: type, date, symbol, thesis, risks, invalidation, outcomes. No sizing dollars.",
   },
 ] as const;
 
 export const HELD_RESOURCES = [
   {
-    path: "/api/v1/portfolio",
-    reason: "Live book, cash, and weights stay private for now.",
-  },
-  {
-    path: "/api/v1/journal",
-    reason: "Decision journal and kill levels stay private for now.",
+    path: "/api/v1/planned",
+    reason: "The deployment queue is not published.",
   },
 ] as const;
