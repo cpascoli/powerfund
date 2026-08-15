@@ -10,6 +10,16 @@ export type PositionStatus = "open" | "closed";
 
 export type PositionSide = "long" | "short";
 
+export type TransactionKind =
+  | "deposit"
+  | "withdrawal"
+  | "buy"
+  | "sell"
+  | "dividend"
+  | "interest"
+  | "fee"
+  | "adjustment";
+
 export type DecisionType =
   | "enter"
   | "add"

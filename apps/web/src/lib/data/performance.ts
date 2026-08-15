@@ -2,11 +2,11 @@ import {
   BENCHMARKS,
   INCEPTION_DATE,
   PERFORMANCE_REVIEWS,
+  accumulateLedgerFlows,
   excessReturn,
   indexReturn,
-  isExternalFlowKind,
-  isSleeveFlowKind,
   slicePointsOnOrAfter,
+  utcDay,
   windowReturn,
   type PerformancePoint,
 } from "@powerfund/domain";
@@ -74,10 +74,6 @@ type BarDbRow = {
   adj_close: number | null;
 };
 
-function utcDay(iso: string): string {
-  return new Date(iso).toISOString().slice(0, 10);
-}
-
 function levelOnOrBefore(
   bars: Array<{ date: string; close: number }>,
   date: string,
@@ -90,23 +86,14 @@ function levelOnOrBefore(
   return level;
 }
 
-function flowsByDay(rows: FlowDbRow[]): Map<
-  string,
-  { external: number; sleeve: number }
-> {
-  const byDay = new Map<string, { external: number; sleeve: number }>();
-  for (const row of rows) {
-    const day = utcDay(row.occurred_at);
-    const current = byDay.get(day) ?? { external: 0, sleeve: 0 };
-    if (isExternalFlowKind(row.kind)) {
-      current.external += Number(row.cash_delta);
-    }
-    if (isSleeveFlowKind(row.kind)) {
-      current.sleeve += -Number(row.cash_delta);
-    }
-    byDay.set(day, current);
-  }
-  return byDay;
+function flowsByDay(rows: FlowDbRow[]) {
+  return accumulateLedgerFlows(
+    rows.map((row) => ({
+      occurredAt: row.occurred_at,
+      kind: row.kind,
+      cashDelta: Number(row.cash_delta),
+    })),
+  );
 }
 
 function toPoint(

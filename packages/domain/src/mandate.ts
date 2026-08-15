@@ -1,7 +1,8 @@
 import { toCents } from "./money";
 import {
-  isAiCapexSymbol,
+  aiCapexWeight,
   RISK_DEFAULTS,
+  unclassifiedSymbols,
 } from "./risk";
 
 export type MandateViolationCode =
@@ -10,7 +11,8 @@ export type MandateViolationCode =
   | "cash_floor"
   | "phase1_invested"
   | "drawdown_kill_switch"
-  | "ai_capex_factor";
+  | "ai_capex_factor"
+  | "factor_unclassified";
 
 export type MandateViolation = {
   code: MandateViolationCode;
@@ -94,11 +96,11 @@ export function aiCapexNavPct(
   nav: number,
 ): number | null {
   if (nav <= 0) return null;
-  const complex = positions.reduce(
-    (sum, row) =>
-      sum + (isAiCapexSymbol(row.symbol) ? row.marketValue : 0),
-    0,
-  );
+  const complex = positions.reduce((sum, row) => {
+    const weight = aiCapexWeight(row.symbol);
+    if (weight == null) return sum;
+    return sum + row.marketValue * weight;
+  }, 0);
   return pct(complex, nav);
 }
 
@@ -160,6 +162,14 @@ export function evaluateMandate(book: MandateBook): MandateViolation[] {
     violations.push({
       code: "ai_capex_factor",
       label: `AI-capex complex would be ${factorPct.toFixed(1)}% of NAV (cap ${RISK_DEFAULTS.maxAiCapexFactorPctNav}%)`,
+    });
+  }
+
+  const unknown = unclassifiedSymbols(book.positions.map((row) => row.symbol));
+  if (unknown.length > 0) {
+    violations.push({
+      code: "factor_unclassified",
+      label: `${unknown.join(", ")} ${unknown.length === 1 ? "has" : "have"} no factor map — classify before treating ${unknown.length === 1 ? "it" : "them"} as AI-capex or a diversifier`,
     });
   }
 

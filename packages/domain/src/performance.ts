@@ -1,3 +1,5 @@
+import type { TransactionKind } from "./types";
+
 /** Mandate benchmarks. Do not blend these into a policy portfolio. */
 export type BenchmarkRole = "success" | "style";
 
@@ -66,6 +68,37 @@ function chainTwr(returns: number[]): number | null {
   return returns.reduce((product, value) => product * (1 + value), 1) - 1;
 }
 
+export function utcDay(iso: string): string {
+  return new Date(iso).toISOString().slice(0, 10);
+}
+
+export type DailyFlows = {
+  external: number;
+  sleeve: number;
+};
+
+export function accumulateLedgerFlows(
+  rows: Array<{
+    occurredAt: string;
+    kind: TransactionKind;
+    cashDelta: number;
+  }>,
+): Map<string, DailyFlows> {
+  const byDay = new Map<string, DailyFlows>();
+  for (const row of rows) {
+    const day = utcDay(row.occurredAt);
+    const current = byDay.get(day) ?? { external: 0, sleeve: 0 };
+    if (isExternalFlowKind(row.kind)) {
+      current.external += row.cashDelta;
+    }
+    if (isSleeveFlowKind(row.kind)) {
+      current.sleeve += -row.cashDelta;
+    }
+    byDay.set(day, current);
+  }
+  return byDay;
+}
+
 function dailyReturn(end: number, start: number, flow: number): number | null {
   const denom = start + flow;
   if (denom <= 0) return null;
@@ -111,6 +144,47 @@ export function deployedPeriodReturn(
     if (value != null) returns.push(value);
   }
   return chainTwr(returns);
+}
+
+/**
+ * Unitized deployed-sleeve equity curve. Day 0 is 1.0; later days
+ * compound the flow-adjusted return so a fill at the close is not a gain
+ * and does not create a phantom drawdown.
+ */
+export function unitizedDeployedIndex(points: PerformancePoint[]): number[] {
+  if (points.length === 0) return [];
+  const series = [1];
+  let value = 1;
+  for (let i = 1; i < points.length; i += 1) {
+    const prev = points[i - 1];
+    const curr = points[i];
+    if (prev == null || curr == null) {
+      series.push(value);
+      continue;
+    }
+    if (prev.positionsValue <= 0 && curr.sleeveFlow <= 0) {
+      series.push(value);
+      continue;
+    }
+    const daily = dailyReturn(
+      curr.positionsValue,
+      prev.positionsValue,
+      curr.sleeveFlow,
+    );
+    if (daily != null) value *= 1 + daily;
+    series.push(value);
+  }
+  return series;
+}
+
+/** Current drawdown from the high-water mark, in percent of the peak. */
+export function drawdownFromPeakPct(series: number[]): number | null {
+  if (series.length < 2) return null;
+  const last = series[series.length - 1];
+  if (last == null) return null;
+  const peak = Math.max(...series);
+  if (peak <= 0) return null;
+  return ((peak - last) / peak) * 100;
 }
 
 export function indexReturn(
@@ -164,9 +238,7 @@ export function windowReturn(
   };
 }
 
-export function isExternalFlowKind(
-  kind: "deposit" | "withdrawal" | "buy" | "sell" | "dividend" | "interest" | "fee" | "adjustment",
-): boolean {
+export function isExternalFlowKind(kind: TransactionKind): boolean {
   switch (kind) {
     case "deposit":
     case "withdrawal":
@@ -185,9 +257,7 @@ export function isExternalFlowKind(
   }
 }
 
-export function isSleeveFlowKind(
-  kind: "deposit" | "withdrawal" | "buy" | "sell" | "dividend" | "interest" | "fee" | "adjustment",
-): boolean {
+export function isSleeveFlowKind(kind: TransactionKind): boolean {
   switch (kind) {
     case "buy":
     case "sell":

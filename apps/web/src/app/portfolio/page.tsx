@@ -23,6 +23,7 @@ import { listInstrumentsWithThemes } from "@/lib/data/research";
 import { getPerformanceReport } from "@/lib/data/performance";
 import {
   computeDrawdown,
+  listLedgerFlows,
   listPortfolioSnapshots,
   snapshotFlags,
 } from "@/lib/data/snapshots";
@@ -80,13 +81,14 @@ export default async function PortfolioPage({
   }>;
 }) {
   const { tab, add, cash: cashEdit, plan, confirm, sell } = await searchParams;
-  const [rawBook, instruments, rawQueue, ledger, snapshots] =
+  const [rawBook, instruments, rawQueue, ledger, snapshots, flows] =
     await Promise.all([
       getOpenPortfolioBook(),
       listInstrumentsWithThemes(),
       listOpenPlannedActions(),
       getLedgerSummary(),
       listPortfolioSnapshots(),
+      listLedgerFlows(),
     ]);
   const book = await withLiveMarks(rawBook);
   const performance = await getPerformanceReport({
@@ -96,11 +98,16 @@ export default async function PortfolioPage({
     positionsValue: book.marketValue,
   });
   const queue = buildDeploymentQueue(book, instruments, rawQueue);
-  const drawdown = computeDrawdown(snapshots, {
-    nav: book.nav,
-    invested: book.invested,
-    positionsValue: book.marketValue,
-  });
+  const drawdown = computeDrawdown(
+    snapshots,
+    {
+      nav: book.nav,
+      invested: book.invested,
+      positionsValue: book.marketValue,
+      asOf: book.markAsOf ?? new Date().toISOString(),
+    },
+    flows,
+  );
   const riskFlags = [...book.flags, ...snapshotFlags(snapshots, drawdown)];
   const showForm = add === "1";
   const showCash = cashEdit === "1";

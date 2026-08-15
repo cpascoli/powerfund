@@ -1,7 +1,7 @@
 import {
   aiCapexNavPct,
+  aiCapexWeight,
   computeCrowding,
-  isAiCapexSymbol,
   pairwiseCorrelations,
   RISK_DEFAULTS,
   type CrowdingSnapshot,
@@ -19,7 +19,7 @@ export type RiskCrowdingRow = {
   name: string;
   themeName: string;
   held: boolean;
-  inComplex: boolean;
+  aiCapexWeight: number | null;
   crowding: CrowdingSnapshot;
 };
 
@@ -35,7 +35,7 @@ export type RiskView = {
     name: string;
     themeName: string;
     marketValue: number;
-    inComplex: boolean;
+    aiCapexWeight: number | null;
   }>;
   crowding: RiskCrowdingRow[];
   symbols: string[];
@@ -171,7 +171,7 @@ export async function getRiskView(): Promise<RiskView> {
         name: instrument.name,
         themeName: primaryTheme.get(instrument.id)?.name ?? "Other",
         held: heldIds.has(instrument.id),
-        inComplex: isAiCapexSymbol(instrument.symbol),
+        aiCapexWeight: aiCapexWeight(instrument.symbol),
         crowding: snapshot,
       });
     }
@@ -203,7 +203,7 @@ export async function getRiskView(): Promise<RiskView> {
     name: row.name,
     themeName: row.themeName,
     marketValue: row.marketValue ?? row.costBasis,
-    inComplex: isAiCapexSymbol(row.symbol),
+    aiCapexWeight: aiCapexWeight(row.symbol),
   }));
   const deployed = holdings.reduce((sum, row) => sum + row.marketValue, 0);
   const mandatePositions = book.positions.map((row) => ({
@@ -213,12 +213,14 @@ export async function getRiskView(): Promise<RiskView> {
     costBasis: row.costBasis,
   }));
   const aiCapexPct = aiCapexNavPct(mandatePositions, book.nav);
-  const complexValue = holdings
-    .filter((row) => row.inComplex)
-    .reduce((sum, row) => sum + row.marketValue, 0);
-  const diversifierValue = holdings
-    .filter((row) => !row.inComplex)
-    .reduce((sum, row) => sum + row.marketValue, 0);
+  const complexValue = holdings.reduce((sum, row) => {
+    if (row.aiCapexWeight == null) return sum;
+    return sum + row.marketValue * row.aiCapexWeight;
+  }, 0);
+  const diversifierValue = holdings.reduce((sum, row) => {
+    if (row.aiCapexWeight == null || row.aiCapexWeight > 0) return sum;
+    return sum + row.marketValue;
+  }, 0);
   const stressNavDelta = 0.2 * complexValue;
   const stressNav = book.nav - stressNavDelta;
 

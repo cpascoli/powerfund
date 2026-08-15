@@ -9,19 +9,25 @@ import { getOpenPortfolioBook } from "@/lib/data/portfolio";
 import { listInstrumentsWithThemes } from "@/lib/data/research";
 import {
   computeDrawdown,
+  listLedgerFlows,
   listPortfolioSnapshots,
 } from "@/lib/data/snapshots";
 
 export async function loadMandateBook(): Promise<MandateBook> {
-  const [book, snapshots] = await Promise.all([
+  const [book, snapshots, flows] = await Promise.all([
     getOpenPortfolioBook(),
     listPortfolioSnapshots(),
+    listLedgerFlows(),
   ]);
-  const drawdown = computeDrawdown(snapshots, {
-    nav: book.nav,
-    invested: book.invested,
-    positionsValue: book.marketValue,
-  });
+  const drawdown = computeDrawdown(
+    snapshots,
+    {
+      nav: book.nav,
+      invested: book.invested,
+      positionsValue: book.marketValue,
+    },
+    flows,
+  );
   return {
     nav: book.nav,
     cash: book.cash,

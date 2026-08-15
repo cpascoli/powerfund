@@ -1,7 +1,18 @@
-import { RISK_DEFAULTS } from "@powerfund/domain";
+import {
+  RISK_DEFAULTS,
+  accumulateLedgerFlows,
+  drawdownFromPeakPct,
+  unitizedDeployedIndex,
+  utcDay,
+  type DailyFlows,
+  type PerformancePoint,
+} from "@powerfund/domain";
+import type { Database } from "@powerfund/db";
 
 import type { MandateFlag } from "@/lib/data/portfolio";
 import { createClient } from "@/lib/supabase/server";
+
+type TransactionKind = Database["public"]["Enums"]["transaction_kind"];
 
 export type SnapshotRow = {
   asOf: string;
@@ -50,26 +61,62 @@ export type DrawdownSummary = {
   peakNav: number | null;
   navDrawdownPct: number | null;
   /**
-   * Kill-switch measure (mandate rule 8): decline from the peak
-   * return-on-cost of deployed capital, in percentage points. Return on
-   * cost = (positions market value − invested cost) / invested cost, which
-   * stays comparable across deposits and new fills in a way raw NAV cannot.
+   * Kill-switch measure (mandate rule 8): drawdown from the peak of the
+   * unitized deployed-sleeve curve. New fills are sleeve flows, so adding
+   * at cost cannot manufacture a drawdown.
    */
   deployedDrawdownPp: number | null;
   killSwitchBreached: boolean;
 };
 
-function returnOnCost(point: {
-  invested: number;
-  positionsValue: number;
-}): number | null {
-  if (point.invested <= 0) return null;
-  return ((point.positionsValue - point.invested) / point.invested) * 100;
+export async function listLedgerFlows(): Promise<Map<string, DailyFlows>> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("transactions")
+    .select("occurred_at, kind, cash_delta");
+  if (error) {
+    throw new Error(`Failed to load ledger flows: ${error.message}`);
+  }
+  return accumulateLedgerFlows(
+    ((data as Array<{
+      occurred_at: string;
+      kind: TransactionKind;
+      cash_delta: number;
+    }> | null) ?? []).map((row) => ({
+      occurredAt: row.occurred_at,
+      kind: row.kind,
+      cashDelta: Number(row.cash_delta),
+    })),
+  );
+}
+
+function toPoint(
+  date: string,
+  nav: number,
+  invested: number,
+  positionsValue: number,
+  flows: Map<string, DailyFlows>,
+): PerformancePoint {
+  const flow = flows.get(date) ?? { external: 0, sleeve: 0 };
+  return {
+    date,
+    nav,
+    invested,
+    positionsValue,
+    externalFlow: flow.external,
+    sleeveFlow: flow.sleeve,
+  };
 }
 
 export function computeDrawdown(
   history: SnapshotRow[],
-  current: { nav: number; invested: number; positionsValue: number },
+  current: {
+    nav: number;
+    invested: number;
+    positionsValue: number;
+    asOf?: string;
+  },
+  flows: Map<string, DailyFlows> = new Map(),
 ): DrawdownSummary {
   if (history.length === 0) {
     return {
@@ -85,14 +132,33 @@ export function computeDrawdown(
   const navDrawdownPct =
     peakNav > 0 ? ((peakNav - current.nav) / peakNav) * 100 : null;
 
-  const returns = [...history, { asOf: "now", cash: 0, ...current }]
-    .map(returnOnCost)
-    .filter((value): value is number => value != null);
-  const currentReturn = returnOnCost(current);
-  const deployedDrawdownPp =
-    returns.length > 0 && currentReturn != null
-      ? Math.max(...returns) - currentReturn
-      : null;
+  const points: PerformancePoint[] = history.map((row) =>
+    toPoint(
+      utcDay(row.asOf),
+      row.nav,
+      row.invested,
+      row.positionsValue,
+      flows,
+    ),
+  );
+  const liveDate = utcDay(current.asOf ?? new Date().toISOString());
+  const livePoint = toPoint(
+    liveDate,
+    current.nav,
+    current.invested,
+    current.positionsValue,
+    flows,
+  );
+  const last = points.at(-1);
+  if (last == null || last.date < liveDate) {
+    points.push(livePoint);
+  } else if (last.date === liveDate) {
+    points[points.length - 1] = livePoint;
+  }
+
+  const deployedDrawdownPp = drawdownFromPeakPct(
+    unitizedDeployedIndex(points),
+  );
 
   return {
     snapshots: history.length,
@@ -143,13 +209,13 @@ export function snapshotFlags(
     flags.push({
       code: "drawdown_kill_switch",
       severity: "warn",
-      label: `Deployed drawdown ${drawdown.deployedDrawdownPp?.toFixed(1)}% breaches the ${RISK_DEFAULTS.drawdownKillSwitchPct}% kill-switch — halt new risk and review the book`,
+      label: `Unitized deployed drawdown ${drawdown.deployedDrawdownPp?.toFixed(1)}% breaches the ${RISK_DEFAULTS.drawdownKillSwitchPct}% kill-switch — halt new risk and review the book`,
     });
   } else if (drawdown.deployedDrawdownPp != null) {
     flags.push({
       code: "drawdown_kill_switch",
       severity: "ok",
-      label: `Deployed drawdown ${drawdown.deployedDrawdownPp.toFixed(1)}% vs ${RISK_DEFAULTS.drawdownKillSwitchPct}% kill-switch`,
+      label: `Unitized deployed drawdown ${drawdown.deployedDrawdownPp.toFixed(1)}% vs ${RISK_DEFAULTS.drawdownKillSwitchPct}% kill-switch`,
     });
   }
 

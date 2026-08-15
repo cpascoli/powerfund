@@ -70,10 +70,10 @@ export function RiskViewPanel({ view }: Props) {
       <section className="panel">
         <h2>Hyperscaler capex −20%</h2>
         <p className="muted">
-          Haircut every AI-capex holding by 20% and leave diversifiers (
-          {RISK_DEFAULTS.maxAiCapexFactorPctNav}% NAV factor cap; diversifiers
-          are CCJ, EME, LMT, NOC, GD, RTX) unchanged. This is the standing
-          stress in mandate rule 10 — not a forecast.
+          Haircut each holding by 20% times its mapped AI-capex weight.
+          Unclassified names are left unchanged and flagged for review.
+          Factor cap is {RISK_DEFAULTS.maxAiCapexFactorPctNav}% of NAV. This
+          is the standing stress in mandate rule 10 — not a forecast.
         </p>
         {view.holdings.length === 0 ? (
           <p className="empty">No open positions to stress.</p>
@@ -90,8 +90,13 @@ export function RiskViewPanel({ view }: Props) {
                 </div>
                 <span>
                   {money(row.marketValue)}
-                  {row.inComplex ? (
-                    <span className="tag warn-tag"> complex</span>
+                  {row.aiCapexWeight == null ? (
+                    <span className="tag warn-tag"> unclassified</span>
+                  ) : row.aiCapexWeight > 0 ? (
+                    <span className="tag warn-tag">
+                      {" "}
+                      complex {Math.round(row.aiCapexWeight * 100)}%
+                    </span>
                   ) : (
                     <span className="tag"> diversifier</span>
                   )}

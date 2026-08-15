@@ -1,4 +1,8 @@
-import { aiCapexNavPct, RISK_DEFAULTS } from "@powerfund/domain";
+import {
+  aiCapexNavPct,
+  RISK_DEFAULTS,
+  unclassifiedSymbols,
+} from "@powerfund/domain";
 import { fetchYahooQuotes, type LiveQuote } from "@powerfund/data-clients";
 
 import { createClient } from "@/lib/supabase/server";
@@ -42,6 +46,7 @@ export type MandateFlag = {
     | "drawdown_kill_switch"
     | "snapshot_stale"
     | "ai_capex_factor"
+    | "factor_unclassified"
     | "all_clear";
   label: string;
   severity: "warn" | "ok";
@@ -482,6 +487,15 @@ function buildFlags(args: {
       code: "ai_capex_factor",
       severity: "warn",
       label: `AI-capex complex is ${factorPct.toFixed(1)}% of NAV (cap ${RISK_DEFAULTS.maxAiCapexFactorPctNav}%)`,
+    });
+  }
+
+  const unknown = unclassifiedSymbols(args.positions.map((row) => row.symbol));
+  if (unknown.length > 0) {
+    flags.push({
+      code: "factor_unclassified",
+      severity: "warn",
+      label: `${unknown.join(", ")} ${unknown.length === 1 ? "has" : "have"} no factor map — classify before treating ${unknown.length === 1 ? "it" : "them"} as AI-capex or a diversifier`,
     });
   }
 

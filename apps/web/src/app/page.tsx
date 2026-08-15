@@ -26,6 +26,7 @@ import {
 } from "@/lib/data/research";
 import {
   computeDrawdown,
+  listLedgerFlows,
   listPortfolioSnapshots,
   snapshotFlags,
 } from "@/lib/data/snapshots";
@@ -84,23 +85,29 @@ export default async function BriefingPage({
   const { tab } = await searchParams;
   const activeTab = parseTab(tab) ?? "attention";
 
-  const [themes, instruments, book, rawQueue, snapshots, decisions, dossiers] =
+  const [themes, instruments, book, rawQueue, snapshots, flows, decisions, dossiers] =
     await Promise.all([
       listThemes(),
       listInstrumentsWithThemes(),
       getOpenPortfolioBook().then(withLiveMarks),
       listOpenPlannedActions(),
       listPortfolioSnapshots(),
+      listLedgerFlows(),
       listDecisions(),
       listDossierReviews(),
     ]);
 
   const queue = buildDeploymentQueue(book, instruments, rawQueue);
-  const drawdown = computeDrawdown(snapshots, {
-    nav: book.nav,
-    invested: book.invested,
-    positionsValue: book.marketValue,
-  });
+  const drawdown = computeDrawdown(
+    snapshots,
+    {
+      nav: book.nav,
+      invested: book.invested,
+      positionsValue: book.marketValue,
+      asOf: book.markAsOf ?? new Date().toISOString(),
+    },
+    flows,
+  );
   const bookFlags = [...snapshotFlags(snapshots, drawdown), ...book.flags];
   const attention = buildAttentionItems({
     bookFlags,

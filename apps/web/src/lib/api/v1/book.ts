@@ -1,4 +1,8 @@
-import { aiCapexNavPct, RISK_DEFAULTS } from "@powerfund/domain";
+import {
+  aiCapexNavPct,
+  RISK_DEFAULTS,
+  unclassifiedSymbols,
+} from "@powerfund/domain";
 
 import { createAdminClient } from "@/lib/supabase/admin";
 
@@ -295,6 +299,15 @@ export async function getPublicPortfolio(): Promise<PublicPortfolio> {
       code: "ai_capex_factor",
       severity: "warn",
       label: `AI-capex complex is ${pct1(factorPct)}% of NAV (cap ${RISK_DEFAULTS.maxAiCapexFactorPctNav}%)`,
+    });
+  }
+
+  const unknown = unclassifiedSymbols(valued.map((row) => row.symbol));
+  if (unknown.length > 0) {
+    flags.push({
+      code: "factor_unclassified",
+      severity: "warn",
+      label: `${unknown.join(", ")} unclassified vs the AI-capex factor`,
     });
   }
 
