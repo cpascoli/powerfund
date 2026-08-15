@@ -7,6 +7,9 @@ const nextConfig: NextConfig = {
     "@powerfund/data-clients",
   ],
   serverExternalPackages: ["yahoo-finance2"],
+  outputFileTracingIncludes: {
+    "/api/**/*": ["../../docs/*.md"],
+  },
 };
 
 export default nextConfig;

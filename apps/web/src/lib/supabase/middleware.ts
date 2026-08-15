@@ -11,7 +11,20 @@ type CookieToSet = {
   options: CookieOptions;
 };
 
+function isPublicCatalogPath(pathname: string): boolean {
+  return (
+    pathname === "/llms.txt" ||
+    pathname === "/api/v1" ||
+    pathname.startsWith("/api/v1/")
+  );
+}
+
 export async function updateSession(request: NextRequest) {
+  const pathname = request.nextUrl.pathname;
+  if (isPublicCatalogPath(pathname)) {
+    return NextResponse.next({ request });
+  }
+
   const env = getSupabaseEnv();
   // Fail closed: without Supabase config there is no way to authenticate, so a
   // misconfigured deploy must not serve the app unauthenticated.
@@ -45,7 +58,6 @@ export async function updateSession(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser();
 
-  const pathname = request.nextUrl.pathname;
   const isLogin = pathname === "/login";
 
   if (!user && !isLogin) {
