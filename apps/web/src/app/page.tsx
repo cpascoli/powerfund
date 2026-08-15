@@ -1,12 +1,26 @@
+import type { ReactNode } from "react";
 import Link from "next/link";
 import { RISK_DEFAULTS } from "@powerfund/domain";
 
 import {
+  attentionKindLabel,
+  bookPulse,
+  buildAttentionItems,
+  daysUntil,
+  isUrgentAttention,
+  themePulse,
+  upcomingSections,
+  type AttentionItem,
+} from "@/lib/data/briefing";
+import { listDecisions } from "@/lib/data/decisions";
+import {
   buildDeploymentQueue,
   listOpenPlannedActions,
+  type PlannedActionRow,
 } from "@/lib/data/planned-actions";
 import { getOpenPortfolioBook, withLiveMarks } from "@/lib/data/portfolio";
 import {
+  listDossierReviews,
   listInstrumentsWithThemes,
   listThemes,
 } from "@/lib/data/research";
@@ -18,22 +32,68 @@ import {
 
 export const dynamic = "force-dynamic";
 
-function daysUntil(date: string): number {
-  const today = new Date();
-  today.setUTCHours(0, 0, 0, 0);
-  return Math.round(
-    (new Date(`${date}T00:00:00Z`).getTime() - today.getTime()) / 86_400_000,
-  );
+export const metadata = {
+  title: "Briefing",
+};
+
+type BriefingTabId = "attention" | "upcoming" | "themes";
+
+const TABS: Array<{ id: BriefingTabId; label: string }> = [
+  { id: "attention", label: "Attention" },
+  { id: "upcoming", label: "Upcoming" },
+  { id: "themes", label: "Themes" },
+];
+
+function parseTab(raw: string | undefined): BriefingTabId | null {
+  switch (raw) {
+    case "attention":
+    case "upcoming":
+    case "themes":
+      return raw;
+    default:
+      return null;
+  }
 }
 
-export default async function BriefingPage() {
-  const [themes, instruments, book, rawQueue, snapshots] = await Promise.all([
-    listThemes(),
-    listInstrumentsWithThemes(),
-    getOpenPortfolioBook().then(withLiveMarks),
-    listOpenPlannedActions(),
-    listPortfolioSnapshots(),
-  ]);
+function pct(value: number | null | undefined): string {
+  if (value == null || Number.isNaN(value)) return "—";
+  return `${value.toFixed(1)}%`;
+}
+
+function money(value: number): string {
+  return value.toLocaleString(undefined, {
+    style: "currency",
+    currency: "USD",
+    maximumFractionDigits: 0,
+  });
+}
+
+function dueLabel(action: PlannedActionRow): string {
+  if (action.dueBy == null) return "no date";
+  const days = daysUntil(action.dueBy);
+  if (days < 0) return `overdue ${action.dueBy}`;
+  if (days === 0) return "due today";
+  return `due ${action.dueBy}`;
+}
+
+export default async function BriefingPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ tab?: string }>;
+}) {
+  const { tab } = await searchParams;
+  const activeTab = parseTab(tab) ?? "attention";
+
+  const [themes, instruments, book, rawQueue, snapshots, decisions, dossiers] =
+    await Promise.all([
+      listThemes(),
+      listInstrumentsWithThemes(),
+      getOpenPortfolioBook().then(withLiveMarks),
+      listOpenPlannedActions(),
+      listPortfolioSnapshots(),
+      listDecisions(),
+      listDossierReviews(),
+    ]);
 
   const queue = buildDeploymentQueue(book, instruments, rawQueue);
   const drawdown = computeDrawdown(snapshots, {
@@ -41,23 +101,51 @@ export default async function BriefingPage() {
     invested: book.invested,
     positionsValue: book.marketValue,
   });
-
-  // Queue items with a date or window are the calendar; soonest first.
-  const upcoming = [...queue.actions].sort((a, b) => {
-    if (a.dueBy && b.dueBy) return a.dueBy.localeCompare(b.dueBy);
-    if (a.dueBy) return -1;
-    if (b.dueBy) return 1;
-    return a.createdAt.localeCompare(b.createdAt);
+  const bookFlags = [...snapshotFlags(snapshots, drawdown), ...book.flags];
+  const attention = buildAttentionItems({
+    bookFlags,
+    queueFlags: queue.flags,
+    queue: queue.actions,
+    book,
+    decisions,
+    dossiers,
+    instruments,
   });
+  const upcoming = upcomingSections(queue.actions);
+  const themesView = themePulse({ themes, instruments, book });
+  const pulse = bookPulse(book);
+  const thisWeekCount = upcoming[0]?.actions.length ?? 0;
+  const attentionWarn = attention.some((item) => isUrgentAttention(item.kind));
 
-  const coreThemes = themes.filter((theme) => theme.is_core);
-  const warnFlags = [
-    ...snapshotFlags(snapshots, drawdown),
-    ...book.flags,
-  ].filter((flag) => flag.severity === "warn");
-  const overdue = upcoming.filter(
-    (action) => action.dueBy != null && daysUntil(action.dueBy) < 0,
-  );
+  const markAsOf = book.markAsOf
+    ? new Date(book.markAsOf).toLocaleTimeString(undefined, {
+        hour: "numeric",
+        minute: "2-digit",
+        timeZoneName: "short",
+      })
+    : null;
+
+  let tabContent: ReactNode;
+  switch (activeTab) {
+    case "attention":
+      tabContent = <AttentionPanel items={attention} />;
+      break;
+    case "upcoming":
+      tabContent = <UpcomingPanel sections={upcoming} />;
+      break;
+    case "themes":
+      tabContent = (
+        <ThemesPanel
+          themes={themesView}
+          aiCapexPctNav={pulse.aiCapexPctNav}
+        />
+      );
+      break;
+    default: {
+      const _exhaustive: never = activeTab;
+      tabContent = _exhaustive;
+    }
+  }
 
   return (
     <>
@@ -65,27 +153,23 @@ export default async function BriefingPage() {
         <div>
           <h1>Briefing</h1>
           <p>
-            Situational awareness — watchlist coverage now, signals and risk
-            flags as they arrive. Deep charts live in{" "}
-            <Link href="/workbench">Workbench</Link>; browsing starts in{" "}
-            <Link href="/explore">Explore</Link>.
+            Flags, reviews due, and dated actions
+            {markAsOf
+              ? ` — ${book.markLabel.toLowerCase()} as of ${markAsOf}. `
+              : ` — ${book.markLabel.toLowerCase()}. `}
+            Deep charts live in <Link href="/workbench">Workbench</Link>;
+            browsing starts in <Link href="/explore">Explore</Link>.
           </p>
         </div>
       </header>
 
-      <section className="stat-row" aria-label="Book and universe">
+      <section className="stat-row stats-5" aria-label="Book pulse">
         <div className="stat">
           <span>NAV</span>
-          <strong>
-            {book.nav.toLocaleString(undefined, {
-              style: "currency",
-              currency: "USD",
-              maximumFractionDigits: 0,
-            })}
-          </strong>
+          <strong>{money(book.nav)}</strong>
         </div>
         <div className="stat">
-          <span>Cash % NAV</span>
+          <span>Cash vs {RISK_DEFAULTS.minCashPctNav}%</span>
           <strong
             className={
               book.cashPctNav < RISK_DEFAULTS.minCashPctNav
@@ -93,15 +177,41 @@ export default async function BriefingPage() {
                 : undefined
             }
           >
-            {book.cashPctNav.toFixed(1)}%
+            {pct(book.cashPctNav)}
           </strong>
         </div>
         <div className="stat">
-          <span>Watchlist names</span>
-          <strong>{instruments.length}</strong>
+          <span>
+            Largest
+            {pulse.largest ? ` ${pulse.largest.symbol}` : ""} vs{" "}
+            {RISK_DEFAULTS.maxPositionPctNav}%
+          </span>
+          <strong
+            className={
+              pulse.largest != null &&
+              pulse.largest.weightPctNav > RISK_DEFAULTS.maxPositionPctNav
+                ? "is-down"
+                : undefined
+            }
+          >
+            {pct(pulse.largest?.weightPctNav)}
+          </strong>
         </div>
         <div className="stat">
-          <span>Deployed drawdown vs peak</span>
+          <span>AI-capex vs {RISK_DEFAULTS.maxAiCapexFactorPctNav}%</span>
+          <strong
+            className={
+              pulse.aiCapexPctNav != null &&
+              pulse.aiCapexPctNav > RISK_DEFAULTS.maxAiCapexFactorPctNav
+                ? "is-down"
+                : undefined
+            }
+          >
+            {pct(pulse.aiCapexPctNav)}
+          </strong>
+        </div>
+        <div className="stat">
+          <span>Drawdown vs {RISK_DEFAULTS.drawdownKillSwitchPct}%</span>
           <strong
             className={
               drawdown.killSwitchBreached
@@ -114,110 +224,183 @@ export default async function BriefingPage() {
           >
             {drawdown.deployedDrawdownPp == null
               ? "—"
-              : `${drawdown.deployedDrawdownPp.toFixed(1)}%`}
+              : pct(drawdown.deployedDrawdownPp)}
           </strong>
         </div>
       </section>
 
-      <div className="grid">
-        <section className="panel half">
-          <h2>Needs attention</h2>
-          {warnFlags.length > 0 || overdue.length > 0 ? (
-            <ul className="list">
-              {overdue.map((action) => (
-                <li key={`overdue-${action.id}`}>
-                  <span className="is-down">Flag</span>
-                  <span>
-                    {action.symbol} {action.actionType} was due {action.dueBy}{" "}
-                    — confirm, defer, or cancel it
-                  </span>
-                </li>
-              ))}
-              {warnFlags.map((flag) => (
-                <li key={flag.code}>
-                  <span className="is-down">Flag</span>
-                  <span>{flag.label}</span>
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <p className="empty">
-              Mandate checks are clear vs NAV. Signal triage will land here
-              once the inbox is in use.
-            </p>
-          )}
-        </section>
+      <nav className="tab-nav" aria-label="Briefing sections">
+        {TABS.map((entry) => {
+          const badge =
+            entry.id === "attention"
+              ? attention.length
+              : entry.id === "upcoming"
+                ? thisWeekCount
+                : null;
+          const warn = entry.id === "attention" && attentionWarn;
+          return (
+            <Link
+              key={entry.id}
+              href={entry.id === "attention" ? "/" : `/?tab=${entry.id}`}
+              className={entry.id === activeTab ? "is-active" : undefined}
+              aria-current={entry.id === activeTab ? "page" : undefined}
+            >
+              {entry.label}
+              {badge != null && badge > 0 ? (
+                <span className="tab-badge">{badge}</span>
+              ) : null}
+              {warn ? <span className="tab-badge warn">!</span> : null}
+            </Link>
+          );
+        })}
+      </nav>
 
-        <section className="panel half">
-          <h2>Upcoming</h2>
-          {upcoming.length === 0 ? (
-            <p className="empty">
-              Nothing queued with a date or window. Plan buys from the{" "}
-              <Link href="/portfolio?tab=queue">deployment queue</Link>.
-            </p>
-          ) : (
-            <ul className="list">
-              {upcoming.map((action) => {
-                const days =
-                  action.dueBy != null ? daysUntil(action.dueBy) : null;
-                return (
-                  <li key={action.id}>
-                    <div>
-                      <strong>
-                        <Link href={`/explore/${action.symbol}`}>
-                          {action.symbol}
-                        </Link>
-                      </strong>
-                      <span className="muted">
-                        {" "}
-                        {action.actionType} $
-                        {action.plannedUsd.toLocaleString()}
-                        {action.windowLabel ? ` · ${action.windowLabel}` : ""}
-                      </span>
-                      {action.rationale ? (
-                        <div className="muted">{action.rationale}</div>
-                      ) : null}
-                    </div>
-                    {days != null ? (
-                      <span className={days <= 7 ? "tag warn-tag" : "tag"}>
-                        {days < 0
-                          ? `overdue ${action.dueBy}`
-                          : days === 0
-                            ? "due today"
-                            : `due ${action.dueBy}`}
-                      </span>
-                    ) : (
-                      <span className="tag">no date</span>
-                    )}
-                  </li>
-                );
-              })}
-            </ul>
-          )}
-        </section>
-
-        <section className="panel half">
-          <h2>Core themes</h2>
-          <ul className="list">
-            {coreThemes.map((theme) => {
-              const count = instruments.filter(
-                (instrument) => instrument.theme_slug === theme.slug,
-              ).length;
-              return (
-                <li key={theme.id}>
-                  <div>
-                    <strong>
-                      <Link href="/explore">{theme.name}</Link>
-                    </strong>
-                    <div className="muted">{theme.description}</div>
-                  </div>
-                  <span className="tag">{count} names</span>
-                </li>
-              );
-            })}
-          </ul>
-        </section>
-      </div>
+      {tabContent}
     </>
+  );
+}
+
+function AttentionPanel({ items }: { items: AttentionItem[] }) {
+  return (
+    <section className="panel" aria-label="Needs attention">
+      <h2>Needs attention</h2>
+      {items.length === 0 ? (
+        <p className="empty">
+          Nothing needs attention. Mandate checks are clear. Dated actions are
+          on Upcoming; browse names in <Link href="/explore">Explore</Link>.
+        </p>
+      ) : (
+        <ul className="list">
+          {items.map((item) => (
+            <li key={item.id}>
+              <div>
+                <strong>
+                  <Link href={item.href}>{item.title}</Link>
+                </strong>
+                <div className="muted">{item.detail}</div>
+              </div>
+              <span
+                className={
+                  isUrgentAttention(item.kind) ? "tag warn-tag" : "tag"
+                }
+              >
+                {attentionKindLabel(item.kind)}
+              </span>
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
+  );
+}
+
+function UpcomingPanel({
+  sections,
+}: {
+  sections: ReturnType<typeof upcomingSections>;
+}) {
+  const hasAny = sections.some((section) => section.actions.length > 0);
+  return (
+    <section className="panel" aria-label="Upcoming">
+      <h2>Upcoming</h2>
+      <p className="muted">
+        Time-bound queue items. The full list stays on the{" "}
+        <Link href="/portfolio?tab=queue">deployment queue</Link>.
+      </p>
+      {hasAny ? (
+        sections.map((section) =>
+          section.actions.length === 0 ? null : (
+            <div key={section.id}>
+              <h3>{section.label}</h3>
+              <ul className="list">
+                {section.actions.map((action) => {
+                  const days =
+                    action.dueBy != null ? daysUntil(action.dueBy) : null;
+                  return (
+                    <li key={action.id}>
+                      <div>
+                        <strong>
+                          <Link href={`/explore/${action.symbol}`}>
+                            {action.symbol}
+                          </Link>
+                        </strong>
+                        <span className="muted">
+                          {" "}
+                          {action.actionType} {money(action.plannedUsd)}
+                          {action.windowLabel ? ` · ${action.windowLabel}` : ""}
+                        </span>
+                        {action.rationale ? (
+                          <div className="muted">{action.rationale}</div>
+                        ) : null}
+                      </div>
+                      <span
+                        className={
+                          days != null && days <= 7 ? "tag warn-tag" : "tag"
+                        }
+                      >
+                        {dueLabel(action)}
+                      </span>
+                    </li>
+                  );
+                })}
+              </ul>
+            </div>
+          ),
+        )
+      ) : (
+        <p className="empty">
+          Nothing dated in the queue. Plan buys from the{" "}
+          <Link href="/portfolio?tab=queue">deployment queue</Link>.
+        </p>
+      )}
+    </section>
+  );
+}
+
+function ThemesPanel({
+  themes,
+  aiCapexPctNav,
+}: {
+  themes: ReturnType<typeof themePulse>;
+  aiCapexPctNav: number | null;
+}) {
+  const factorHot =
+    aiCapexPctNav != null &&
+    aiCapexPctNav > RISK_DEFAULTS.maxAiCapexFactorPctNav;
+
+  return (
+    <section className="panel" aria-label="Theme pulse">
+      <h2>Themes</h2>
+      <p className="muted">
+        AI-capex complex {pct(aiCapexPctNav)} of NAV (cap{" "}
+        {RISK_DEFAULTS.maxAiCapexFactorPctNav}%)
+        {factorHot ? <span className="tag warn-tag"> over cap</span> : null}.
+        Weights vs the {RISK_DEFAULTS.maxThemePctNav}% theme cap. Coverage is
+        watchlist vs names on the book.
+      </p>
+      <ul className="list">
+        {themes.map((theme) => (
+          <li key={theme.slug}>
+            <div>
+              <strong>
+                <Link href={`/themes#${theme.slug}`}>{theme.name}</Link>
+              </strong>
+              {theme.isCore ? <span className="tag"> core</span> : null}
+              {theme.description ? (
+                <div className="muted">{theme.description}</div>
+              ) : null}
+              <div className="muted">
+                {theme.watchlistCount} watchlist · {theme.bookCount} on book
+                {" · "}
+                <Link href={`/workbench?theme=${theme.slug}`}>Workbench</Link>
+              </div>
+            </div>
+            <span className={theme.overCap ? "tag warn-tag" : "tag"}>
+              {pct(theme.weightPctNav)} NAV
+            </span>
+          </li>
+        ))}
+      </ul>
+    </section>
   );
 }

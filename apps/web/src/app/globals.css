@@ -363,6 +363,15 @@ a {
   letter-spacing: -0.02em;
 }
 
+.panel h3 {
+  margin: 1.15rem 0 0;
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 650;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
 .panel p,
 .muted {
   color: var(--muted);
@@ -374,6 +383,10 @@ a {
   grid-template-columns: repeat(4, 1fr);
   gap: 1rem;
   margin-bottom: 0.5rem;
+}
+
+.stat-row.stats-5 {
+  grid-template-columns: repeat(5, 1fr);
 }
 
 .stat {

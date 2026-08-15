@@ -240,6 +240,38 @@ export async function getInstrumentDossier(
   };
 }
 
+export type DossierReviewRow = {
+  instrumentId: string;
+  status: DossierRow["status"];
+  nextDiligence: string | null;
+  updatedAt: string;
+};
+
+export async function listDossierReviews(): Promise<DossierReviewRow[]> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("dossiers")
+    .select("instrument_id, status, next_diligence, updated_at");
+
+  if (error) {
+    throw new Error(`Failed to load dossiers: ${error.message}`);
+  }
+
+  return (
+    (data as Array<{
+      instrument_id: string;
+      status: DossierRow["status"];
+      next_diligence: string | null;
+      updated_at: string;
+    }> | null) ?? []
+  ).map((row) => ({
+    instrumentId: row.instrument_id,
+    status: row.status,
+    nextDiligence: row.next_diligence,
+    updatedAt: row.updated_at,
+  }));
+}
+
 export async function getInstrumentMarketSnapshot(
   instrumentId: string,
 ): Promise<InstrumentMarketSnapshot> {
