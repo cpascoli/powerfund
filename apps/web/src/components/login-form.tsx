@@ -30,7 +30,7 @@ export function LoginForm() {
       return;
     }
 
-    router.replace("/");
+    router.replace("/docs/goals");
     router.refresh();
   }
 
