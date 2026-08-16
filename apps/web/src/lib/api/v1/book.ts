@@ -1,5 +1,6 @@
 import {
   aiCapexNavPct,
+  aiMemoryNavPct,
   RISK_DEFAULTS,
   unclassifiedSymbols,
 } from "@powerfund/domain";
@@ -33,6 +34,7 @@ export type PublicPortfolio = {
   cash_pct_nav: number;
   deployed_pct_nav: number;
   ai_capex_pct_nav: number | null;
+  ai_memory_pct_nav: number | null;
   positions: PublicPosition[];
   themes: PublicThemeWeight[];
   flags: PublicMandateFlag[];
@@ -105,6 +107,7 @@ export async function getPublicPortfolio(): Promise<PublicPortfolio> {
       cash_pct_nav: 100,
       deployed_pct_nav: 0,
       ai_capex_pct_nav: 0,
+      ai_memory_pct_nav: 0,
       positions: [],
       themes: [],
       flags: [
@@ -248,15 +251,14 @@ export async function getPublicPortfolio(): Promise<PublicPortfolio> {
     }))
     .sort((a, b) => b.weight_pct_nav - a.weight_pct_nav);
 
-  const factorPct = aiCapexNavPct(
-    valued.map((row) => ({
-      symbol: row.symbol,
-      themeSlug: row.themeSlug,
-      marketValue: row.marketValue,
-      costBasis: row.marketValue,
-    })),
-    nav,
-  );
+  const mandatePositions = valued.map((row) => ({
+    symbol: row.symbol,
+    themeSlug: row.themeSlug,
+    marketValue: row.marketValue,
+    costBasis: row.marketValue,
+  }));
+  const factorPct = aiCapexNavPct(mandatePositions, nav);
+  const memoryPct = aiMemoryNavPct(mandatePositions, nav);
 
   const flags: PublicMandateFlag[] = [];
   const oversized = publicPositions.filter(
@@ -302,6 +304,17 @@ export async function getPublicPortfolio(): Promise<PublicPortfolio> {
     });
   }
 
+  if (
+    memoryPct != null &&
+    memoryPct > RISK_DEFAULTS.maxAiMemorySleevePctNav
+  ) {
+    flags.push({
+      code: "ai_memory_sleeve",
+      severity: "warn",
+      label: `AI memory/storage sleeve is ${pct1(memoryPct)}% of NAV (guide ${RISK_DEFAULTS.maxAiMemorySleevePctNav}%)`,
+    });
+  }
+
   const unknown = unclassifiedSymbols(valued.map((row) => row.symbol));
   if (unknown.length > 0) {
     flags.push({
@@ -323,6 +336,7 @@ export async function getPublicPortfolio(): Promise<PublicPortfolio> {
     cash_pct_nav: pct1(cashPctNav) ?? 0,
     deployed_pct_nav: pct1(deployedPctNav) ?? 0,
     ai_capex_pct_nav: pct1(factorPct),
+    ai_memory_pct_nav: pct1(memoryPct),
     positions: publicPositions,
     themes: themeWeights,
     flags,
@@ -413,6 +427,7 @@ export function portfolioMarkdown(book: PublicPortfolio): string {
     `- Cash: ${book.cash_pct_nav}% NAV`,
     `- Deployed: ${book.deployed_pct_nav}% NAV`,
     `- AI-capex complex: ${book.ai_capex_pct_nav ?? "—"}% NAV`,
+    `- AI memory/storage sleeve: ${book.ai_memory_pct_nav ?? "—"}% NAV`,
     "",
     "## Positions",
     "",

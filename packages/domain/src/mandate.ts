@@ -1,6 +1,7 @@
 import { toCents } from "./money";
 import {
   aiCapexWeight,
+  aiMemoryWeight,
   RISK_DEFAULTS,
   unclassifiedSymbols,
 } from "./risk";
@@ -12,6 +13,7 @@ export type MandateViolationCode =
   | "phase1_invested"
   | "drawdown_kill_switch"
   | "ai_capex_factor"
+  | "ai_memory_sleeve"
   | "factor_unclassified";
 
 export type MandateViolation = {
@@ -91,17 +93,32 @@ export function projectBookAfterBuy(
   };
 }
 
+function weightedNavPct(
+  positions: MandatePosition[],
+  nav: number,
+  weightOf: (symbol: string) => number | null,
+): number | null {
+  if (nav <= 0) return null;
+  const value = positions.reduce((sum, row) => {
+    const weight = weightOf(row.symbol);
+    if (weight == null) return sum;
+    return sum + row.marketValue * weight;
+  }, 0);
+  return pct(value, nav);
+}
+
 export function aiCapexNavPct(
   positions: MandatePosition[],
   nav: number,
 ): number | null {
-  if (nav <= 0) return null;
-  const complex = positions.reduce((sum, row) => {
-    const weight = aiCapexWeight(row.symbol);
-    if (weight == null) return sum;
-    return sum + row.marketValue * weight;
-  }, 0);
-  return pct(complex, nav);
+  return weightedNavPct(positions, nav, aiCapexWeight);
+}
+
+export function aiMemoryNavPct(
+  positions: MandatePosition[],
+  nav: number,
+): number | null {
+  return weightedNavPct(positions, nav, aiMemoryWeight);
 }
 
 export function evaluateMandate(book: MandateBook): MandateViolation[] {
@@ -162,6 +179,17 @@ export function evaluateMandate(book: MandateBook): MandateViolation[] {
     violations.push({
       code: "ai_capex_factor",
       label: `AI-capex complex would be ${factorPct.toFixed(1)}% of NAV (cap ${RISK_DEFAULTS.maxAiCapexFactorPctNav}%)`,
+    });
+  }
+
+  const memoryPct = aiMemoryNavPct(book.positions, nav);
+  if (
+    memoryPct != null &&
+    memoryPct > RISK_DEFAULTS.maxAiMemorySleevePctNav
+  ) {
+    violations.push({
+      code: "ai_memory_sleeve",
+      label: `AI memory/storage sleeve would be ${memoryPct.toFixed(1)}% of NAV (guide ${RISK_DEFAULTS.maxAiMemorySleevePctNav}%)`,
     });
   }
 

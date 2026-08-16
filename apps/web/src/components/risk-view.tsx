@@ -41,11 +41,24 @@ export function RiskViewPanel({ view }: Props) {
 
   return (
     <>
-      <section className="stat-row" aria-label="Factor and stress">
+      <section className="stat-row stats-5" aria-label="Factor and stress">
         <div className="stat">
           <span>AI-capex of NAV</span>
           <strong className={factorOver ? "is-down" : undefined}>
             {unsignedPct(view.aiCapexPct, 1)}
+          </strong>
+        </div>
+        <div className="stat">
+          <span>AI memory of NAV</span>
+          <strong
+            className={
+              view.aiMemoryPct != null &&
+              view.aiMemoryPct > RISK_DEFAULTS.maxAiMemorySleevePctNav
+                ? "is-down"
+                : undefined
+            }
+          >
+            {unsignedPct(view.aiMemoryPct, 1)}
           </strong>
         </div>
         <div className="stat">

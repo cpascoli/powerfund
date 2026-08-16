@@ -18,8 +18,14 @@ export const RISK_DEFAULTS = {
 
 export type RiskDefaults = typeof RISK_DEFAULTS;
 
+/**
+ * Mandate allocation sleeves. Unit-sum. This is not a stress-beta model:
+ * `ai_memory` counts fully toward the 40% AI-capex cap and separately
+ * toward the 15% memory sleeve.
+ */
 export type FactorKey =
   | "ai_capex"
+  | "ai_memory"
   | "defence"
   | "nuclear"
   | "robotics"
@@ -28,90 +34,220 @@ export type FactorKey =
 
 export type FactorWeights = Partial<Record<FactorKey, number>>;
 
-function factors(weights: FactorWeights): FactorWeights {
-  const sum = (Object.values(weights) as number[]).reduce(
-    (total, value) => total + value,
-    0,
-  );
+export type FactorExposureRecord = {
+  weights: FactorWeights;
+  rationale: string;
+  reviewedAt: string;
+};
+
+const REVIEWED_AT = "2026-08-16";
+
+function entry(
+  weights: FactorWeights,
+  rationale: string,
+): FactorExposureRecord {
+  let sum = 0;
+  for (const value of Object.values(weights) as number[]) {
+    if (value < 0 || value > 1) {
+      throw new Error(`Factor weight ${value} is outside 0–1`);
+    }
+    sum += value;
+  }
   if (Math.abs(sum - 1) > 0.001) {
     throw new Error(`Factor weights must sum to 1, got ${sum}`);
   }
-  return weights;
+  return { weights, rationale, reviewedAt: REVIEWED_AT };
 }
 
 /**
- * Explicit factor loadings vs the hyperscaler-capex complex.
+ * Explicit mandate loadings vs the hyperscaler-capex complex.
  * Unknown symbols are unclassified — they do not count as AI-capex
  * and they do not count as diversifiers.
  */
-export const FACTOR_EXPOSURES: Readonly<Record<string, FactorWeights>> = {
-  NVDA: factors({ ai_capex: 1 }),
-  AVGO: factors({ ai_capex: 1 }),
-  TSM: factors({ ai_capex: 1 }),
-  AMD: factors({ ai_capex: 1 }),
-  ANET: factors({ ai_capex: 1 }),
-  VRT: factors({ ai_capex: 1 }),
-  EQIX: factors({ ai_capex: 1 }),
-  SMCI: factors({ ai_capex: 1 }),
-  CLS: factors({ ai_capex: 1 }),
-  NBIS: factors({ ai_capex: 1 }),
-  CRDO: factors({ ai_capex: 1 }),
-  ALAB: factors({ ai_capex: 1 }),
-  IREN: factors({ ai_capex: 1 }),
-  CRWV: factors({ ai_capex: 1 }),
-  MRVL: factors({ ai_capex: 1 }),
-  NVT: factors({ ai_capex: 1 }),
-  MU: factors({ ai_capex: 1 }),
-  SKHY: factors({ ai_capex: 1 }),
-  SNDK: factors({ ai_capex: 1 }),
-  LITE: factors({ ai_capex: 1 }),
-  COHR: factors({ ai_capex: 1 }),
+export const FACTOR_EXPOSURES: Readonly<Record<string, FactorExposureRecord>> = {
+  NVDA: entry({ ai_capex: 1 }, "Accelerators are the core hyperscaler spend."),
+  AVGO: entry(
+    { ai_capex: 0.65, other: 0.35 },
+    "Custom silicon and networking sit next to a large infrastructure-software book.",
+  ),
+  TSM: entry(
+    { ai_capex: 0.75, other: 0.25 },
+    "Leading-edge foundry is AI-sensitive; mobile, auto, and other compute remain.",
+  ),
+  AMD: entry({ ai_capex: 1 }, "GPU/CPU exposure is the AI-compute cycle."),
+  ANET: entry({ ai_capex: 1 }, "Data-center networking is hyperscaler capex."),
+  VRT: entry({ ai_capex: 1 }, "Thermal and power for AI halls."),
+  EQIX: entry(
+    { ai_capex: 0.65, other: 0.35 },
+    "AI helps colo, but enterprise interconnection is broader than training clusters.",
+  ),
+  SMCI: entry({ ai_capex: 1 }, "AI server systems."),
+  CLS: entry(
+    { ai_capex: 0.85, other: 0.15 },
+    "AI server and networking EMS is dominant, not exclusive.",
+  ),
+  NBIS: entry({ ai_capex: 1 }, "Specialized AI cloud."),
+  CRDO: entry({ ai_capex: 1 }, "High-speed AI rack connectivity."),
+  ALAB: entry({ ai_capex: 1 }, "AI rack-scale connectivity."),
+  IREN: entry(
+    { ai_capex: 0.6, other: 0.4 },
+    "AI cloud buildout sits beside crypto/power; those are not the same factor.",
+  ),
+  CRWV: entry({ ai_capex: 1 }, "GPU neocloud."),
+  MRVL: entry(
+    { ai_capex: 0.75, other: 0.25 },
+    "Custom AI silicon and optical, plus carrier/storage networking.",
+  ),
+  NVT: entry(
+    { ai_capex: 0.5, grid: 0.3, other: 0.2 },
+    "Liquid cooling and rack power matter; electrical and industrial exposure is broader.",
+  ),
+  MU: entry(
+    { ai_memory: 1 },
+    "HBM/DRAM. Counts fully toward the memory sleeve and the AI-capex cap.",
+  ),
+  SKHY: entry(
+    { ai_memory: 1 },
+    "HBM/DRAM. Counts fully toward the memory sleeve and the AI-capex cap.",
+  ),
+  SNDK: entry(
+    { ai_memory: 1 },
+    "NAND/storage. Counts fully toward the memory sleeve and the AI-capex cap.",
+  ),
+  LITE: entry(
+    { ai_capex: 0.7, other: 0.3 },
+    "Optical AI interconnect plus telecom and industrial photonics.",
+  ),
+  COHR: entry(
+    { ai_capex: 0.6, other: 0.4 },
+    "AI photonics inside a broader industrial and communications book.",
+  ),
 
-  CEG: factors({ nuclear: 0.6, ai_capex: 0.4 }),
-  VST: factors({ grid: 0.6, ai_capex: 0.4 }),
-  GEV: factors({ grid: 0.7, ai_capex: 0.3 }),
-  CCJ: factors({ nuclear: 1 }),
-  ETN: factors({ ai_capex: 0.7, grid: 0.3 }),
-  PWR: factors({ grid: 0.7, ai_capex: 0.3 }),
-  HUBB: factors({ grid: 0.5, ai_capex: 0.5 }),
-  EME: factors({ grid: 0.8, ai_capex: 0.2 }),
-  BWXT: factors({ nuclear: 1 }),
-  POWL: factors({ grid: 0.6, ai_capex: 0.4 }),
+  CEG: entry(
+    { nuclear: 0.75, ai_capex: 0.25 },
+    "Firm nuclear power; AI offtake is real but not the whole equity.",
+  ),
+  VST: entry(
+    { ai_capex: 0.25, other: 0.75 },
+    "Generator and retailer, not a grid-capex name. Large-load AI is a slice.",
+  ),
+  GEV: entry(
+    { grid: 0.55, ai_capex: 0.2, other: 0.25 },
+    "Grid equipment plus turbines, wind, and services.",
+  ),
+  CCJ: entry({ nuclear: 1 }, "Uranium fuel cycle. Diversifier vs hyperscaler capex."),
+  ETN: entry(
+    { grid: 0.5, ai_capex: 0.35, other: 0.15 },
+    "Electrical and data-center power, not a pure AI-cooling name.",
+  ),
+  PWR: entry(
+    { grid: 0.65, ai_capex: 0.25, other: 0.1 },
+    "Grid services first; data-center interconnect is the AI slice.",
+  ),
+  HUBB: entry(
+    { grid: 0.75, ai_capex: 0.15, other: 0.1 },
+    "Grid-to-chip electrical; most of the book is not hyperscaler halls.",
+  ),
+  EME: entry(
+    { ai_capex: 0.35, grid: 0.15, other: 0.5 },
+    "Diversified electrical/mechanical construction; data-center work is material, not the company.",
+  ),
+  BWXT: entry(
+    { defence: 0.65, nuclear: 0.35 },
+    "Naval nuclear and government operations, not civilian AI power.",
+  ),
+  POWL: entry(
+    { grid: 0.5, ai_capex: 0.3, other: 0.2 },
+    "Switchgear for data centers plus industrial and energy distribution.",
+  ),
 
-  ISRG: factors({ robotics: 1 }),
-  TER: factors({ robotics: 0.5, ai_capex: 0.5 }),
-  ROK: factors({ robotics: 0.8, ai_capex: 0.2 }),
-  PATH: factors({ robotics: 0.7, other: 0.3 }),
-  NOVT: factors({ robotics: 0.8, ai_capex: 0.2 }),
-  AMBA: factors({ ai_capex: 0.6, robotics: 0.4 }),
-  OUST: factors({ robotics: 0.7, ai_capex: 0.3 }),
+  ISRG: entry(
+    { robotics: 1 },
+    "Thematic robotics; economically procedure volume and hospital adoption, not hyperscaler capex.",
+  ),
+  TER: entry(
+    { ai_capex: 0.5, robotics: 0.2, other: 0.3 },
+    "Semiconductor test is AI-cycle sensitive; automation is the rest.",
+  ),
+  ROK: entry(
+    { robotics: 0.85, other: 0.15 },
+    "Industrial automation. Benefiting from AI software is not hyperscaler capex.",
+  ),
+  PATH: entry(
+    { robotics: 0.5, other: 0.5 },
+    "Enterprise automation software, not AI-cluster spend.",
+  ),
+  NOVT: entry(
+    { robotics: 0.35, ai_capex: 0.15, other: 0.5 },
+    "Precision motion and robot tooling; only a thin AI-capex link.",
+  ),
+  AMBA: entry(
+    { ai_capex: 0.45, robotics: 0.45, other: 0.1 },
+    "Edge-AI SoCs split between vision/robotics and compute cycles.",
+  ),
+  OUST: entry(
+    { robotics: 0.9, other: 0.1 },
+    "LiDAR/perception. Not hyperscaler training capex.",
+  ),
 
-  LMT: factors({ defence: 1 }),
-  RTX: factors({ defence: 1 }),
-  NOC: factors({ defence: 1 }),
-  GD: factors({ defence: 1 }),
-  AVAV: factors({ defence: 0.8, ai_capex: 0.2 }),
-  KTOS: factors({ defence: 0.8, ai_capex: 0.2 }),
-  MRCY: factors({ defence: 0.7, ai_capex: 0.3 }),
-  TDY: factors({ defence: 0.7, robotics: 0.2, ai_capex: 0.1 }),
+  LMT: entry({ defence: 1 }, "Appropriations-driven prime."),
+  NOC: entry({ defence: 1 }, "Appropriations-driven prime."),
+  RTX: entry(
+    { defence: 0.55, other: 0.45 },
+    "Raytheon is defence; Collins and Pratt are commercial aerospace.",
+  ),
+  GD: entry(
+    { defence: 0.75, other: 0.25 },
+    "Platforms and munitions plus a material Gulfstream book.",
+  ),
+  AVAV: entry(
+    { defence: 1 },
+    "Autonomous defence systems. DoD demand, not hyperscaler capex.",
+  ),
+  KTOS: entry(
+    { defence: 1 },
+    "Unmanned and rocket support. DoD demand, not hyperscaler capex.",
+  ),
+  MRCY: entry(
+    { defence: 0.9, ai_capex: 0.1 },
+    "Rugged DoD compute and RF. A thin overlap with AI electronics, not training clusters.",
+  ),
+  TDY: entry(
+    { defence: 0.5, robotics: 0.15, other: 0.35 },
+    "Sensing and instrumentation across defence, industrial, and imaging.",
+  ),
 };
 
-export function factorExposures(symbol: string): FactorWeights | null {
+export function factorRecord(symbol: string): FactorExposureRecord | null {
   return FACTOR_EXPOSURES[symbol.trim().toUpperCase()] ?? null;
 }
 
-/** `null` means the name has not been classified. */
+export function factorExposures(symbol: string): FactorWeights | null {
+  return factorRecord(symbol)?.weights ?? null;
+}
+
+/**
+ * Mandate weight on the hyperscaler-capex complex.
+ * `ai_memory` counts fully. `null` means unclassified.
+ */
 export function aiCapexWeight(symbol: string): number | null {
   const mapped = factorExposures(symbol);
   if (mapped == null) return null;
-  return mapped.ai_capex ?? 0;
+  return (mapped.ai_capex ?? 0) + (mapped.ai_memory ?? 0);
+}
+
+/** Mandate weight on the AI memory/storage sleeve. `null` if unclassified. */
+export function aiMemoryWeight(symbol: string): number | null {
+  const mapped = factorExposures(symbol);
+  if (mapped == null) return null;
+  return mapped.ai_memory ?? 0;
 }
 
 export function isFactorClassified(symbol: string): boolean {
-  return factorExposures(symbol) != null;
+  return factorRecord(symbol) != null;
 }
 
-/** True only when a mapped name has a positive AI-capex weight. */
+/** True only when a mapped name has a positive AI-capex or memory weight. */
 export function isAiCapexSymbol(symbol: string): boolean {
   return (aiCapexWeight(symbol) ?? 0) > 0;
 }

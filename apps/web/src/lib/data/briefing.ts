@@ -1,4 +1,4 @@
-import { aiCapexNavPct, RISK_DEFAULTS } from "@powerfund/domain";
+import { aiCapexNavPct, aiMemoryNavPct, RISK_DEFAULTS } from "@powerfund/domain";
 
 import type { DecisionListItem } from "@/lib/data/decisions";
 import type { PlannedActionRow } from "@/lib/data/planned-actions";
@@ -45,6 +45,7 @@ export type ThemePulse = {
 export type BookPulse = {
   largest: { symbol: string; weightPctNav: number } | null;
   aiCapexPctNav: number | null;
+  aiMemoryPctNav: number | null;
 };
 
 const OPEN_THESIS_TYPES = new Set<DecisionListItem["decision_type"]>([
@@ -137,17 +138,17 @@ export function bookPulse(book: PortfolioBook): BookPulse {
     return best;
   }, null);
 
+  const mandatePositions = book.positions.map((row) => ({
+    symbol: row.symbol,
+    themeSlug: row.themeSlug,
+    marketValue: row.marketValue ?? row.costBasis,
+    costBasis: row.costBasis,
+  }));
+
   return {
     largest,
-    aiCapexPctNav: aiCapexNavPct(
-      book.positions.map((row) => ({
-        symbol: row.symbol,
-        themeSlug: row.themeSlug,
-        marketValue: row.marketValue ?? row.costBasis,
-        costBasis: row.costBasis,
-      })),
-      book.nav,
-    ),
+    aiCapexPctNav: aiCapexNavPct(mandatePositions, book.nav),
+    aiMemoryPctNav: aiMemoryNavPct(mandatePositions, book.nav),
   };
 }
 

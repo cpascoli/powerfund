@@ -382,8 +382,10 @@ function ThemesPanel({
         AI-capex complex {pct(aiCapexPctNav)} of NAV (cap{" "}
         {RISK_DEFAULTS.maxAiCapexFactorPctNav}%)
         {factorHot ? <span className="tag warn-tag"> over cap</span> : null}.
-        Weights vs the {RISK_DEFAULTS.maxThemePctNav}% theme cap. Coverage is
-        watchlist vs names on the book.
+        Memory/storage names are a sleeve inside that complex (guide{" "}
+        {RISK_DEFAULTS.maxAiMemorySleevePctNav}%). Weights vs the{" "}
+        {RISK_DEFAULTS.maxThemePctNav}% theme cap. Coverage is watchlist vs
+        names on the book.
       </p>
       <ul className="list">
         {themes.map((theme) => (

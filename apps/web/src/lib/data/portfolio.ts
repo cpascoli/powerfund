@@ -1,5 +1,6 @@
 import {
   aiCapexNavPct,
+  aiMemoryNavPct,
   RISK_DEFAULTS,
   unclassifiedSymbols,
 } from "@powerfund/domain";
@@ -46,6 +47,7 @@ export type MandateFlag = {
     | "drawdown_kill_switch"
     | "snapshot_stale"
     | "ai_capex_factor"
+    | "ai_memory_sleeve"
     | "factor_unclassified"
     | "all_clear";
   label: string;
@@ -470,15 +472,13 @@ function buildFlags(args: {
     });
   }
 
-  const factorPct = aiCapexNavPct(
-    args.positions.map((row) => ({
-      symbol: row.symbol,
-      themeSlug: row.themeSlug,
-      marketValue: row.marketValue ?? row.costBasis,
-      costBasis: row.costBasis,
-    })),
-    args.nav,
-  );
+  const mandatePositions = args.positions.map((row) => ({
+    symbol: row.symbol,
+    themeSlug: row.themeSlug,
+    marketValue: row.marketValue ?? row.costBasis,
+    costBasis: row.costBasis,
+  }));
+  const factorPct = aiCapexNavPct(mandatePositions, args.nav);
   if (
     factorPct != null &&
     factorPct > RISK_DEFAULTS.maxAiCapexFactorPctNav
@@ -487,6 +487,18 @@ function buildFlags(args: {
       code: "ai_capex_factor",
       severity: "warn",
       label: `AI-capex complex is ${factorPct.toFixed(1)}% of NAV (cap ${RISK_DEFAULTS.maxAiCapexFactorPctNav}%)`,
+    });
+  }
+
+  const memoryPct = aiMemoryNavPct(mandatePositions, args.nav);
+  if (
+    memoryPct != null &&
+    memoryPct > RISK_DEFAULTS.maxAiMemorySleevePctNav
+  ) {
+    flags.push({
+      code: "ai_memory_sleeve",
+      severity: "warn",
+      label: `AI memory/storage sleeve is ${memoryPct.toFixed(1)}% of NAV (guide ${RISK_DEFAULTS.maxAiMemorySleevePctNav}%)`,
     });
   }
 

@@ -1,6 +1,7 @@
 import {
   aiCapexNavPct,
   aiCapexWeight,
+  aiMemoryNavPct,
   computeCrowding,
   pairwiseCorrelations,
   RISK_DEFAULTS,
@@ -26,6 +27,7 @@ export type RiskCrowdingRow = {
 export type RiskView = {
   deployed: number;
   aiCapexPct: number | null;
+  aiMemoryPct: number | null;
   diversifierPct: number | null;
   stressNav: number;
   stressNavDelta: number;
@@ -213,6 +215,7 @@ export async function getRiskView(): Promise<RiskView> {
     costBasis: row.costBasis,
   }));
   const aiCapexPct = aiCapexNavPct(mandatePositions, book.nav);
+  const aiMemoryPct = aiMemoryNavPct(mandatePositions, book.nav);
   const complexValue = holdings.reduce((sum, row) => {
     if (row.aiCapexWeight == null) return sum;
     return sum + row.marketValue * row.aiCapexWeight;
@@ -227,6 +230,7 @@ export async function getRiskView(): Promise<RiskView> {
   return {
     deployed,
     aiCapexPct,
+    aiMemoryPct,
     diversifierPct:
       book.nav > 0 ? (diversifierValue / book.nav) * 100 : null,
     stressNav,
