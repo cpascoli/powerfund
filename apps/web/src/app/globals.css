@@ -440,11 +440,27 @@ a {
   line-height: 1.5;
 }
 
+.stat-block {
+  margin-bottom: 0.95rem;
+}
+
+.stat-block-label {
+  margin: 0 0 0.2rem;
+  color: var(--muted);
+  font-size: 0.72rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
 .stat-row {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
   gap: 1rem;
   margin-bottom: 0.5rem;
+}
+
+.stat-block .stat-row {
+  margin-bottom: 0;
 }
 
 .stat-row.stats-5 {
@@ -455,9 +471,25 @@ a {
   padding: 0.2rem 0;
 }
 
-.stat span {
+.stat > span {
   color: var(--muted);
   font-size: 0.85rem;
+}
+
+.stat-note {
+  display: block;
+  margin-top: 0.15rem;
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-style: normal;
+}
+
+.stat-note.is-up {
+  color: var(--accent);
+}
+
+.stat-note.is-down {
+  color: var(--danger);
 }
 
 .stat strong {

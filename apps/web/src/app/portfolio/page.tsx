@@ -140,6 +140,11 @@ export default async function PortfolioPage({
     ledger.depositedCapital > 0
       ? ((book.nav - ledger.depositedCapital) / ledger.depositedCapital) * 100
       : null;
+  const phase1RemainingUsd =
+    RISK_DEFAULTS.phase1InvestedCapUsd - book.invested;
+  const cashAfterQueueUsd = book.cash - queue.totalPlannedUsd;
+  const cashAfterQueuePctNav =
+    book.nav > 0 ? (cashAfterQueueUsd / book.nav) * 100 : null;
   const bookWarnings = riskFlags.filter((flag) => flag.severity === "warn");
   const queueWarnings = queue.flags.filter((flag) => flag.severity === "warn");
 
@@ -621,111 +626,154 @@ export default async function PortfolioPage({
         </div>
       </header>
 
-      <section className="stat-row" aria-label="Book summary">
-        <div className="stat">
-          <span>NAV ({book.markLabel.toLowerCase()})</span>
-          <strong>{money(book.nav)}</strong>
-        </div>
-        <div className="stat">
-          <span>Cash</span>
-          <strong>{money(book.cash)}</strong>
-        </div>
-        <div className="stat">
-          <span>Cash % NAV</span>
-          <strong
-            className={
-              book.cashPctNav < RISK_DEFAULTS.minCashPctNav
-                ? "is-down"
-                : undefined
-            }
-          >
-            {pct(book.cashPctNav)}
-          </strong>
-        </div>
-        <div className="stat">
-          <span>Unrealized P&amp;L</span>
-          <strong
-            className={
-              book.unrealizedPnl > 0
-                ? "is-up"
-                : book.unrealizedPnl < 0
-                  ? "is-down"
-                  : undefined
-            }
-          >
-            {money(book.unrealizedPnl)}
-          </strong>
-        </div>
-      </section>
-
-      <section className="stat-row stats-5" aria-label="Capital and realized results">
-        <div className="stat">
-          <span>Capital in</span>
-          <strong>{money(ledger.depositedCapital)}</strong>
-        </div>
-        <div className="stat">
-          <span>Total return</span>
-          <strong
-            className={
-              totalReturnPct == null
-                ? undefined
-                : totalReturnPct > 0
+      <section className="stat-block" aria-label="Book">
+        <p className="stat-block-label">Book</p>
+        <div className="stat-row">
+          <div className="stat">
+            <span>NAV ({book.markLabel.toLowerCase()})</span>
+            <strong>{money(book.nav)}</strong>
+          </div>
+          <div className="stat">
+            <span>Cash</span>
+            <strong>{money(book.cash)}</strong>
+            <em
+              className={
+                book.cashPctNav < RISK_DEFAULTS.minCashPctNav
+                  ? "stat-note is-down"
+                  : "stat-note"
+              }
+            >
+              {pct(book.cashPctNav)} NAV
+            </em>
+          </div>
+          <div className="stat">
+            <span>Invested (cost)</span>
+            <strong>{money(book.invested)}</strong>
+            <em className="stat-note">
+              of {money(RISK_DEFAULTS.phase1InvestedCapUsd)} phase-1
+            </em>
+          </div>
+          <div className="stat">
+            <span>Unrealized P&amp;L</span>
+            <strong
+              className={
+                book.unrealizedPnl > 0
                   ? "is-up"
-                  : totalReturnPct < 0
+                  : book.unrealizedPnl < 0
                     ? "is-down"
                     : undefined
-            }
-          >
-            {pct(totalReturnPct, true)}
-          </strong>
-        </div>
-        <div className="stat">
-          <span>NAV vs SPY</span>
-          <strong className={signedClass(inception?.navVsSuccess)}>
-            {pct(
-              inception?.navVsSuccess == null
-                ? null
-                : inception.navVsSuccess * 100,
-              true,
-            )}
-          </strong>
-        </div>
-        <div className="stat">
-          <span>Realized P&amp;L</span>
-          <strong
-            className={
-              ledger.realizedPnl > 0
-                ? "is-up"
-                : ledger.realizedPnl < 0
-                  ? "is-down"
-                  : undefined
-            }
-          >
-            {money(ledger.realizedPnl)}
-          </strong>
-        </div>
-        <div className="stat">
-          <span>Invested (cost)</span>
-          <strong>{money(book.invested)}</strong>
+              }
+            >
+              {money(book.unrealizedPnl)}
+            </strong>
+          </div>
         </div>
       </section>
 
-      <section className="stat-row" aria-label="Deployment vs phase 1">
-        <div className="stat">
-          <span>Open positions</span>
-          <strong>{book.openCount}</strong>
+      <section className="stat-block" aria-label="Score">
+        <p className="stat-block-label">Score</p>
+        <div className="stat-row">
+          <div className="stat">
+            <span>Total return</span>
+            <strong
+              className={
+                totalReturnPct == null
+                  ? undefined
+                  : totalReturnPct > 0
+                    ? "is-up"
+                    : totalReturnPct < 0
+                      ? "is-down"
+                      : undefined
+              }
+            >
+              {pct(totalReturnPct, true)}
+            </strong>
+            <em className="stat-note">on {money(ledger.depositedCapital)}</em>
+          </div>
+          <div className="stat">
+            <span>NAV vs SPY</span>
+            <strong className={signedClass(inception?.navVsSuccess)}>
+              {pct(
+                inception?.navVsSuccess == null
+                  ? null
+                  : inception.navVsSuccess * 100,
+                true,
+              )}
+            </strong>
+            <em className="stat-note">since inception</em>
+          </div>
+          <div className="stat">
+            <span>Deployed vs SPY</span>
+            <strong className={signedClass(inception?.deployedVsSuccess)}>
+              {pct(
+                inception?.deployedVsSuccess == null
+                  ? null
+                  : inception.deployedVsSuccess * 100,
+                true,
+              )}
+            </strong>
+            <em className="stat-note">stock picking</em>
+          </div>
+          <div className="stat">
+            <span>Realized P&amp;L</span>
+            <strong
+              className={
+                ledger.realizedPnl > 0
+                  ? "is-up"
+                  : ledger.realizedPnl < 0
+                    ? "is-down"
+                    : undefined
+              }
+            >
+              {money(ledger.realizedPnl)}
+            </strong>
+          </div>
         </div>
-        <div className="stat">
-          <span>Queued to deploy</span>
-          <strong>{money(queue.totalPlannedUsd)}</strong>
-        </div>
-        <div className="stat">
-          <span>Phase-1 invested cap</span>
-          <strong>{money(RISK_DEFAULTS.phase1InvestedCapUsd)}</strong>
-        </div>
-        <div className="stat">
-          <span>Ledger entries</span>
-          <strong>{ledger.entryCount}</strong>
+      </section>
+
+      <section className="stat-block" aria-label="Deployment">
+        <p className="stat-block-label">Deployment</p>
+        <div className="stat-row">
+          <div className="stat">
+            <span>Open positions</span>
+            <strong>{book.openCount}</strong>
+          </div>
+          <div className="stat">
+            <span>Queued to deploy</span>
+            <strong>{money(queue.totalPlannedUsd)}</strong>
+          </div>
+          <div className="stat">
+            <span>Phase-1 remaining</span>
+            <strong
+              className={phase1RemainingUsd < 0 ? "is-down" : undefined}
+            >
+              {money(phase1RemainingUsd)}
+            </strong>
+          </div>
+          <div className="stat">
+            <span>Cash after queue</span>
+            <strong
+              className={
+                cashAfterQueuePctNav != null &&
+                cashAfterQueuePctNav < RISK_DEFAULTS.minCashPctNav
+                  ? "is-down"
+                  : undefined
+              }
+            >
+              {money(cashAfterQueueUsd)}
+            </strong>
+            {cashAfterQueuePctNav != null ? (
+              <em
+                className={
+                  cashAfterQueuePctNav < RISK_DEFAULTS.minCashPctNav
+                    ? "stat-note is-down"
+                    : "stat-note"
+                }
+              >
+                {pct(cashAfterQueuePctNav)} NAV
+              </em>
+            ) : null}
+          </div>
         </div>
       </section>
 
