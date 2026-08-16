@@ -33,4 +33,4 @@ Add as they become real:
 
 ## Current status
 
-Phase 1 scaffold: monorepo, Supabase schema, research UI shell, worker stub.
+Operator research OS and book are live (ledger, ingest, snapshots, mandate rules). Scoring pipelines are still planned. See [overview.md](./overview.md).

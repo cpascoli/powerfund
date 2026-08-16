@@ -144,7 +144,11 @@ export function DossierForm({ instrumentId, symbol, dossier }: Props) {
 
       <label>
         Source
-        <input name="source" defaultValue={dossier?.source ?? ""} />
+        <textarea
+          name="source"
+          rows={6}
+          defaultValue={dossier?.source ?? ""}
+        />
       </label>
 
       {state.error ? <p className="form-error">{state.error}</p> : null}
