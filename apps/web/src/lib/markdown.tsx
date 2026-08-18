@@ -6,15 +6,29 @@ import { playbookHref } from "@/lib/docs";
  * Minimal, dependency-free Markdown renderer for our own docs. It supports
  * exactly the constructs we author: ATX headings, paragraphs, ordered/unordered
  * lists (including task checkboxes), GFM tables, horizontal rules, and inline
- * bold / italic / code / links. It deliberately does not handle raw HTML, so
- * rendering a trusted repo document cannot inject markup.
+ * bold / italic / code / markdown links / bare http(s) URLs. It deliberately
+ * does not handle raw HTML, so rendering a trusted repo document cannot inject
+ * markup.
  */
 
 type Alignment = "left" | "center" | "right";
 
+type InlineType = "link" | "autolink" | "bold" | "code" | "italic";
+
+function splitAutolink(raw: string): { href: string; trailing: string } {
+  let href = raw;
+  let trailing = "";
+  while (href.length > 0 && /[.,;:!?)]$/.test(href)) {
+    trailing = href.slice(-1) + trailing;
+    href = href.slice(0, -1);
+  }
+  return { href, trailing };
+}
+
 function renderInline(text: string, keyPrefix: string): ReactNode[] {
-  const patterns: Array<{ type: "link" | "bold" | "code" | "italic"; re: RegExp }> = [
+  const patterns: Array<{ type: InlineType; re: RegExp }> = [
     { type: "link", re: /\[([^\]]+)\]\(([^)]+)\)/ },
+    { type: "autolink", re: /https?:\/\/[^\s<>[\]()]+/ },
     { type: "bold", re: /\*\*([^]+?)\*\*/ },
     { type: "code", re: /`([^`]+)`/ },
     { type: "italic", re: /\*([^]+?)\*/ },
@@ -25,7 +39,7 @@ function renderInline(text: string, keyPrefix: string): ReactNode[] {
   let counter = 0;
 
   while (rest.length > 0) {
-    let best: { type: string; match: RegExpExecArray } | null = null;
+    let best: { type: InlineType; match: RegExpExecArray } | null = null;
     for (const pattern of patterns) {
       const match = pattern.re.exec(rest);
       if (match && (best === null || match.index < best.match.index)) {
@@ -71,6 +85,20 @@ function renderInline(text: string, keyPrefix: string): ReactNode[] {
         }
         break;
       }
+      case "autolink": {
+        const { href, trailing } = splitAutolink(best.match[0] ?? "");
+        if (/^https?:\/\//.test(href)) {
+          nodes.push(
+            <a key={key} href={href} target="_blank" rel="noreferrer">
+              {href}
+            </a>,
+          );
+          if (trailing.length > 0) nodes.push(trailing);
+        } else {
+          nodes.push(best.match[0] ?? "");
+        }
+        break;
+      }
       case "bold":
         nodes.push(<strong key={key}>{renderInline(best.match[1] ?? "", key)}</strong>);
         break;
@@ -80,8 +108,10 @@ function renderInline(text: string, keyPrefix: string): ReactNode[] {
       case "italic":
         nodes.push(<em key={key}>{renderInline(best.match[1] ?? "", key)}</em>);
         break;
-      default:
-        break;
+      default: {
+        const _exhaustive: never = best.type;
+        return _exhaustive;
+      }
     }
 
     rest = rest.slice(best.match.index + best.match[0].length);
