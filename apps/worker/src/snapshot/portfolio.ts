@@ -37,10 +37,16 @@ async function latestClose(
   return bar?.adj_close ?? bar?.close ?? null;
 }
 
+function isUtcWeekend(iso: string): boolean {
+  const weekday = new Date(iso).getUTCDay();
+  return weekday === 0 || weekday === 6;
+}
+
 /**
  * Write today's end-of-day portfolio snapshot: NAV = cash + positions marked
  * at the latest stored close (which the 22:00 UTC bars ingest refreshes).
  * Upserts on snapshot_date, so re-runs replace rather than duplicate.
+ * Weekends are not session marks — skip the write.
  */
 export async function snapshotPortfolio(): Promise<SnapshotPortfolioResult> {
   const db = createAdminDb();
@@ -149,6 +155,22 @@ export async function snapshotPortfolio(): Promise<SnapshotPortfolioResult> {
     staleMarks.length > 0
       ? `Marked at cost (no stored close): ${staleMarks.join(", ")}`
       : null;
+
+  if (isUtcWeekend(asOf)) {
+    console.warn(
+      `[snapshot:portfolio] skipping weekend mark ${asOf.slice(0, 10)}`,
+    );
+    return {
+      asOf,
+      nav,
+      cash,
+      invested,
+      positionsValue,
+      positions: positions.length,
+      staleMarks,
+      backfilled,
+    };
+  }
 
   const { error: upsertError } = await db.from("portfolio_snapshots").upsert(
     {
