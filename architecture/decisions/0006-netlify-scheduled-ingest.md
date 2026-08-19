@@ -12,13 +12,14 @@ ADR 0004 kept workers off Netlify. That still holds for long historical backfill
 
 ## Decision
 
-- `netlify/functions/scheduled-ingest-bars.ts` — cron `0 22 * * 1-5` (22:00 UTC weekdays ≈ 18:00 ET / 17:00 ET)
-- Immediately POST `/.netlify/functions/ingest-bars-background` with `Authorization: Bearer CRON_SECRET`
-- Background handler runs existing `ingestBars({ days: 7, pauseMs: 400 })`
-- `netlify/functions/scheduled-ingest-fundamentals.ts` — cron `0 8 * * 0` (Sunday 08:00 UTC). Filings are quarterly; daily would mostly re-upsert the same rows.
-- Immediately POST `/.netlify/functions/ingest-fundamentals-background`
+- Cron expressions are declared in `netlify.toml` (`[functions."<name>"].schedule`) *and* inline `export const config`. Toml is the source of truth — Next.js/OpenNext deploys have dropped inline-only schedules.
+- `scheduled-ingest-bars` — `0 22 * * 1-5` (22:00 UTC weekdays ≈ 18:00 ET). Kicks `ingest-bars-background` with `Authorization: Bearer CRON_SECRET`. Returns 500 if the kick is not 2xx.
+- Background handler runs `ingestBars({ days: 7, pauseMs: 400 })`, then `snapshotPortfolio()`, so a missed 22:30 cron cannot leave NAV on last week's closes.
+- `scheduled-snapshot-portfolio` — `30 22 * * 1-5`. Backup mark after the bars job; upserts on `snapshot_date`.
+- `scheduled-ingest-fundamentals` — `0 8 * * 0` (Sunday 08:00 UTC). Kicks `ingest-fundamentals-background`. Filings are quarterly; daily would mostly re-upsert the same rows.
 - Background handler runs `ingestFundamentals({ pauseMs: 800 })` (SEC companyfacts, Yahoo fills FCF/capex/net-debt holes and newer quarters SEC has not tagged yet)
-- Private Netlify env (never `NEXT_PUBLIC_*`): `SUPABASE_SERVICE_ROLE_KEY`, `CRON_SECRET`, optional `TIINGO_API_KEY`
+- Unauthorized background invocations return 401 (not a silent 202)
+- Private Netlify env, scoped to **Builds and Functions** (never `NEXT_PUBLIC_*`): `SUPABASE_SERVICE_ROLE_KEY`, `CRON_SECRET`, optional `TIINGO_API_KEY`
 - Local `pnpm ingest:bars` / `pnpm ingest:fundamentals` remain for backfill and one-off runs
 
 ## Consequences

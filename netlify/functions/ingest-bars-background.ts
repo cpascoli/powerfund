@@ -1,16 +1,19 @@
 import type { Handler } from "@netlify/functions";
 
 import { ingestBars } from "../../apps/worker/src/ingest/bars";
+import { snapshotPortfolio } from "../../apps/worker/src/snapshot/portfolio";
 import { authorizeCron } from "./lib/cron-auth";
 
 /**
  * Background function (15-minute limit via `-background` suffix).
- * Recent daily bars + market caps for the watchlist. Auth: Bearer CRON_SECRET.
+ * Recent daily bars + market caps, then tonight's NAV snapshot so a missed
+ * 22:30 cron cannot leave the book on last week's closes.
+ * Auth: Bearer CRON_SECRET.
  */
 export const handler: Handler = async (event) => {
   if (!authorizeCron(event)) {
     console.warn("[ingest-bars-background] unauthorized invocation; skipping");
-    return { statusCode: 202, body: "" };
+    return { statusCode: 401, body: "unauthorized" };
   }
 
   let days = 7;
@@ -28,8 +31,18 @@ export const handler: Handler = async (event) => {
   try {
     const result = await ingestBars({ days, pauseMs: 400 });
     console.log("[ingest-bars-background]", JSON.stringify(result));
+    if (result.failed.length > 0) {
+      console.error("[ingest-bars-background] failed symbols", result.failed);
+    }
   } catch (error) {
     console.error("[ingest-bars-background]", error);
+  }
+
+  try {
+    const snapshot = await snapshotPortfolio();
+    console.log("[ingest-bars-background] snapshot", JSON.stringify(snapshot));
+  } catch (error) {
+    console.error("[ingest-bars-background] snapshot", error);
   }
 
   return { statusCode: 202, body: "" };

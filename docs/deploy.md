@@ -19,7 +19,7 @@ Build config lives in root [`netlify.toml`](../netlify.toml).
 2. Netlify UI → site **powerfund** → **Project configuration → Build & deploy → Continuous deployment → Link repository**.
 3. Select the GitHub repo; leave base directory **empty** (root).
 4. Confirm Production branch is `main`.
-5. Ensure Production env vars exist (Site configuration → Environment variables):
+5. Ensure Production env vars exist (Site configuration → Environment variables), scoped to **Builds and Functions** (not Builds-only):
    - `NEXT_PUBLIC_SUPABASE_URL` — Project URL (Settings → API Keys / Data API)
    - `NEXT_PUBLIC_SUPABASE_ANON_KEY` — **anon** / **publishable** key only
    - `SUPABASE_SERVICE_ROLE_KEY` — **private** (scheduled ingest only; never `NEXT_PUBLIC_*`)
@@ -32,7 +32,7 @@ After linking, every push to `main` that touches the web app, shared packages, w
 
 ### Nightly EOD bars
 
-Weekdays at **22:00 UTC**, `scheduled-ingest-bars` kicks `ingest-bars-background` (15-minute budget) to upsert the last 7 days of daily bars. Same CoinStrat pattern: short cron, long background. See [ADR 0006](../architecture/decisions/0006-netlify-scheduled-ingest.md).
+Weekdays at **22:00 UTC**, `scheduled-ingest-bars` kicks `ingest-bars-background` (15-minute budget) to upsert the last 7 days of daily bars, then write tonight's NAV snapshot. `scheduled-snapshot-portfolio` at **22:30 UTC** is the backup mark. Cron is in `netlify.toml` so OpenNext deploys keep the schedule. See [ADR 0006](../architecture/decisions/0006-netlify-scheduled-ingest.md).
 
 Historical backfill stays local: `pnpm ingest:bars`.
 

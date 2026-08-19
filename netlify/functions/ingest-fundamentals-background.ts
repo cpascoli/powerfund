@@ -13,7 +13,7 @@ export const handler: Handler = async (event) => {
     console.warn(
       "[ingest-fundamentals-background] unauthorized invocation; skipping",
     );
-    return { statusCode: 202, body: "" };
+    return { statusCode: 401, body: "unauthorized" };
   }
 
   try {

@@ -18,18 +18,21 @@
   directory = "netlify/functions"
   node_bundler = "esbuild"
 
-# Scheduled trigger only kicks ingest-bars-background (30s cap).
-# The `-background` suffix gives the heavy ingest a 15-minute budget.
+# Cron lives in netlify.toml so Next.js/OpenNext deploys cannot drop the
+# inline `export const config.schedule`. Scheduled functions are 26s;
+# heavy work is ingest-*-background (15-minute budget).
 [functions."scheduled-ingest-bars"]
+  schedule = "0 22 * * 1-5"
   timeout = 26
 
-# Weekly fundamentals: Sunday 08:00 UTC. Same kick pattern as bars.
 [functions."scheduled-ingest-fundamentals"]
+  schedule = "0 8 * * 0"
   timeout = 26
 
-# Nightly NAV snapshot, 30 min after the bars ingest so closes are fresh.
-# Fast enough to run inline in the scheduled budget.
+# Backup NAV mark if the bars background job dies before snapshotting.
+# The 22:00 bars background also writes tonight's snapshot after ingest.
 [functions."scheduled-snapshot-portfolio"]
+  schedule = "30 22 * * 1-5"
   timeout = 26
 
 [dev]

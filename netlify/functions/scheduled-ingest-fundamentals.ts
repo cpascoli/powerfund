@@ -1,5 +1,7 @@
 import type { Config } from "@netlify/functions";
 
+import { kickBackground } from "./lib/kick-background";
+
 /**
  * Weekly fundamentals refresh. Filings are quarterly; daily would mostly
  * re-upsert the same rows. Scheduled functions are capped at ~30s, so this
@@ -10,31 +12,10 @@ export const config: Config = {
 };
 
 export default async (): Promise<Response> => {
-  const base =
-    process.env.URL || process.env.DEPLOY_PRIME_URL || process.env.DEPLOY_URL || "";
-  const cronSecret = process.env.CRON_SECRET || "";
-
   try {
-    if (!base) {
-      throw new Error(
-        "Site URL (process.env.URL) is unavailable; cannot invoke background function.",
-      );
-    }
-    if (!cronSecret) {
-      throw new Error("CRON_SECRET is not set.");
-    }
-
-    const res = await fetch(
-      `${base}/.netlify/functions/ingest-fundamentals-background`,
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${cronSecret}`,
-        },
-        body: JSON.stringify({ trigger: "scheduled" }),
-      },
-    );
+    const res = await kickBackground("ingest-fundamentals-background", {
+      trigger: "scheduled",
+    });
 
     console.log(
       "[scheduled-ingest-fundamentals] triggered background function",

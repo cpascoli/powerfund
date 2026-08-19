@@ -44,7 +44,13 @@ async function latestClose(
  */
 export async function snapshotPortfolio(): Promise<SnapshotPortfolioResult> {
   const db = createAdminDb();
-  const { written: backfilled } = await backfillMissingSnapshots(db);
+  let backfilled: string[] = [];
+  try {
+    const result = await backfillMissingSnapshots(db);
+    backfilled = result.written;
+  } catch (error) {
+    console.error("[snapshot:portfolio] backfill failed; writing today's mark anyway", error);
+  }
   const asOf = new Date().toISOString();
 
   const [
