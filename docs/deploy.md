@@ -36,6 +36,10 @@ Weekdays at **22:00 UTC**, `scheduled-ingest-bars` kicks `ingest-bars-background
 
 Historical backfill stays local: `pnpm ingest:bars`.
 
+### Weekly fundamentals
+
+Sundays at **08:00 UTC**, `scheduled-ingest-fundamentals` kicks `ingest-fundamentals-background` to refresh `fundamentals_quarterly` (SEC companyfacts, Yahoo fills sparse FCF/capex/net-debt and newer quarters). Local: `pnpm ingest:fundamentals`.
+
 ### Manual CLI deploy (fallback)
 
 ```bash

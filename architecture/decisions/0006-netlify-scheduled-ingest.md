@@ -15,8 +15,11 @@ ADR 0004 kept workers off Netlify. That still holds for long historical backfill
 - `netlify/functions/scheduled-ingest-bars.ts` — cron `0 22 * * 1-5` (22:00 UTC weekdays ≈ 18:00 ET / 17:00 ET)
 - Immediately POST `/.netlify/functions/ingest-bars-background` with `Authorization: Bearer CRON_SECRET`
 - Background handler runs existing `ingestBars({ days: 7, pauseMs: 400 })`
+- `netlify/functions/scheduled-ingest-fundamentals.ts` — cron `0 8 * * 0` (Sunday 08:00 UTC). Filings are quarterly; daily would mostly re-upsert the same rows.
+- Immediately POST `/.netlify/functions/ingest-fundamentals-background`
+- Background handler runs `ingestFundamentals({ pauseMs: 800 })` (SEC companyfacts, Yahoo fills FCF/capex/net-debt holes and newer quarters SEC has not tagged yet)
 - Private Netlify env (never `NEXT_PUBLIC_*`): `SUPABASE_SERVICE_ROLE_KEY`, `CRON_SECRET`, optional `TIINGO_API_KEY`
-- Local `pnpm ingest:bars` remains for historical backfill
+- Local `pnpm ingest:bars` / `pnpm ingest:fundamentals` remain for backfill and one-off runs
 
 ## Consequences
 

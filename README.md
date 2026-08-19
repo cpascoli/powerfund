@@ -70,7 +70,7 @@ pnpm ingest:fundamentals      # quarterly fundamentals
 pnpm ingest:all               # both
 ```
 
-Production EOD: Netlify scheduled function (weekdays 22:00 UTC) kicks a **background** function that ingests the last 7 days. Set `SUPABASE_SERVICE_ROLE_KEY`, `CRON_SECRET`, and optionally `TIINGO_API_KEY` on the Netlify site (never `NEXT_PUBLIC_*`).
+Production EOD: Netlify scheduled function (weekdays 22:00 UTC) kicks a **background** function that ingests the last 7 days. Weekly fundamentals (Sunday 08:00 UTC) uses the same kick pattern. Set `SUPABASE_SERVICE_ROLE_KEY`, `CRON_SECRET`, and optionally `TIINGO_API_KEY` on the Netlify site (never `NEXT_PUBLIC_*`).
 
 ## Git + Netlify CI
 

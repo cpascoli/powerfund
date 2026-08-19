@@ -23,6 +23,10 @@
 [functions."scheduled-ingest-bars"]
   timeout = 26
 
+# Weekly fundamentals: Sunday 08:00 UTC. Same kick pattern as bars.
+[functions."scheduled-ingest-fundamentals"]
+  timeout = 26
+
 # Nightly NAV snapshot, 30 min after the bars ingest so closes are fresh.
 # Fast enough to run inline in the scheduled budget.
 [functions."scheduled-snapshot-portfolio"]

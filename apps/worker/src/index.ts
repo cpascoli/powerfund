@@ -19,7 +19,7 @@ Env:
 
 Vendors (free):
   bars: Tiingo → Yahoo chart → Stooq
-  fundamentals: SEC companyfacts → Yahoo fundamentalsTimeSeries
+  fundamentals: SEC companyfacts + Yahoo hole-fill
 `);
 }
 
@@ -43,13 +43,20 @@ async function main() {
     case "bars":
       await ingestBars({ days, pauseMs, symbols });
       break;
-    case "fundamentals":
-      await ingestFundamentals({ pauseMs });
+    case "fundamentals": {
+      const result = await ingestFundamentals({ pauseMs });
+      console.log("[ingest:fundamentals]", JSON.stringify(result));
+      if (result.failed.length > 0) process.exitCode = 1;
       break;
-    case "all":
-      await ingestBars({ days, pauseMs });
-      await ingestFundamentals({ pauseMs });
+    }
+    case "all": {
+      const bars = await ingestBars({ days, pauseMs });
+      if (bars.failed.length > 0) process.exitCode = 1;
+      const fundamentals = await ingestFundamentals({ pauseMs });
+      console.log("[ingest:fundamentals]", JSON.stringify(fundamentals));
+      if (fundamentals.failed.length > 0) process.exitCode = 1;
       break;
+    }
     case "snapshot":
       console.log(
         "[snapshot:portfolio]",

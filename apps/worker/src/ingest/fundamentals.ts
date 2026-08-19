@@ -5,12 +5,22 @@ import {
 
 import { createAdminDb, listWatchInstruments } from "../db";
 
-export async function ingestFundamentals(options: { pauseMs: number }) {
+export type IngestFundamentalsResult = {
+  instruments: number;
+  succeeded: number;
+  failed: string[];
+};
+
+export async function ingestFundamentals(options: {
+  pauseMs: number;
+}): Promise<IngestFundamentalsResult> {
   const db = createAdminDb();
   const instruments = await listWatchInstruments(db, { researchOnly: true });
+  const failed: string[] = [];
+  let succeeded = 0;
 
   console.log(
-    `[ingest:fundamentals] ${instruments.length} instruments (chain: sec→yahoo)`,
+    `[ingest:fundamentals] ${instruments.length} instruments (chain: sec+yahoo holes)`,
   );
 
   for (const instrument of instruments) {
@@ -50,10 +60,12 @@ export async function ingestFundamentals(options: { pauseMs: number }) {
         throw new Error(error.message);
       }
 
+      succeeded += 1;
       console.log(
         `[ingest:fundamentals] ${instrument.symbol}: ${payload.length} quarters via ${source}`,
       );
     } catch (error) {
+      failed.push(instrument.symbol);
       console.error(
         `[ingest:fundamentals] ${instrument.symbol} failed:`,
         error instanceof Error ? error.message : error,
@@ -62,4 +74,10 @@ export async function ingestFundamentals(options: { pauseMs: number }) {
 
     await sleep(options.pauseMs);
   }
+
+  return {
+    instruments: instruments.length,
+    succeeded,
+    failed,
+  };
 }
