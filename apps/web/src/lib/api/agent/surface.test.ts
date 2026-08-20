@@ -139,5 +139,19 @@ describe("API surfaces", () => {
       "symbol",
       "action_type",
     ]);
+
+    const createResponses = agentDoc.paths["/api/v1/agent/review-tasks"].post
+      .responses as Record<string, any>;
+    expect(
+      createResponses["200"].content["application/json"].schema.properties
+        .created.type,
+    ).toBe("boolean");
+    expect(
+      createResponses["200"].content["application/json"].schema.properties
+        .review_task.properties.id.type,
+    ).toBe("string");
+    expect(Object.keys(createResponses["200"].content["application/json"].schema.properties)).toEqual(
+      ["created", "review_task"],
+    );
   });
 });

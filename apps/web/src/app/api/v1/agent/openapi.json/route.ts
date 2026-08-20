@@ -1,5 +1,4 @@
 import {
-  CACHE_INDEX,
   corsPreflight,
   handlePublicGet,
   jsonResponse,
@@ -9,10 +8,10 @@ import { agentOpenApiDocument } from "@/lib/api/agent/openapi";
 export const dynamic = "force-dynamic";
 
 export async function GET(request: Request) {
-  return handlePublicGet(request, CACHE_INDEX, async (remaining) => {
+  return handlePublicGet(request, "no-store", async (remaining) => {
     const origin = new URL(request.url).origin;
     return jsonResponse(agentOpenApiDocument(origin), {
-      cacheControl: CACHE_INDEX,
+      cacheControl: "no-store",
       remaining,
     });
   });

@@ -125,6 +125,91 @@ const reviewTriggerSchema = {
   },
 };
 
+const reviewTaskSchema = {
+  type: "object",
+  properties: {
+    id: { type: "string" },
+    title: { type: "string" },
+    instructions: { type: "string" },
+    scope: { type: "string" },
+    priority: { type: "string" },
+    status: { type: "string" },
+    trigger: reviewTriggerSchema,
+    evaluable: { type: "boolean" },
+    symbols: { type: "array", items: { type: "string" } },
+    themes: {
+      type: "array",
+      items: {
+        type: "object",
+        properties: {
+          slug: { type: "string" },
+          name: { type: "string" },
+        },
+      },
+    },
+    scheduled_for: { type: "string", format: "date-time" },
+    not_before: { type: "string", format: "date-time" },
+    due_by: { type: "string", format: "date-time" },
+    became_due_at: { type: "string", format: "date-time" },
+    created_at: { type: "string", format: "date-time" },
+    created_by: { type: "string" },
+    completed_at: { type: "string", format: "date-time" },
+    outcome: { type: "string" },
+    outputs: {
+      type: "array",
+      items: {
+        type: "object",
+        properties: {
+          kind: { type: "string" },
+          entity_id: { type: "string" },
+        },
+      },
+    },
+  },
+};
+
+function jsonOkBody(schema: Record<string, unknown>) {
+  return {
+    description: "OK",
+    content: {
+      "application/json": { schema },
+    },
+  };
+}
+
+const createReviewTaskOk = jsonOkBody({
+  type: "object",
+  properties: {
+    created: { type: "boolean" },
+    review_task: reviewTaskSchema,
+  },
+});
+
+const updateReviewTaskOk = jsonOkBody({
+  type: "object",
+  properties: {
+    updated: { type: "boolean" },
+    review_task: reviewTaskSchema,
+  },
+});
+
+const completeReviewTaskOk = jsonOkBody({
+  type: "object",
+  properties: {
+    completed: { type: "boolean" },
+    review_task: reviewTaskSchema,
+  },
+});
+
+const reviewQueueOk = jsonOkBody({
+  type: "object",
+  properties: {
+    as_of: { type: "string", format: "date-time" },
+    marked_due: { type: "integer" },
+    tasks: { type: "array", items: reviewTaskSchema },
+  },
+});
+
 const dossierChangesSchema = {
   type: "object",
   description: "Fields to change on the live dossier. Omit unchanged fields.",
@@ -183,6 +268,7 @@ function op(args: {
       "200": jsonOk,
       "401": errorResponse,
       "403": errorResponse,
+      "500": errorResponse,
       ...(args.responses ?? {}),
     },
   };
@@ -571,6 +657,9 @@ export function agentOpenApiDocument(origin: string) {
               schema: { type: "boolean", default: true },
             },
           ],
+          responses: {
+            "200": reviewQueueOk,
+          },
         }),
       },
       "/api/v1/agent/review-tasks": {
@@ -634,6 +723,7 @@ export function agentOpenApiDocument(origin: string) {
             },
           },
           responses: {
+            "200": createReviewTaskOk,
             "404": errorResponse,
             "422": errorResponse,
           },
@@ -680,6 +770,7 @@ export function agentOpenApiDocument(origin: string) {
             },
           },
           responses: {
+            "200": updateReviewTaskOk,
             "404": errorResponse,
             "422": errorResponse,
           },
@@ -730,6 +821,11 @@ export function agentOpenApiDocument(origin: string) {
                 },
               },
             },
+          },
+          responses: {
+            "200": completeReviewTaskOk,
+            "404": errorResponse,
+            "422": errorResponse,
           },
         }),
       },

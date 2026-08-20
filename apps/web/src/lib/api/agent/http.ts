@@ -35,6 +35,7 @@ function agentHeaders(remaining: number, extra?: HeadersInit): Headers {
   headers.set("X-RateLimit-Limit", String(RATE_LIMIT_MAX));
   headers.set("X-RateLimit-Remaining", String(remaining));
   headers.set("X-RateLimit-Window", String(RATE_LIMIT_WINDOW_SECONDS));
+  headers.set("Access-Control-Allow-Origin", "*");
   headers.set("Access-Control-Allow-Methods", "GET, POST, PATCH, OPTIONS");
   headers.set(
     "Access-Control-Allow-Headers",
@@ -50,11 +51,28 @@ export function agentCorsPreflight(): Response {
   });
 }
 
+function omitNulls(value: unknown): unknown {
+  if (Array.isArray(value)) {
+    return value.map(omitNulls);
+  }
+  if (value && typeof value === "object") {
+    const out: Record<string, unknown> = {};
+    for (const [key, next] of Object.entries(
+      value as Record<string, unknown>,
+    )) {
+      if (next == null) continue;
+      out[key] = omitNulls(next);
+    }
+    return out;
+  }
+  return value;
+}
+
 export function agentJson(
   body: unknown,
   args: { status?: number; remaining: number },
 ): Response {
-  return new Response(JSON.stringify(body, null, 2), {
+  return new Response(JSON.stringify(omitNulls(body), null, 2), {
     status: args.status ?? 200,
     headers: agentHeaders(args.remaining),
   });
