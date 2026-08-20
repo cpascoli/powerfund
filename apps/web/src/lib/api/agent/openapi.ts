@@ -611,7 +611,8 @@ export function agentOpenApiDocument(origin: string) {
                     themes: {
                       type: "array",
                       items: { type: "string" },
-                      description: "Theme slugs, for example energy.",
+                      description:
+                        "Theme slug or name. Use ai-infrastructure or AI Infrastructure, not a free label.",
                     },
                     trigger: reviewTriggerSchema,
                   },
@@ -631,6 +632,10 @@ export function agentOpenApiDocument(origin: string) {
                 },
               },
             },
+          },
+          responses: {
+            "404": errorResponse,
+            "422": errorResponse,
           },
         }),
       },

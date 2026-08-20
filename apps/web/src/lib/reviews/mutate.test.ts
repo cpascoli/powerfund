@@ -7,6 +7,7 @@ import {
   assertNotLedgerMutation,
   assertPatchableReviewTaskStatus,
 } from "./mutate";
+import { matchTheme } from "./records";
 
 describe("review task mutations", () => {
   it("rejects ledger fields so a trigger or complete cannot book a fill", () => {
@@ -66,5 +67,20 @@ describe("review task mutations", () => {
     );
     expect(marked).toBe(1);
     expect(tables).toEqual(["review_tasks"]);
+  });
+
+  it("accepts theme slugs or display names", () => {
+    const themes = [
+      { id: "1", slug: "ai-infrastructure", name: "AI Infrastructure" },
+      { id: "2", slug: "energy", name: "Energy" },
+    ];
+    expect(matchTheme("ai-infrastructure", themes)?.slug).toBe(
+      "ai-infrastructure",
+    );
+    expect(matchTheme("AI Infrastructure", themes)?.slug).toBe(
+      "ai-infrastructure",
+    );
+    expect(matchTheme("energy", themes)?.slug).toBe("energy");
+    expect(matchTheme("defence", themes)).toBeNull();
   });
 });

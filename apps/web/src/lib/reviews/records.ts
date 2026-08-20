@@ -88,28 +88,58 @@ export async function loadInstrumentIdsBySymbol(
   return unique.map((symbol) => found.get(symbol)!);
 }
 
+export function normalizeThemeKey(value: string): string {
+  return value
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+}
+
+export function matchTheme<T extends { slug: string; name: string }>(
+  input: string,
+  themes: readonly T[],
+): T | null {
+  const trimmed = input.trim();
+  if (!trimmed) return null;
+  const lower = trimmed.toLowerCase();
+  const slugified = normalizeThemeKey(trimmed);
+  return (
+    themes.find((theme) => {
+      const slug = theme.slug.toLowerCase();
+      const name = theme.name.toLowerCase();
+      return (
+        slug === lower ||
+        name === lower ||
+        slug === slugified ||
+        normalizeThemeKey(theme.name) === slugified
+      );
+    }) ?? null
+  );
+}
+
 export async function loadThemeIdsBySlug(
   supabase: DbClient,
   slugs: string[],
 ): Promise<Array<{ id: string; slug: string; name: string }>> {
-  const unique = [
-    ...new Set(slugs.map((row) => row.trim().toLowerCase()).filter(Boolean)),
-  ];
+  const unique = [...new Set(slugs.map((row) => row.trim()).filter(Boolean))];
   if (unique.length === 0) return [];
   const { data, error } = await supabase
     .from("themes")
-    .select("id, slug, name")
-    .in("slug", unique);
+    .select("id, slug, name");
   if (error) {
     throw new Error(`Failed to load themes: ${error.message}`);
   }
-  const found = new Map((data ?? []).map((row) => [row.slug, row]));
-  for (const slug of unique) {
-    if (!found.has(slug)) {
-      throw notFound("UNKNOWN_THEME", `Unknown theme: ${slug}.`, { slug });
+  const catalog = data ?? [];
+  return unique.map((value) => {
+    const theme = matchTheme(value, catalog);
+    if (!theme) {
+      throw notFound("UNKNOWN_THEME", `Unknown theme: ${value}.`, {
+        theme: value,
+      });
     }
-  }
-  return unique.map((slug) => found.get(slug)!);
+    return theme;
+  });
 }
 
 async function loadLinks(supabase: DbClient, taskIds: string[]) {
