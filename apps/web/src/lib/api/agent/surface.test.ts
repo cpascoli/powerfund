@@ -20,6 +20,9 @@ describe("API surfaces", () => {
     expect(HELD_RESOURCES.some((row) => row.path === "/api/v1/planned")).toBe(
       true,
     );
+    expect(HELD_RESOURCES.some((row) => row.path === "/api/v1/reviews")).toBe(
+      true,
+    );
   });
 
   it("keeps public OpenAPI operationIds distinct from agent tools", () => {
@@ -34,6 +37,12 @@ describe("API surfaces", () => {
     expect(agentDoc.paths["/api/v1/agent/state"].get.operationId).toBe(
       "getFundState",
     );
+    expect(agentDoc.paths["/api/v1/agent/review-queue"].get.operationId).toBe(
+      "getReviewQueue",
+    );
+    expect(
+      agentDoc.paths["/api/v1/agent/review-tasks/{id}/complete"].post.operationId,
+    ).toBe("completeReviewTask");
     expect(agentDoc.paths["/api/v1/agent/companies/{symbol}/dossier"].patch.operationId).toBe(
       "updateDossier",
     );

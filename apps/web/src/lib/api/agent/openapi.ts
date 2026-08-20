@@ -77,10 +77,11 @@ export function agentOpenApiDocument(origin: string) {
         "Private authenticated domain API for AI agents. " +
         "This is not table CRUD and not trade execution. " +
         "Agents may read fund state, update dossiers (which version automatically), " +
-        "append journal decisions, and propose deployment-queue items. " +
+        "append journal decisions, propose deployment-queue items, and manage a separate review queue. " +
         "Humans remain responsible for booking fills. " +
+        "A review trigger never creates a transaction. " +
         "Authenticate with Authorization: Bearer <agent token>. " +
-        "Send Idempotency-Key on POST /decisions and POST /planned-actions.",
+        "Send Idempotency-Key on POST /decisions, POST /planned-actions, POST /review-tasks, and POST /review-tasks/{id}/complete.",
     },
     servers: [{ url: origin }],
     tags: [
@@ -125,7 +126,7 @@ export function agentOpenApiDocument(origin: string) {
           operationId: "getFundState",
           summary: "Current investment state snapshot",
           description:
-            "High-leverage read of mandate, cash, holdings, theme exposure, open deployment queue, recent decisions, and current dossier version pointers. Does not return full historical dossiers or the full journal.",
+            "High-leverage read of mandate, cash, holdings, theme exposure, open deployment queue, due and upcoming reviews, recent decisions, and current dossier version pointers. Does not return full historical dossiers or the full journal.",
           scope: "powerfund:state:read",
           mutating: false,
           parameters: [
@@ -326,6 +327,118 @@ export function agentOpenApiDocument(origin: string) {
           responses: {
             "404": errorResponse,
             "422": errorResponse,
+          },
+        }),
+      },
+      "/api/v1/agent/review-queue": {
+        get: op({
+          operationId: "getReviewQueue",
+          summary: "Review obligation queue",
+          description:
+            "Lists review_tasks, distinct from planned_actions. Evaluates pending triggers first (scheduled, event_window, and evaluable price conditions) and marks satisfied tasks due. Evaluation never writes transactions. Pass evaluate=false to skip. Filter with status=due|pending|in_progress|completed|deferred|cancelled|open|all.",
+          scope: "powerfund:reviews:read",
+          mutating: false,
+          parameters: [
+            { name: "status", in: "query", schema: { type: "string" } },
+            {
+              name: "evaluate",
+              in: "query",
+              schema: { type: "boolean", default: true },
+            },
+          ],
+        }),
+      },
+      "/api/v1/agent/review-tasks": {
+        post: op({
+          operationId: "createReviewTask",
+          summary: "Create a review obligation",
+          description:
+            "Inserts a pending review_task with a declarative trigger (scheduled, event_window, or condition). Resolves symbols and theme slugs to foreign keys. Does not create planned_actions or transactions. Idempotent when Idempotency-Key is sent.",
+          scope: "powerfund:reviews:write",
+          mutating: true,
+          requestBody: {
+            required: true,
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  required: ["title", "instructions", "scope", "trigger"],
+                  properties: {
+                    title: { type: "string" },
+                    instructions: { type: "string" },
+                    scope: {
+                      type: "string",
+                      enum: ["company", "theme", "portfolio", "macro"],
+                    },
+                    priority: {
+                      type: "string",
+                      enum: ["low", "normal", "high", "urgent"],
+                    },
+                    symbols: { type: "array", items: { type: "string" } },
+                    themes: { type: "array", items: { type: "string" } },
+                    trigger: { type: "object" },
+                  },
+                },
+              },
+            },
+          },
+        }),
+      },
+      "/api/v1/agent/review-tasks/{id}": {
+        patch: op({
+          operationId: "updateReviewTask",
+          summary: "Update a review obligation",
+          description:
+            "Updates an open review_task. Status may be pending, in_progress, deferred, or cancelled. Cannot set due (triggers do that) or completed (use completeReviewTask).",
+          scope: "powerfund:reviews:write",
+          mutating: true,
+          parameters: [
+            { name: "id", in: "path", required: true, schema: { type: "string", format: "uuid" } },
+          ],
+          responses: {
+            "404": errorResponse,
+            "422": errorResponse,
+          },
+        }),
+      },
+      "/api/v1/agent/review-tasks/{id}/complete": {
+        post: op({
+          operationId: "completeReviewTask",
+          summary: "Complete a review obligation",
+          description:
+            "Records outcome and optional links to existing dossier_version, decision, or planned_action ids. Does not update dossiers, create decisions, create planned actions, or book fills. Idempotent when Idempotency-Key is sent.",
+          scope: "powerfund:reviews:write",
+          mutating: true,
+          parameters: [
+            { name: "id", in: "path", required: true, schema: { type: "string", format: "uuid" } },
+          ],
+          requestBody: {
+            required: true,
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  required: ["outcome"],
+                  properties: {
+                    outcome: { type: "string" },
+                    outputs: {
+                      type: "array",
+                      items: {
+                        type: "object",
+                        required: ["kind", "entity_id"],
+                        properties: {
+                          kind: {
+                            type: "string",
+                            enum: ["dossier_version", "decision", "planned_action"],
+                          },
+                          entity_id: { type: "string", format: "uuid" },
+                        },
+                      },
+                    },
+                  },
+                },
+              },
+            },
           },
         }),
       },

@@ -12,6 +12,7 @@ import {
   listInstrumentsWithThemes,
   listThemes,
 } from "@/lib/data/research";
+import { getReviewRadar } from "@/lib/reviews/queue";
 import type { DbClient } from "@/lib/supabase/db";
 
 import { toPrivatePortfolio } from "./portfolio";
@@ -32,7 +33,7 @@ export async function getFundState(
   const recentLimit = clamp(query.recent_decisions ?? 20, 1, 50);
   const includeWatchlist = query.include_watchlist !== false;
 
-  const [book, ledger, instruments, themes, plannedRaw, decisions] =
+  const [book, ledger, instruments, themes, plannedRaw, decisions, radar] =
     await Promise.all([
       getOpenPortfolioBook(supabase),
       getLedgerSummary(12, supabase),
@@ -40,6 +41,7 @@ export async function getFundState(
       listThemes(supabase),
       listOpenPlannedActions(supabase),
       listDecisions(supabase),
+      getReviewRadar(supabase),
     ]);
 
   const queue = buildDeploymentQueue(book, instruments, plannedRaw);
@@ -159,5 +161,7 @@ export async function getFundState(
       dossier_version: row.dossier_version,
     })),
     dossiers,
+    due_reviews: radar.due_reviews,
+    upcoming_reviews: radar.upcoming_reviews,
   };
 }

@@ -62,4 +62,8 @@ export const HELD_RESOURCES = [
     path: "/api/v1/planned",
     reason: "The deployment queue is not published.",
   },
+  {
+    path: "/api/v1/reviews",
+    reason: "The review obligation queue is not published.",
+  },
 ] as const;

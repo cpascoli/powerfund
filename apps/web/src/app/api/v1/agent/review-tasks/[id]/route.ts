@@ -1,0 +1,93 @@
+import {
+  REVIEW_TASK_PRIORITIES,
+  REVIEW_TASK_SCOPES,
+  REVIEW_TASK_STATUSES,
+  type ReviewTaskPriority,
+  type ReviewTaskScope,
+  type ReviewTaskStatus,
+} from "@powerfund/domain";
+
+import {
+  agentCorsPreflight,
+  agentJson,
+  handleAgentRequest,
+  parseJsonBody,
+} from "@/lib/api/agent/http";
+import { validationError } from "@/lib/api/agent/errors";
+import {
+  assertNotLedgerMutation,
+  updateReviewTask,
+} from "@/lib/reviews/mutate";
+
+export const dynamic = "force-dynamic";
+
+type RouteContext = { params: Promise<{ id: string }> };
+
+function asRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function stringList(value: unknown): string[] | undefined {
+  if (value == null) return undefined;
+  if (!Array.isArray(value) || value.some((row) => typeof row !== "string")) {
+    throw validationError("symbols and themes must be string arrays.");
+  }
+  return value;
+}
+
+export async function PATCH(request: Request, context: RouteContext) {
+  return handleAgentRequest(request, {
+    scope: "powerfund:reviews:write",
+    methods: ["PATCH"],
+    operationId: "updateReviewTask",
+    handler: async (ctx) => {
+      const { id } = await context.params;
+      const body = await parseJsonBody(ctx.bodyText);
+      assertNotLedgerMutation(body);
+      if (!asRecord(body)) {
+        throw validationError("Body must be a JSON object.");
+      }
+      const scope = typeof body.scope === "string" ? body.scope : undefined;
+      if (
+        scope != null &&
+        !(REVIEW_TASK_SCOPES as readonly string[]).includes(scope)
+      ) {
+        throw validationError("Invalid scope.");
+      }
+      const priority =
+        typeof body.priority === "string" ? body.priority : undefined;
+      if (
+        priority != null &&
+        !(REVIEW_TASK_PRIORITIES as readonly string[]).includes(priority)
+      ) {
+        throw validationError("Invalid priority.");
+      }
+      const status = typeof body.status === "string" ? body.status : undefined;
+      if (
+        status != null &&
+        !(REVIEW_TASK_STATUSES as readonly string[]).includes(status)
+      ) {
+        throw validationError("Invalid status.");
+      }
+      const updated = await updateReviewTask(ctx.supabase, id, {
+        title: typeof body.title === "string" ? body.title : undefined,
+        instructions:
+          typeof body.instructions === "string" ? body.instructions : undefined,
+        scope: scope as ReviewTaskScope | undefined,
+        priority: priority as ReviewTaskPriority | undefined,
+        symbols: stringList(body.symbols),
+        themes: stringList(body.themes),
+        trigger: "trigger" in body ? body.trigger : undefined,
+        status: status as ReviewTaskStatus | undefined,
+      });
+      return agentJson(
+        { updated: true, review_task: updated },
+        { remaining: ctx.remaining },
+      );
+    },
+  });
+}
+
+export function OPTIONS() {
+  return agentCorsPreflight();
+}

@@ -31,6 +31,26 @@ export async function GET(request: Request) {
               path: "/api/v1/agent/deployment-queue",
             },
             {
+              operationId: "getReviewQueue",
+              method: "GET",
+              path: "/api/v1/agent/review-queue",
+            },
+            {
+              operationId: "createReviewTask",
+              method: "POST",
+              path: "/api/v1/agent/review-tasks",
+            },
+            {
+              operationId: "updateReviewTask",
+              method: "PATCH",
+              path: "/api/v1/agent/review-tasks/{id}",
+            },
+            {
+              operationId: "completeReviewTask",
+              method: "POST",
+              path: "/api/v1/agent/review-tasks/{id}/complete",
+            },
+            {
               operationId: "getCompanyDossier",
               method: "GET",
               path: "/api/v1/agent/companies/{symbol}",

@@ -751,6 +751,155 @@ export type Database = {
           },
         ]
       }
+      review_task_instruments: {
+        Row: {
+          instrument_id: string
+          review_task_id: string
+        }
+        Insert: {
+          instrument_id: string
+          review_task_id: string
+        }
+        Update: {
+          instrument_id?: string
+          review_task_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "review_task_instruments_instrument_id_fkey"
+            columns: ["instrument_id"]
+            isOneToOne: false
+            referencedRelation: "instruments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "review_task_instruments_review_task_id_fkey"
+            columns: ["review_task_id"]
+            isOneToOne: false
+            referencedRelation: "review_tasks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      review_task_outputs: {
+        Row: {
+          created_at: string
+          entity_id: string
+          id: string
+          kind: Database["public"]["Enums"]["review_output_kind"]
+          review_task_id: string
+        }
+        Insert: {
+          created_at?: string
+          entity_id: string
+          id?: string
+          kind: Database["public"]["Enums"]["review_output_kind"]
+          review_task_id: string
+        }
+        Update: {
+          created_at?: string
+          entity_id?: string
+          id?: string
+          kind?: Database["public"]["Enums"]["review_output_kind"]
+          review_task_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "review_task_outputs_review_task_id_fkey"
+            columns: ["review_task_id"]
+            isOneToOne: false
+            referencedRelation: "review_tasks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      review_task_themes: {
+        Row: {
+          review_task_id: string
+          theme_id: string
+        }
+        Insert: {
+          review_task_id: string
+          theme_id: string
+        }
+        Update: {
+          review_task_id?: string
+          theme_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "review_task_themes_review_task_id_fkey"
+            columns: ["review_task_id"]
+            isOneToOne: false
+            referencedRelation: "review_tasks"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "review_task_themes_theme_id_fkey"
+            columns: ["theme_id"]
+            isOneToOne: false
+            referencedRelation: "themes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      review_tasks: {
+        Row: {
+          became_due_at: string | null
+          completed_at: string | null
+          created_at: string
+          created_by: string
+          due_by: string | null
+          id: string
+          instructions: string
+          not_before: string | null
+          outcome: string | null
+          priority: Database["public"]["Enums"]["review_task_priority"]
+          scheduled_for: string | null
+          scope: Database["public"]["Enums"]["review_task_scope"]
+          status: Database["public"]["Enums"]["review_task_status"]
+          title: string
+          trigger: Json
+          updated_at: string
+        }
+        Insert: {
+          became_due_at?: string | null
+          completed_at?: string | null
+          created_at?: string
+          created_by?: string
+          due_by?: string | null
+          id?: string
+          instructions: string
+          not_before?: string | null
+          outcome?: string | null
+          priority?: Database["public"]["Enums"]["review_task_priority"]
+          scheduled_for?: string | null
+          scope: Database["public"]["Enums"]["review_task_scope"]
+          status?: Database["public"]["Enums"]["review_task_status"]
+          title: string
+          trigger: Json
+          updated_at?: string
+        }
+        Update: {
+          became_due_at?: string | null
+          completed_at?: string | null
+          created_at?: string
+          created_by?: string
+          due_by?: string | null
+          id?: string
+          instructions?: string
+          not_before?: string | null
+          outcome?: string | null
+          priority?: Database["public"]["Enums"]["review_task_priority"]
+          scheduled_for?: string | null
+          scope?: Database["public"]["Enums"]["review_task_scope"]
+          status?: Database["public"]["Enums"]["review_task_status"]
+          title?: string
+          trigger?: Json
+          updated_at?: string
+        }
+        Relationships: []
+      }
       signals: {
         Row: {
           confidence: number | null
@@ -978,6 +1127,16 @@ export type Database = {
       planned_action_status: "pending" | "deferred" | "confirmed" | "cancelled"
       planned_action_type: "buy" | "add" | "reduce" | "sell"
       position_side: "long" | "short"
+      review_output_kind: "dossier_version" | "decision" | "planned_action"
+      review_task_priority: "low" | "normal" | "high" | "urgent"
+      review_task_scope: "company" | "theme" | "portfolio" | "macro"
+      review_task_status:
+        | "pending"
+        | "due"
+        | "in_progress"
+        | "completed"
+        | "deferred"
+        | "cancelled"
       position_status: "open" | "closed"
       signal_source: "manual" | "scorer"
       signal_status: "new" | "reviewing" | "acted" | "dismissed"
@@ -1144,6 +1303,17 @@ export const Constants = {
       planned_action_status: ["pending", "deferred", "confirmed", "cancelled"],
       planned_action_type: ["buy", "add", "reduce", "sell"],
       position_side: ["long", "short"],
+      review_output_kind: ["dossier_version", "decision", "planned_action"],
+      review_task_priority: ["low", "normal", "high", "urgent"],
+      review_task_scope: ["company", "theme", "portfolio", "macro"],
+      review_task_status: [
+        "pending",
+        "due",
+        "in_progress",
+        "completed",
+        "deferred",
+        "cancelled",
+      ],
       position_status: ["open", "closed"],
       signal_source: ["manual", "scorer"],
       signal_status: ["new", "reviewing", "acted", "dismissed"],
