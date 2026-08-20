@@ -80,12 +80,31 @@ describe("API surfaces", () => {
 
   it("is shaped for ChatGPT Actions URL import", () => {
     const agentDoc = agentOpenApiDocument("https://example.test");
-    expect(agentDoc.openapi).toBe("3.0.1");
+    expect(agentDoc.openapi).toBe("3.1.0");
+    expect(agentDoc.components.schemas).toEqual({ JsonObject: expect.any(Object) });
     const raw = JSON.stringify(agentDoc);
     expect(raw).not.toMatch(/"oneOf"/);
     expect(raw).not.toMatch(/"anyOf"/);
     expect(raw).not.toMatch(/"allOf"/);
     expect(raw).not.toMatch(/"\$ref"/);
+
+    function assertObjectSchemasHaveProperties(node: unknown, path: string) {
+      if (node == null || typeof node !== "object") return;
+      if (Array.isArray(node)) {
+        node.forEach((item, index) =>
+          assertObjectSchemasHaveProperties(item, `${path}[${index}]`),
+        );
+        return;
+      }
+      const rec = node as Record<string, unknown>;
+      if (rec.type === "object") {
+        expect(rec.properties, path).toBeTypeOf("object");
+      }
+      for (const [key, value] of Object.entries(rec)) {
+        assertObjectSchemasHaveProperties(value, `${path}.${key}`);
+      }
+    }
+    assertObjectSchemasHaveProperties(agentDoc, "openapi");
 
     const ops = operations(agentDoc);
     expect(ops.length).toBeGreaterThan(8);

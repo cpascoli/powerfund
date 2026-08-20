@@ -4,11 +4,17 @@ import { AGENT_SCOPES, READ_SCOPES, WRITE_SCOPES } from "./scopes";
 /** GPT Actions truncate endpoint summary/description at 300 characters. */
 export const GPT_ACTION_TEXT_MAX = 300;
 
+const jsonObjectSchema = {
+  type: "object",
+  properties: {},
+  additionalProperties: true,
+};
+
 const jsonOk = {
   description: "OK",
   content: {
     "application/json": {
-      schema: { type: "object" },
+      schema: jsonObjectSchema,
     },
   },
 };
@@ -28,6 +34,7 @@ const errorResponse = {
               code: { type: "string" },
               message: { type: "string" },
             },
+            additionalProperties: true,
           },
         },
       },
@@ -183,7 +190,7 @@ function op(args: {
 
 export function agentOpenApiDocument(origin: string) {
   return {
-    openapi: "3.0.1",
+    openapi: "3.1.0",
     info: {
       title: "Power Fund agent API",
       version: AGENT_API_VERSION,
@@ -211,6 +218,9 @@ export function agentOpenApiDocument(origin: string) {
           bearerFormat: "API Key",
           description: "Agent token from POWERFUND_AGENT_API_KEYS.",
         },
+      },
+      schemas: {
+        JsonObject: jsonObjectSchema,
       },
     },
     security: [{ bearerAuth: [] }],
