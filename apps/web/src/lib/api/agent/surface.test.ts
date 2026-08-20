@@ -1,14 +1,39 @@
 import { describe, expect, it } from "vitest";
 
 import { isAgentApiPath, isPublicCatalogPath } from "../paths";
-import { agentOpenApiDocument } from "./openapi";
+import { agentOpenApiDocument, GPT_ACTION_TEXT_MAX } from "./openapi";
 import { openApiDocument } from "../v1/openapi";
 import { HELD_RESOURCES, PUBLIC_RESOURCES } from "../v1/resources";
 
+type OpenApiOp = {
+  operationId?: string;
+  summary?: string;
+  description?: string;
+  parameters?: Array<{ name: string; description?: string }>;
+  requestBody?: {
+    content?: {
+      "application/json"?: { schema?: unknown };
+    };
+  };
+};
+
+function operations(doc: ReturnType<typeof agentOpenApiDocument>) {
+  const rows: Array<{ path: string; method: string; op: OpenApiOp }> = [];
+  for (const [path, item] of Object.entries(doc.paths)) {
+    const record = item as Record<string, OpenApiOp | undefined>;
+    for (const method of ["get", "post", "patch"] as const) {
+      const op = record[method];
+      if (op) rows.push({ path, method, op });
+    }
+  }
+  return rows;
+}
+
 describe("API surfaces", () => {
-  it("keeps the public catalog anonymous and excludes the agent namespace", () => {
+  it("keeps the public catalog anonymous and excludes private agent routes", () => {
     expect(isPublicCatalogPath("/api/v1/portfolio")).toBe(true);
     expect(isPublicCatalogPath("/api/v1/agent/state")).toBe(false);
+    expect(isPublicCatalogPath("/api/v1/agent/openapi.json")).toBe(true);
     expect(isAgentApiPath("/api/v1/agent/state")).toBe(true);
     expect(isAgentApiPath("/api/v1/journal")).toBe(false);
   });
@@ -51,5 +76,49 @@ describe("API surfaces", () => {
     ).toBe(false);
     expect(JSON.stringify(publicDoc)).not.toContain("quantity");
     expect(JSON.stringify(publicDoc)).not.toContain("planned_usd");
+  });
+
+  it("is shaped for ChatGPT Actions URL import", () => {
+    const agentDoc = agentOpenApiDocument("https://example.test");
+    expect(agentDoc.openapi).toBe("3.0.1");
+    const raw = JSON.stringify(agentDoc);
+    expect(raw).not.toMatch(/"oneOf"/);
+    expect(raw).not.toMatch(/"anyOf"/);
+    expect(raw).not.toMatch(/"allOf"/);
+    expect(raw).not.toMatch(/"\$ref"/);
+
+    const ops = operations(agentDoc);
+    expect(ops.length).toBeGreaterThan(8);
+    for (const { path, method, op } of ops) {
+      expect(op.operationId, `${method} ${path}`).toMatch(/^[a-zA-Z][a-zA-Z0-9]+$/);
+      expect((op.summary ?? "").length, `${op.operationId} summary`).toBeLessThanOrEqual(
+        GPT_ACTION_TEXT_MAX,
+      );
+      expect(
+        (op.description ?? "").length,
+        `${op.operationId} description`,
+      ).toBeLessThanOrEqual(GPT_ACTION_TEXT_MAX);
+    }
+
+    const createBody = agentDoc.paths["/api/v1/agent/review-tasks"].post
+      .requestBody as Record<string, any>;
+    const createReview =
+      createBody.content["application/json"].schema.properties.trigger;
+    expect(createReview.properties.type.enum).toEqual([
+      "scheduled",
+      "event_window",
+      "condition",
+    ]);
+    expect(createReview.properties.at.format).toBe("date-time");
+    expect(createReview.example).toEqual({
+      type: "scheduled",
+      at: "2026-08-22T00:00:00Z",
+    });
+    const plannedBody = agentDoc.paths["/api/v1/agent/planned-actions"].post
+      .requestBody as Record<string, any>;
+    expect(plannedBody.content["application/json"].schema.required).toEqual([
+      "symbol",
+      "action_type",
+    ]);
   });
 });

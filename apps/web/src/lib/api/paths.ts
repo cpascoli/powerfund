@@ -4,6 +4,7 @@ export function isAgentApiPath(pathname: string): boolean {
 
 export function isPublicCatalogPath(pathname: string): boolean {
   if (pathname === "/llms.txt") return true;
+  if (pathname === "/api/v1/agent/openapi.json") return true;
   if (isAgentApiPath(pathname)) return false;
   return pathname === "/api/v1" || pathname.startsWith("/api/v1/");
 }

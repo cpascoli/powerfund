@@ -79,9 +79,9 @@ Replace `$ORIGIN` and `$TOKEN`.
 ORIGIN=https://powerfund.netlify.app
 TOKEN=your-agent-token
 
-# Index + OpenAPI
+# Index (auth) + OpenAPI (public, for GPT Actions import)
 curl -sS -H "Authorization: Bearer $TOKEN" "$ORIGIN/api/v1/agent"
-curl -sS -H "Authorization: Bearer $TOKEN" "$ORIGIN/api/v1/agent/openapi.json"
+curl -sS "$ORIGIN/api/v1/agent/openapi.json"
 
 # Fund state
 curl -sS -H "Authorization: Bearer $TOKEN" \
@@ -272,4 +272,4 @@ Typical workflow:
 5. `updateDossier`
 6. optionally `createDecision` / `createPlannedAction` / `createReviewTask`
 
-Machine-readable contract: `GET /api/v1/agent/openapi.json`.
+Machine-readable contract: `GET /api/v1/agent/openapi.json` (public, no Bearer token). ChatGPT Actions can import that URL. Configure the GPT's authentication separately as API key / Bearer for the actual operations. The schema is OpenAPI 3.0.1, with no `oneOf`/`anyOf`/`$ref`, so Actions can parse every tool including `createReviewTask.trigger`.
