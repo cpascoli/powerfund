@@ -13,6 +13,7 @@ export type AttentionKind =
   | "flag"
   | "overdue"
   | "due_today"
+  | "review_due"
   | "missing_invalidation"
   | "thesis_review"
   | "diligence";
@@ -25,10 +26,25 @@ export type AttentionItem = {
   href: string;
 };
 
+export type BriefingReview = {
+  id: string;
+  title: string;
+  status: "pending" | "due" | "in_progress" | "completed" | "deferred" | "cancelled";
+  scheduled_for: string | null;
+  not_before: string | null;
+  due_by: string | null;
+  symbols: string[];
+  themes: Array<{ slug: string; name: string }>;
+};
+
+export type UpcomingItem =
+  | { kind: "planned_action"; id: string; action: PlannedActionRow }
+  | { kind: "review"; id: string; review: BriefingReview };
+
 export type UpcomingSection = {
   id: "this_week" | "later" | "undated";
   label: string;
-  actions: PlannedActionRow[];
+  items: UpcomingItem[];
 };
 
 export type ThemePulse = {
@@ -63,9 +79,10 @@ const KIND_ORDER: Record<AttentionKind, number> = {
   flag: 0,
   overdue: 1,
   due_today: 2,
-  missing_invalidation: 3,
-  thesis_review: 4,
-  diligence: 5,
+  review_due: 3,
+  missing_invalidation: 4,
+  thesis_review: 5,
+  diligence: 6,
 };
 
 export function startOfUtcDay(now = new Date()): Date {
@@ -96,6 +113,8 @@ export function attentionKindLabel(kind: AttentionKind): string {
       return "Overdue";
     case "due_today":
       return "Due";
+    case "review_due":
+      return "Reassess";
     case "missing_invalidation":
       return "Kill";
     case "thesis_review":
@@ -114,6 +133,7 @@ export function isUrgentAttention(kind: AttentionKind): boolean {
     case "flag":
     case "overdue":
     case "due_today":
+    case "review_due":
     case "missing_invalidation":
       return true;
     case "thesis_review":
@@ -152,6 +172,74 @@ export function bookPulse(book: PortfolioBook): BookPulse {
   };
 }
 
+export function reviewWhenIso(review: BriefingReview): string | null {
+  return review.scheduled_for ?? review.not_before ?? review.due_by;
+}
+
+export function reviewCalendarDate(review: BriefingReview): string | null {
+  const iso = reviewWhenIso(review);
+  return iso ? iso.slice(0, 10) : null;
+}
+
+export function reviewTaskHref(review: BriefingReview): string {
+  const theme = review.themes[0];
+  if (review.themes.length === 1 && theme) {
+    return `/themes#${theme.slug}`;
+  }
+  const symbol = review.symbols[0];
+  if (symbol) {
+    return `/explore/${symbol}`;
+  }
+  return "/themes";
+}
+
+export function formatReviewWhen(iso: string): string {
+  const stamp = new Date(iso);
+  if (Number.isNaN(stamp.getTime())) {
+    return iso.slice(0, 10);
+  }
+  const date = stamp.toISOString().slice(0, 10);
+  const time = stamp.toISOString().slice(11, 16);
+  if (time !== "00:00") {
+    return `${date} ${time} UTC`;
+  }
+  return date;
+}
+
+export function reviewTaskDetail(review: BriefingReview): string {
+  const iso = reviewWhenIso(review);
+  const who = [
+    ...review.themes.map((theme) => theme.name),
+    ...review.symbols,
+  ].join(" · ");
+  if (iso && who) return `${formatReviewWhen(iso)} · ${who}`;
+  if (iso) return formatReviewWhen(iso);
+  if (who) return who;
+  return "Review obligation — not a trade";
+}
+
+function reviewIsDueNow(review: BriefingReview, now: Date): boolean {
+  switch (review.status) {
+    case "due":
+    case "in_progress":
+      return true;
+    case "pending": {
+      const iso = reviewWhenIso(review);
+      if (iso == null) return false;
+      const at = new Date(iso);
+      return !Number.isNaN(at.getTime()) && at.getTime() <= now.getTime();
+    }
+    case "deferred":
+    case "completed":
+    case "cancelled":
+      return false;
+    default: {
+      const _exhaustive: never = review.status;
+      return _exhaustive;
+    }
+  }
+}
+
 export function buildAttentionItems(args: {
   bookFlags: MandateFlag[];
   queueFlags: MandateFlag[];
@@ -160,9 +248,11 @@ export function buildAttentionItems(args: {
   decisions: DecisionListItem[];
   dossiers: DossierReviewRow[];
   instruments: InstrumentWithTheme[];
+  reviews?: BriefingReview[];
   today?: Date;
 }): AttentionItem[] {
-  const today = args.today ?? startOfUtcDay();
+  const now = args.today ?? new Date();
+  const today = startOfUtcDay(now);
   const items: AttentionItem[] = [];
   const onBook = new Set(args.book.positions.map((row) => row.instrumentId));
   const byId = new Map(args.instruments.map((row) => [row.id, row]));
@@ -194,6 +284,17 @@ export function buildAttentionItems(args: {
         ? `Was due ${action.dueBy}`
         : action.windowLabel ?? "Due today",
       href: `/portfolio?confirm=${action.id}`,
+    });
+  }
+
+  for (const review of args.reviews ?? []) {
+    if (!reviewIsDueNow(review, now)) continue;
+    items.push({
+      id: `review-task-${review.id}`,
+      kind: "review_due",
+      title: review.title,
+      detail: reviewTaskDetail(review),
+      href: reviewTaskHref(review),
     });
   }
 
@@ -261,38 +362,87 @@ export function buildAttentionItems(args: {
 
 export function upcomingSections(
   actions: PlannedActionRow[],
-  today = startOfUtcDay(),
+  reviews: BriefingReview[] = [],
+  now = new Date(),
 ): UpcomingSection[] {
-  const dated = [...actions].sort((a, b) => {
-    if (a.dueBy && b.dueBy) return a.dueBy.localeCompare(b.dueBy);
-    if (a.dueBy) return -1;
-    if (b.dueBy) return 1;
-    return a.createdAt.localeCompare(b.createdAt);
-  });
+  const today = startOfUtcDay(now);
+  const thisWeek: UpcomingItem[] = [];
+  const later: UpcomingItem[] = [];
+  const undated: UpcomingItem[] = [];
 
-  const thisWeek: PlannedActionRow[] = [];
-  const later: PlannedActionRow[] = [];
-  const undated: PlannedActionRow[] = [];
-
-  for (const action of dated) {
+  for (const action of actions) {
+    const item: UpcomingItem = {
+      kind: "planned_action",
+      id: action.id,
+      action,
+    };
     if (action.dueBy == null) {
-      undated.push(action);
+      undated.push(item);
       continue;
     }
     const days = daysUntil(action.dueBy, today);
     if (days < 0) continue;
     if (days <= UPCOMING_WEEK_DAYS) {
-      thisWeek.push(action);
+      thisWeek.push(item);
     } else {
-      later.push(action);
+      later.push(item);
     }
   }
 
+  for (const review of reviews) {
+    if (reviewIsDueNow(review, now)) continue;
+    if (review.status !== "pending" && review.status !== "deferred") {
+      continue;
+    }
+    const item: UpcomingItem = {
+      kind: "review",
+      id: review.id,
+      review,
+    };
+    const date = reviewCalendarDate(review);
+    if (date == null) {
+      undated.push(item);
+      continue;
+    }
+    const days = daysUntil(date, today);
+    if (days < 0) {
+      thisWeek.push(item);
+      continue;
+    }
+    if (days <= UPCOMING_WEEK_DAYS) {
+      thisWeek.push(item);
+    } else {
+      later.push(item);
+    }
+  }
+
+  const byWhen = (left: UpcomingItem, right: UpcomingItem) => {
+    const leftKey = upcomingSortKey(left);
+    const rightKey = upcomingSortKey(right);
+    return leftKey.localeCompare(rightKey);
+  };
+  thisWeek.sort(byWhen);
+  later.sort(byWhen);
+  undated.sort(byWhen);
+
   return [
-    { id: "this_week", label: "This week", actions: thisWeek },
-    { id: "later", label: "Later", actions: later },
-    { id: "undated", label: "No date", actions: undated },
+    { id: "this_week", label: "This week", items: thisWeek },
+    { id: "later", label: "Later", items: later },
+    { id: "undated", label: "No date", items: undated },
   ];
+}
+
+function upcomingSortKey(item: UpcomingItem): string {
+  switch (item.kind) {
+    case "planned_action":
+      return `${item.action.dueBy ?? "9999"}|${item.action.symbol}`;
+    case "review":
+      return `${reviewCalendarDate(item.review) ?? "9999"}|${item.review.title}`;
+    default: {
+      const _exhaustive: never = item;
+      return _exhaustive;
+    }
+  }
 }
 
 export function themePulse(args: {

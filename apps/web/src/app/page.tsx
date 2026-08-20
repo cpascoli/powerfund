@@ -7,10 +7,16 @@ import {
   bookPulse,
   buildAttentionItems,
   daysUntil,
+  formatReviewWhen,
   isUrgentAttention,
+  reviewCalendarDate,
+  reviewTaskDetail,
+  reviewTaskHref,
+  reviewWhenIso,
   themePulse,
   upcomingSections,
   type AttentionItem,
+  type UpcomingItem,
 } from "@/lib/data/briefing";
 import { listDecisions } from "@/lib/data/decisions";
 import {
@@ -24,6 +30,7 @@ import {
   listInstrumentsWithThemes,
   listThemes,
 } from "@/lib/data/research";
+import { listOpenReviewTasks } from "@/lib/data/reviews";
 import {
   computeDrawdown,
   listLedgerFlows,
@@ -77,6 +84,16 @@ function dueLabel(action: PlannedActionRow): string {
   return `due ${action.dueBy}`;
 }
 
+function reviewDueLabel(item: Extract<UpcomingItem, { kind: "review" }>): string {
+  const iso = reviewWhenIso(item.review);
+  if (iso == null) return "no date";
+  const date = reviewCalendarDate(item.review);
+  if (date == null) return "no date";
+  const days = daysUntil(date);
+  if (days === 0) return `review today · ${formatReviewWhen(iso)}`;
+  return `review ${formatReviewWhen(iso)}`;
+}
+
 export default async function BriefingPage({
   searchParams,
 }: {
@@ -85,17 +102,27 @@ export default async function BriefingPage({
   const { tab } = await searchParams;
   const activeTab = parseTab(tab) ?? "attention";
 
-  const [themes, instruments, book, rawQueue, snapshots, flows, decisions, dossiers] =
-    await Promise.all([
-      listThemes(),
-      listInstrumentsWithThemes(),
-      getOpenPortfolioBook().then(withLiveMarks),
-      listOpenPlannedActions(),
-      listPortfolioSnapshots(),
-      listLedgerFlows(),
-      listDecisions(),
-      listDossierReviews(),
-    ]);
+  const [
+    themes,
+    instruments,
+    book,
+    rawQueue,
+    snapshots,
+    flows,
+    decisions,
+    dossiers,
+    reviews,
+  ] = await Promise.all([
+    listThemes(),
+    listInstrumentsWithThemes(),
+    getOpenPortfolioBook().then(withLiveMarks),
+    listOpenPlannedActions(),
+    listPortfolioSnapshots(),
+    listLedgerFlows(),
+    listDecisions(),
+    listDossierReviews(),
+    listOpenReviewTasks(),
+  ]);
 
   const queue = buildDeploymentQueue(book, instruments, rawQueue);
   const drawdown = computeDrawdown(
@@ -117,11 +144,12 @@ export default async function BriefingPage({
     decisions,
     dossiers,
     instruments,
+    reviews,
   });
-  const upcoming = upcomingSections(queue.actions);
+  const upcoming = upcomingSections(queue.actions, reviews);
   const themesView = themePulse({ themes, instruments, book });
   const pulse = bookPulse(book);
-  const thisWeekCount = upcoming[0]?.actions.length ?? 0;
+  const thisWeekCount = upcoming[0]?.items.length ?? 0;
   const attentionWarn = attention.some((item) => isUrgentAttention(item.kind));
 
   const markAsOf = book.markAsOf
@@ -160,7 +188,8 @@ export default async function BriefingPage({
         <div>
           <h1>Briefing</h1>
           <p>
-            Flags, reviews due, and dated actions
+            Flags, reviews due, and dated actions — including reviews that are
+            still ahead
             {markAsOf
               ? ` — ${book.markLabel.toLowerCase()} as of ${markAsOf}. `
               : ` — ${book.markLabel.toLowerCase()}. `}
@@ -273,8 +302,9 @@ function AttentionPanel({ items }: { items: AttentionItem[] }) {
       <h2>Needs attention</h2>
       {items.length === 0 ? (
         <p className="empty">
-          Nothing needs attention. Mandate checks are clear. Dated actions are
-          on Upcoming; browse names in <Link href="/explore">Explore</Link>.
+          Nothing needs attention. Mandate checks are clear. Dated actions and
+          upcoming reviews are on Upcoming; browse names in{" "}
+          <Link href="/explore">Explore</Link>.
         </p>
       ) : (
         <ul className="list">
@@ -306,49 +336,86 @@ function UpcomingPanel({
 }: {
   sections: ReturnType<typeof upcomingSections>;
 }) {
-  const hasAny = sections.some((section) => section.actions.length > 0);
+  const hasAny = sections.some((section) => section.items.length > 0);
   return (
     <section className="panel" aria-label="Upcoming">
       <h2>Upcoming</h2>
       <p className="muted">
-        Time-bound queue items. The full list stays on the{" "}
-        <Link href="/portfolio?tab=queue">deployment queue</Link>.
+        Time-bound queue items and review obligations. Trades stay on the{" "}
+        <Link href="/portfolio?tab=queue">deployment queue</Link>; a review is
+        not a fill.
       </p>
       {hasAny ? (
         sections.map((section) =>
-          section.actions.length === 0 ? null : (
+          section.items.length === 0 ? null : (
             <div key={section.id}>
               <h3>{section.label}</h3>
               <ul className="list">
-                {section.actions.map((action) => {
-                  const days =
-                    action.dueBy != null ? daysUntil(action.dueBy) : null;
-                  return (
-                    <li key={action.id}>
-                      <div>
-                        <strong>
-                          <Link href={`/explore/${action.symbol}`}>
-                            {action.symbol}
-                          </Link>
-                        </strong>
-                        <span className="muted">
-                          {" "}
-                          {action.actionType} {money(action.plannedUsd)}
-                          {action.windowLabel ? ` · ${action.windowLabel}` : ""}
-                        </span>
-                        {action.rationale ? (
-                          <div className="muted">{action.rationale}</div>
-                        ) : null}
-                      </div>
-                      <span
-                        className={
-                          days != null && days <= 7 ? "tag warn-tag" : "tag"
-                        }
-                      >
-                        {dueLabel(action)}
-                      </span>
-                    </li>
-                  );
+                {section.items.map((item) => {
+                  switch (item.kind) {
+                    case "planned_action": {
+                      const action = item.action;
+                      const days =
+                        action.dueBy != null ? daysUntil(action.dueBy) : null;
+                      return (
+                        <li key={`action-${action.id}`}>
+                          <div>
+                            <strong>
+                              <Link href={`/explore/${action.symbol}`}>
+                                {action.symbol}
+                              </Link>
+                            </strong>
+                            <span className="muted">
+                              {" "}
+                              {action.actionType} {money(action.plannedUsd)}
+                              {action.windowLabel
+                                ? ` · ${action.windowLabel}`
+                                : ""}
+                            </span>
+                            {action.rationale ? (
+                              <div className="muted">{action.rationale}</div>
+                            ) : null}
+                          </div>
+                          <span
+                            className={
+                              days != null && days <= 7 ? "tag warn-tag" : "tag"
+                            }
+                          >
+                            {dueLabel(action)}
+                          </span>
+                        </li>
+                      );
+                    }
+                    case "review": {
+                      const date = reviewCalendarDate(item.review);
+                      const days = date != null ? daysUntil(date) : null;
+                      return (
+                        <li key={`review-${item.review.id}`}>
+                          <div>
+                            <strong>
+                              <Link href={reviewTaskHref(item.review)}>
+                                {item.review.title}
+                              </Link>
+                            </strong>
+                            <div className="muted">
+                              {reviewTaskDetail(item.review)}
+                            </div>
+                          </div>
+                          <span
+                            className={
+                              days != null && days <= 7 ? "tag warn-tag" : "tag"
+                            }
+                          >
+                            {reviewDueLabel(item)}
+                          </span>
+                        </li>
+                      );
+                    }
+                    default: {
+                      const _exhaustive: never = item;
+                      return _exhaustive;
+                    }
+                  }
                 })}
               </ul>
             </div>
@@ -356,7 +423,7 @@ function UpcomingPanel({
         )
       ) : (
         <p className="empty">
-          Nothing dated in the queue. Plan buys from the{" "}
+          Nothing dated in the queue or review calendar. Plan buys from the{" "}
           <Link href="/portfolio?tab=queue">deployment queue</Link>.
         </p>
       )}
