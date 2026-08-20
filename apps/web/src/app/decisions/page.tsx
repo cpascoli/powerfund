@@ -1,6 +1,8 @@
 import Link from "next/link";
 
+import { JournalCompanyFilter } from "@/components/journal-company-filter";
 import { listDecisions } from "@/lib/data/decisions";
+import { listInstrumentsWithThemes } from "@/lib/data/research";
 
 export const dynamic = "force-dynamic";
 
@@ -8,8 +10,31 @@ export const metadata = {
   title: "Journal",
 };
 
-export default async function DecisionsPage() {
-  const decisions = await listDecisions();
+type PageProps = {
+  searchParams: Promise<{ symbol?: string }>;
+};
+
+function journalCompanies(
+  instruments: Awaited<ReturnType<typeof listInstrumentsWithThemes>>,
+) {
+  return [...instruments]
+    .sort((a, b) => a.symbol.localeCompare(b.symbol))
+    .map((row) => ({ symbol: row.symbol, name: row.name }));
+}
+
+export default async function DecisionsPage({ searchParams }: PageProps) {
+  const { symbol: rawSymbol } = await searchParams;
+  const selected = rawSymbol?.trim().toUpperCase() ?? "";
+  const [decisions, instruments] = await Promise.all([
+    listDecisions(),
+    listInstrumentsWithThemes(),
+  ]);
+  const companies = journalCompanies(instruments);
+  const filtered =
+    selected.length > 0
+      ? decisions.filter((row) => row.symbol === selected)
+      : decisions;
+  const selectedInstrument = instruments.find((row) => row.symbol === selected);
 
   return (
     <>
@@ -22,22 +47,42 @@ export default async function DecisionsPage() {
           </p>
         </div>
         <div className="header-actions">
-          <Link className="buttonish" href="/decisions/new">
+          <Link
+            className="buttonish"
+            href={
+              selectedInstrument
+                ? `/decisions/new?instrument=${selectedInstrument.id}`
+                : "/decisions/new"
+            }
+          >
             Log decision
           </Link>
         </div>
       </header>
 
       <section className="panel">
-        <h2>Entries</h2>
-        {decisions.length === 0 ? (
+        <div className="price-panel-head">
+          <div>
+            <h2>Entries</h2>
+            <p className="muted">
+              {selected
+                ? `${filtered.length} for ${selected}`
+                : `${filtered.length} total`}
+            </p>
+          </div>
+          <div className="workbench-controls">
+            <JournalCompanyFilter companies={companies} value={selected} />
+          </div>
+        </div>
+        {filtered.length === 0 ? (
           <p className="empty">
-            No decisions recorded yet. Log a watch/investigate/enter before or
-            at the time of any material action.
+            {selected
+              ? `No journal entries for ${selected}.`
+              : "No decisions recorded yet. Log a watch/investigate/enter before or at the time of any material action."}
           </p>
         ) : (
           <ul className="list">
-            {decisions.map((decision) => (
+            {filtered.map((decision) => (
               <li key={decision.id}>
                 <div>
                   <strong>
