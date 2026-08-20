@@ -12,12 +12,13 @@ import {
   listLedgerFlows,
   listPortfolioSnapshots,
 } from "@/lib/data/snapshots";
+import type { DbClient } from "@/lib/supabase/db";
 
-export async function loadMandateBook(): Promise<MandateBook> {
+export async function loadMandateBook(client?: DbClient): Promise<MandateBook> {
   const [book, snapshots, flows] = await Promise.all([
-    getOpenPortfolioBook(),
-    listPortfolioSnapshots(),
-    listLedgerFlows(),
+    getOpenPortfolioBook(client),
+    listPortfolioSnapshots(365, client),
+    listLedgerFlows(client),
   ]);
   const drawdown = computeDrawdown(
     snapshots,
@@ -44,8 +45,9 @@ export async function loadMandateBook(): Promise<MandateBook> {
 
 export async function lookupInstrumentTheme(
   instrumentId: string,
+  client?: DbClient,
 ): Promise<{ symbol: string; themeSlug: string } | null> {
-  const instruments = await listInstrumentsWithThemes();
+  const instruments = await listInstrumentsWithThemes(client);
   const instrument = instruments.find((row) => row.id === instrumentId);
   if (!instrument) return null;
   return { symbol: instrument.symbol, themeSlug: instrument.theme_slug };
@@ -55,11 +57,12 @@ export async function mandateGate(args: {
   instrumentId: string;
   costUsd: number;
   overrideReason: string | null;
+  supabase?: DbClient;
 }): Promise<
   | { ok: true; violations: MandateViolation[] }
   | { ok: false; error: string; violations: MandateViolation[] }
 > {
-  const instrument = await lookupInstrumentTheme(args.instrumentId);
+  const instrument = await lookupInstrumentTheme(args.instrumentId, args.supabase);
   if (!instrument) {
     return {
       ok: false,
@@ -68,7 +71,7 @@ export async function mandateGate(args: {
     };
   }
 
-  const book = await loadMandateBook();
+  const book = await loadMandateBook(args.supabase);
   const violations = evaluateProposedBuy(book, {
     symbol: instrument.symbol,
     themeSlug: instrument.themeSlug,

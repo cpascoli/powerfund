@@ -24,8 +24,9 @@ Build config lives in root [`netlify.toml`](../netlify.toml).
    - `NEXT_PUBLIC_SUPABASE_ANON_KEY` — **anon** / **publishable** key only
    - `SUPABASE_SERVICE_ROLE_KEY` — **private** (scheduled ingest only; never `NEXT_PUBLIC_*`)
    - `CRON_SECRET` — **private** shared secret for the background ingest trigger
+   - `POWERFUND_AGENT_API_KEYS` — **private** JSON array of agent API keys (see [agent-api.md](./agent-api.md))
    - `TIINGO_API_KEY` — optional, **private**; preferred for daily bars
-6. **Do not** expose `SUPABASE_SERVICE_ROLE_KEY`, `CRON_SECRET`, or `TIINGO_API_KEY` as `NEXT_PUBLIC_*`.
+6. **Do not** expose `SUPABASE_SERVICE_ROLE_KEY`, `CRON_SECRET`, `POWERFUND_AGENT_API_KEYS`, or `TIINGO_API_KEY` as `NEXT_PUBLIC_*`.
 7. Trigger a deploy (push to `main` or **Trigger deploy**). After changing `NEXT_PUBLIC_*`, trigger a **new** deploy so Next.js rebuilds with the values.
 
 After linking, every push to `main` that touches the web app, shared packages, worker ingest, or `netlify/functions` deploys Production. The `ignore` rule in `netlify.toml` skips builds when only docs/supabase change.

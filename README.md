@@ -5,6 +5,7 @@ Investment intelligence for managing and growing capital — thematic focus on A
 ## Docs
 
 - **[docs/](./docs/README.md)** — goals, mandate, plan, themes, UX
+- **[docs/agent-api.md](./docs/agent-api.md)** — private authenticated API for AI agents
 - **[docs/deploy.md](./docs/deploy.md)** — GitHub → Netlify CI and Supabase remote
 - **[architecture/](./architecture/README.md)** — system design, data model, ADRs
 
@@ -103,6 +104,8 @@ pnpm deploy:prod
 | `pnpm ingest:all` | Run both ingest jobs |
 | `pnpm build` | Build all packages/apps |
 | `pnpm typecheck` | Typecheck all workspaces |
+| `pnpm test` | Web unit tests (Vitest) |
+| `pnpm db:test` | Ledger + dossier versioning SQL tests |
 | `pnpm db:reset` | Reset local DB (migrate + seed) |
 | `pnpm deploy:prod` | Manual Netlify production deploy |
 

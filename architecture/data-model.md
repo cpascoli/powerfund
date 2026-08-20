@@ -45,8 +45,11 @@ erDiagram
 | `dossier_versions` | Immutable assembled snapshots for the journal |
 | `benchmarks` | Success (SPY) and style (QQQ) index proxies |
 | `app_users` | `operator` or `viewer` per auth user |
+| `agent_idempotency_keys` | Replay store for agent POST/PATCH retries |
 
 `positions` and `portfolio_state.cash` are maintained by a trigger on `transactions`. History is never edited; corrections are reversing or `adjustment` entries. See [ADR 0007](./decisions/0007-transactions-ledger.md).
+
+Dossier writes go through `save_dossier_versioned(...)`: one transaction updates the live `dossiers` row and inserts the next `dossier_versions` snapshot only when the assembled JSONB actually changed. `dossier_versions` is append-only.
 
 ## Enums
 
@@ -76,6 +79,7 @@ RLS is on every `public` table. `anon` has no table privileges.
 | `operator` (`app_users.role`) | Write the book, dossiers, journal, queue |
 | Service role | Ingest writes `market_bars`, `market_caps`, `fundamentals_quarterly` |
 | Public catalog | Next.js `/api/v1/*` — weights and theses only, no dollars |
+| Agent API | Next.js `/api/v1/agent/*` — Bearer keys, scoped reads/writes, no fills |
 
 New sign-ups default to `viewer`. Roles live in `app_users`, not in user-editable JWT metadata.
 

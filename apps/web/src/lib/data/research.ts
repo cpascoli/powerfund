@@ -1,6 +1,7 @@
 import type { DossierResearchLevel, DossierStatus } from "@powerfund/domain";
 
 import { createClient } from "@/lib/supabase/server";
+import { resolveDb, type DbClient } from "@/lib/supabase/db";
 
 export type ThemeRow = {
   id: string;
@@ -67,8 +68,8 @@ type ThemeRef = {
   name: string;
 };
 
-export async function listThemes(): Promise<ThemeRow[]> {
-  const supabase = await createClient();
+export async function listThemes(client?: DbClient): Promise<ThemeRow[]> {
+  const supabase = await resolveDb(client);
   const { data, error } = await supabase
     .from("themes")
     .select("id, slug, name, description, is_core, sort_order")
@@ -81,10 +82,10 @@ export async function listThemes(): Promise<ThemeRow[]> {
   return (data as ThemeRow[] | null) ?? [];
 }
 
-export async function listInstrumentsWithThemes(): Promise<
-  InstrumentWithTheme[]
-> {
-  const supabase = await createClient();
+export async function listInstrumentsWithThemes(
+  client?: DbClient,
+): Promise<InstrumentWithTheme[]> {
+  const supabase = await resolveDb(client);
 
   const [instrumentsResult, linksResult, themesResult, dossiersResult] =
     await Promise.all([
@@ -220,15 +221,16 @@ export async function getInstrumentPriceHistory(
 
 export async function getInstrumentDossier(
   symbol: string,
+  client?: DbClient,
 ): Promise<InstrumentDossier | null> {
   const normalized = symbol.trim().toUpperCase();
-  const instruments = await listInstrumentsWithThemes();
+  const instruments = await listInstrumentsWithThemes(client);
   const instrument = instruments.find((row) => row.symbol === normalized);
   if (!instrument) {
     return null;
   }
 
-  const supabase = await createClient();
+  const supabase = await resolveDb(client);
   const { data, error } = await supabase
     .from("dossiers")
     .select(

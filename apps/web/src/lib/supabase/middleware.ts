@@ -3,6 +3,8 @@ import { NextResponse, type NextRequest } from "next/server";
 
 import type { Database } from "@powerfund/db";
 
+import { isAgentApiPath, isPublicCatalogPath } from "@/lib/api/paths";
+
 import { getSupabaseEnv } from "./env";
 
 type CookieToSet = {
@@ -11,17 +13,11 @@ type CookieToSet = {
   options: CookieOptions;
 };
 
-function isPublicCatalogPath(pathname: string): boolean {
-  return (
-    pathname === "/llms.txt" ||
-    pathname === "/api/v1" ||
-    pathname.startsWith("/api/v1/")
-  );
-}
-
 export async function updateSession(request: NextRequest) {
   const pathname = request.nextUrl.pathname;
-  if (isPublicCatalogPath(pathname)) {
+  // Public catalog is anonymous. Agent routes authenticate with Bearer tokens
+  // inside the route handlers — do not bounce them to /login.
+  if (isPublicCatalogPath(pathname) || isAgentApiPath(pathname)) {
     return NextResponse.next({ request });
   }
 

@@ -5,10 +5,11 @@ import { redirect } from "next/navigation";
 import type { Database } from "@powerfund/db";
 import { DECISION_TYPES, type DecisionType } from "@powerfund/domain";
 
+import { AgentApiError } from "@/lib/api/agent/errors";
 import { loadJournalDossierFields } from "@/lib/dossiers/versions";
+import { createDecision } from "@/lib/journal/create-decision";
 import { createClient } from "@/lib/supabase/server";
 
-type DecisionInsert = Database["public"]["Tables"]["decisions"]["Insert"];
 type DecisionUpdate = Database["public"]["Tables"]["decisions"]["Update"];
 
 export type DecisionActionState = {
@@ -55,45 +56,24 @@ export async function saveDecision(
     ? await loadJournalDossierFields(supabase, instrumentId)
     : null;
 
-  const payload = {
-    instrument_id: instrumentId,
-    decision_type: decisionTypeRaw,
-    thesis,
-    catalysts:
-      emptyToNull(formData.get("catalysts")) ?? dossier?.catalysts ?? null,
-    risks: emptyToNull(formData.get("risks")) ?? dossier?.risks ?? null,
-    invalidation:
-      emptyToNull(formData.get("invalidation")) ??
-      dossier?.invalidation ??
-      null,
-    sizing_rationale: emptyToNull(formData.get("sizing_rationale")),
-    action_at: actionAt,
-    outcome_notes: emptyToNull(formData.get("outcome_notes")),
-    outcome_grade: emptyToNull(formData.get("outcome_grade")),
-    ...(id ? {} : { dossier_version_id: dossier?.dossierVersionId ?? null }),
-  } satisfies DecisionInsert;
-  // Database typings currently resolve mutation builders to `never`; runtime API is fine.
-  const decisions = supabase as unknown as {
-    from: (table: "decisions") => {
-      update: (values: DecisionUpdate) => {
-        eq: (
-          column: "id",
-          value: string,
-        ) => Promise<{ error: { message: string } | null }>;
-      };
-      insert: (values: DecisionInsert) => {
-        select: (columns: "id") => {
-          single: () => Promise<{
-            data: { id: string } | null;
-            error: { message: string } | null;
-          }>;
-        };
-      };
-    };
-  };
-
   if (id) {
-    const { error } = await decisions
+    const payload = {
+      instrument_id: instrumentId,
+      decision_type: decisionTypeRaw,
+      thesis,
+      catalysts:
+        emptyToNull(formData.get("catalysts")) ?? dossier?.catalysts ?? null,
+      risks: emptyToNull(formData.get("risks")) ?? dossier?.risks ?? null,
+      invalidation:
+        emptyToNull(formData.get("invalidation")) ??
+        dossier?.invalidation ??
+        null,
+      sizing_rationale: emptyToNull(formData.get("sizing_rationale")),
+      action_at: actionAt,
+      outcome_notes: emptyToNull(formData.get("outcome_notes")),
+      outcome_grade: emptyToNull(formData.get("outcome_grade")),
+    } satisfies DecisionUpdate;
+    const { error } = await supabase
       .from("decisions")
       .update(payload)
       .eq("id", id);
@@ -105,21 +85,38 @@ export async function saveDecision(
     redirect(`/decisions/${id}`);
   }
 
-  const { data, error } = await decisions
-    .from("decisions")
-    .insert(payload)
-    .select("id")
-    .single();
-
-  if (error) {
-    return { error: error.message };
+  if (!instrumentId) {
+    return { error: "Pick an instrument." };
   }
 
-  const newId = data?.id;
-  if (!newId) {
-    return { error: "Decision saved but no id returned." };
+  try {
+    const { data: instrument } = await supabase
+      .from("instruments")
+      .select("symbol")
+      .eq("id", instrumentId)
+      .maybeSingle();
+    if (!instrument) {
+      return { error: "Unknown instrument." };
+    }
+    const created = await createDecision(supabase, {
+      symbol: instrument.symbol,
+      decision_type: decisionTypeRaw,
+      thesis,
+      catalysts: emptyToNull(formData.get("catalysts")),
+      risks: emptyToNull(formData.get("risks")),
+      invalidation: emptyToNull(formData.get("invalidation")),
+      sizing_rationale: emptyToNull(formData.get("sizing_rationale")),
+      action_at: actionAt,
+    });
+    revalidatePath("/decisions");
+    revalidatePath(`/decisions/${created.id}`);
+    redirect(`/decisions/${created.id}`);
+  } catch (error) {
+    if (error instanceof AgentApiError) {
+      return { error: error.message };
+    }
+    return {
+      error: error instanceof Error ? error.message : "Failed to save decision.",
+    };
   }
-  revalidatePath("/decisions");
-  revalidatePath(`/decisions/${newId}`);
-  redirect(`/decisions/${newId}`);
 }

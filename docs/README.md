@@ -12,6 +12,7 @@ Intelligence for managing and growing capital in the markets — starting with p
 | [themes.md](./themes.md) | Priority sectors and adjacent watch areas |
 | [ux.md](./ux.md) | Research UI information architecture and viz principles |
 | [deploy.md](./deploy.md) | GitHub → Netlify CI and remote Supabase |
+| [agent-api.md](./agent-api.md) | Private authenticated API for AI agents (ChatGPT / MCP) |
 
 ## Reviews
 

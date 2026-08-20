@@ -153,6 +153,15 @@ export function DossierForm({ instrumentId, symbol, dossier }: Props) {
 
       {state.error ? <p className="form-error">{state.error}</p> : null}
 
+      <label>
+        Change reason
+        <input
+          type="text"
+          name="change_reason"
+          placeholder="Why this save should create a new version"
+        />
+      </label>
+
       <button type="submit" disabled={pending}>
         {pending ? "Saving…" : dossier ? "Save dossier" : "Create dossier"}
       </button>

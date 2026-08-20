@@ -51,7 +51,7 @@ flowchart LR
 
 | Component | Path | Status |
 |-----------|------|--------|
-| Web app | `apps/web` | Live: research, book, journal, risk, public `/api/v1` |
+| Web app | `apps/web` | Live: research, book, journal, risk, public `/api/v1`, private `/api/v1/agent` |
 | Worker | `apps/worker` | Bars, fundamentals, NAV snapshot + backfill |
 | Scheduled jobs | `netlify/functions` | Weekday EOD bars and snapshot |
 | Domain | `packages/domain` | Mandate gates, factor map, unitized drawdown, TWR |

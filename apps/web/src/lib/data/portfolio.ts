@@ -6,7 +6,7 @@ import {
 } from "@powerfund/domain";
 import { fetchYahooQuotes, type LiveQuote } from "@powerfund/data-clients";
 
-import { createClient } from "@/lib/supabase/server";
+import { resolveDb, type DbClient } from "@/lib/supabase/db";
 
 export type OpenPositionRow = {
   id: string;
@@ -82,8 +82,10 @@ type PositionDbRow = {
   invalidation: string | null;
 };
 
-export async function getOpenPortfolioBook(): Promise<PortfolioBook> {
-  const supabase = await createClient();
+export async function getOpenPortfolioBook(
+  client?: DbClient,
+): Promise<PortfolioBook> {
+  const supabase = await resolveDb(client);
 
   const [
     { data: positionData, error: positionError },

@@ -1,4 +1,4 @@
-import { createClient } from "@/lib/supabase/server";
+import { resolveDb, type DbClient } from "@/lib/supabase/db";
 
 import { listInstrumentsWithThemes } from "@/lib/data/research";
 
@@ -21,53 +21,105 @@ export type DecisionRow = {
   outcome_notes: string | null;
   outcome_grade: string | null;
   reviewed_at: string | null;
+  dossier_version_id: string | null;
   created_at: string;
 };
 
 export type DecisionListItem = DecisionRow & {
   symbol: string | null;
   instrument_name: string | null;
+  dossier_version: { id: string; number: number } | null;
 };
 
-export async function listDecisions(): Promise<DecisionListItem[]> {
-  const supabase = await createClient();
+const DECISION_COLUMNS =
+  "id, instrument_id, decision_type, thesis, catalysts, risks, invalidation, sizing_rationale, action_at, outcome_notes, outcome_grade, reviewed_at, dossier_version_id, created_at";
+
+async function versionMap(
+  supabase: DbClient,
+  versionIds: string[],
+): Promise<Map<string, { id: string; number: number }>> {
+  const unique = [...new Set(versionIds)];
+  if (unique.length === 0) return new Map();
+  const { data, error } = await supabase
+    .from("dossier_versions")
+    .select("id, version_number")
+    .in("id", unique);
+  if (error) {
+    throw new Error(`Failed to load dossier versions: ${error.message}`);
+  }
+  return new Map(
+    (data ?? []).map((row) => [
+      row.id,
+      { id: row.id, number: row.version_number },
+    ]),
+  );
+}
+
+function attachVersion(
+  decision: DecisionRow,
+  versions: Map<string, { id: string; number: number }>,
+  symbol: string | null,
+  instrumentName: string | null,
+): DecisionListItem {
+  return {
+    ...decision,
+    symbol,
+    instrument_name: instrumentName,
+    dossier_version: decision.dossier_version_id
+      ? (versions.get(decision.dossier_version_id) ?? {
+          id: decision.dossier_version_id,
+          number: 0,
+        })
+      : null,
+  };
+}
+
+export async function listDecisions(
+  client?: DbClient,
+): Promise<DecisionListItem[]> {
+  const supabase = await resolveDb(client);
   const [{ data, error }, instruments] = await Promise.all([
     supabase
       .from("decisions")
-      .select(
-        "id, instrument_id, decision_type, thesis, catalysts, risks, invalidation, sizing_rationale, action_at, outcome_notes, outcome_grade, reviewed_at, created_at",
-      )
+      .select(DECISION_COLUMNS)
       .order("action_at", { ascending: false }),
-    listInstrumentsWithThemes(),
+    listInstrumentsWithThemes(client),
   ]);
 
   if (error) {
     throw new Error(`Failed to load decisions: ${error.message}`);
   }
 
+  const rows = (data as DecisionRow[] | null) ?? [];
+  const versions = await versionMap(
+    supabase,
+    rows
+      .map((row) => row.dossier_version_id)
+      .filter((id): id is string => id != null),
+  );
   const byId = new Map(instruments.map((row) => [row.id, row]));
 
-  return ((data as DecisionRow[] | null) ?? []).map((decision) => {
+  return rows.map((decision) => {
     const instrument = decision.instrument_id
       ? byId.get(decision.instrument_id)
       : undefined;
-    return {
-      ...decision,
-      symbol: instrument?.symbol ?? null,
-      instrument_name: instrument?.name ?? null,
-    };
+    return attachVersion(
+      decision,
+      versions,
+      instrument?.symbol ?? null,
+      instrument?.name ?? null,
+    );
   });
 }
 
 export async function getDecision(
   id: string,
+  client?: DbClient,
 ): Promise<DecisionListItem | null> {
-  const supabase = await createClient();
+  const supabase = await resolveDb(client);
   const { data, error } = await supabase
     .from("decisions")
-    .select(
-      "id, instrument_id, decision_type, thesis, catalysts, risks, invalidation, sizing_rationale, action_at, outcome_notes, outcome_grade, reviewed_at, created_at",
-    )
+    .select(DECISION_COLUMNS)
     .eq("id", id)
     .maybeSingle();
 
@@ -79,20 +131,21 @@ export async function getDecision(
   }
 
   const decision = data as DecisionRow;
+  const versions = await versionMap(
+    supabase,
+    decision.dossier_version_id ? [decision.dossier_version_id] : [],
+  );
   if (!decision.instrument_id) {
-    return {
-      ...decision,
-      symbol: null,
-      instrument_name: null,
-    };
+    return attachVersion(decision, versions, null, null);
   }
 
-  const instruments = await listInstrumentsWithThemes();
+  const instruments = await listInstrumentsWithThemes(client);
   const instrument = instruments.find((row) => row.id === decision.instrument_id);
 
-  return {
-    ...decision,
-    symbol: instrument?.symbol ?? null,
-    instrument_name: instrument?.name ?? null,
-  };
+  return attachVersion(
+    decision,
+    versions,
+    instrument?.symbol ?? null,
+    instrument?.name ?? null,
+  );
 }

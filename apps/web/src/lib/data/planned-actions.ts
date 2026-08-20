@@ -1,7 +1,7 @@
 import { RISK_DEFAULTS } from "@powerfund/domain";
 
 import type { MandateFlag, PortfolioBook } from "@/lib/data/portfolio";
-import { createClient } from "@/lib/supabase/server";
+import { resolveDb, type DbClient } from "@/lib/supabase/db";
 
 export type PlannedActionType = "buy" | "add" | "reduce" | "sell";
 export type PlannedActionStatus =
@@ -48,13 +48,15 @@ type PlannedDbRow = {
   created_at: string;
 };
 
-export async function listOpenPlannedActions(): Promise<
+export async function listOpenPlannedActions(
+  client?: DbClient,
+): Promise<
   Omit<
     PlannedActionRow,
     "symbol" | "name" | "themeName" | "themeSlug" | "plannedPctNav"
   >[]
 > {
-  const supabase = await createClient();
+  const supabase = await resolveDb(client);
   const { data, error } = await supabase
     .from("planned_actions")
     .select(

@@ -57,6 +57,39 @@ export type Database = {
         }
         Relationships: []
       }
+      agent_idempotency_keys: {
+        Row: {
+          created_at: string
+          id: string
+          idempotency_key: string
+          key_name: string
+          operation: string
+          request_hash: string
+          response: Json
+          status_code: number
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          idempotency_key: string
+          key_name: string
+          operation: string
+          request_hash: string
+          response: Json
+          status_code: number
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          idempotency_key?: string
+          key_name?: string
+          operation?: string
+          request_hash?: string
+          response?: Json
+          status_code?: number
+        }
+        Relationships: []
+      }
       benchmarks: {
         Row: {
           created_at: string
@@ -902,6 +935,16 @@ export type Database = {
     }
     Functions: {
       is_operator: { Args: never; Returns: boolean }
+      save_dossier_versioned: {
+        Args: {
+          p_change_reason: string
+          p_expected_version?: number | null
+          p_fields: Json
+          p_instrument_id: string
+          p_snapshot: Json
+        }
+        Returns: Json
+      }
       verify_book_against_ledger: {
         Args: never
         Returns: {

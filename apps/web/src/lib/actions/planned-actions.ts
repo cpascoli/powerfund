@@ -5,11 +5,10 @@ import { redirect } from "next/navigation";
 import type { Database } from "@powerfund/db";
 
 import { bookFill } from "@/lib/actions/book-fill";
-import { mandateGate } from "@/lib/mandate/enforce";
+import { AgentApiError } from "@/lib/api/agent/errors";
+import { createPlannedAction } from "@/lib/planned-actions/mutate";
 import { createClient } from "@/lib/supabase/server";
 
-type PlannedActionInsert =
-  Database["public"]["Tables"]["planned_actions"]["Insert"];
 type PlannedActionType = Database["public"]["Enums"]["planned_action_type"];
 
 export type PlannedActionState = {
@@ -57,32 +56,34 @@ export async function savePlannedAction(
     return { error: "Planned amount must be a positive dollar amount." };
   }
 
-  const gate = await mandateGate({
-    instrumentId,
-    costUsd: plannedUsd,
-    overrideReason: mandateOverrideReason,
-  });
-  if (!gate.ok) {
-    return { error: gate.error };
+  const supabase = await createClient();
+  const { data: instrument } = await supabase
+    .from("instruments")
+    .select("symbol")
+    .eq("id", instrumentId)
+    .maybeSingle();
+  if (!instrument) {
+    return { error: "Unknown instrument." };
   }
 
-  const supabase = await createClient();
-  const planned: PlannedActionInsert = {
-    instrument_id: instrumentId,
-    action_type: actionType,
-    planned_usd: plannedUsd,
-    window_label: windowLabel,
-    due_by: dueBy,
-    rationale:
-      gate.violations.length > 0 && mandateOverrideReason != null
-        ? `Mandate override: ${mandateOverrideReason}${rationale ? `\n${rationale}` : ""}`
-        : rationale,
-    status: "pending",
-  };
-
-  const { error } = await supabase.from("planned_actions").insert(planned);
-  if (error) {
-    return { error: error.message };
+  try {
+    await createPlannedAction(supabase, {
+      symbol: instrument.symbol,
+      action_type: actionType,
+      planned_usd: plannedUsd,
+      window_label: windowLabel,
+      due_by: dueBy,
+      rationale,
+      mandate_override_reason: mandateOverrideReason,
+    });
+  } catch (error) {
+    if (error instanceof AgentApiError) {
+      return { error: error.message };
+    }
+    return {
+      error:
+        error instanceof Error ? error.message : "Failed to queue the action.",
+    };
   }
 
   revalidateBook();

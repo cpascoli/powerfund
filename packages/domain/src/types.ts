@@ -91,6 +91,33 @@ export const DECISION_TYPES: readonly DecisionType[] = [
   "watch",
 ] as const;
 
+export type PlannedActionType = "buy" | "add" | "reduce" | "sell";
+
+export const PLANNED_ACTION_TYPES: readonly PlannedActionType[] = [
+  "buy",
+  "add",
+  "reduce",
+  "sell",
+] as const;
+
+export type PlannedActionStatus =
+  | "pending"
+  | "deferred"
+  | "confirmed"
+  | "cancelled";
+
+export const PLANNED_ACTION_STATUSES: readonly PlannedActionStatus[] = [
+  "pending",
+  "deferred",
+  "confirmed",
+  "cancelled",
+] as const;
+
+export const OPEN_PLANNED_ACTION_STATUSES: readonly PlannedActionStatus[] = [
+  "pending",
+  "deferred",
+] as const;
+
 export interface Theme {
   id: string;
   slug: string;

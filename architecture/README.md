@@ -33,4 +33,4 @@ Add as they become real:
 
 ## Current status
 
-Operator research OS and book are live (ledger, ingest, snapshots, mandate rules). Scoring pipelines are still planned. See [overview.md](./overview.md).
+Operator research OS and book are live (ledger, ingest, snapshots, mandate rules). A private `/api/v1/agent` API lets scoped agents read state and apply dossier/journal/queue operations. Scoring pipelines are still planned. See [overview.md](./overview.md).

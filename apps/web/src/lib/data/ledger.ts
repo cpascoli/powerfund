@@ -1,6 +1,6 @@
 import type { Database } from "@powerfund/db";
 
-import { createClient } from "@/lib/supabase/server";
+import { resolveDb, type DbClient } from "@/lib/supabase/db";
 
 type TransactionKind = Database["public"]["Enums"]["transaction_kind"];
 
@@ -28,8 +28,11 @@ export type LedgerSummary = {
  * The ledger is what makes the book auditable, so the portfolio page shows it
  * rather than only the balances derived from it.
  */
-export async function getLedgerSummary(limit = 12): Promise<LedgerSummary> {
-  const supabase = await createClient();
+export async function getLedgerSummary(
+  limit = 12,
+  client?: DbClient,
+): Promise<LedgerSummary> {
+  const supabase = await resolveDb(client);
 
   const [{ data: recent, error: recentError }, { data: all, error: allError }] =
     await Promise.all([

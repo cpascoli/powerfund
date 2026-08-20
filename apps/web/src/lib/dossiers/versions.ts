@@ -1,8 +1,10 @@
-import type { SupabaseClient } from "@supabase/supabase-js";
-import type { Database, Json } from "@powerfund/db";
-import type { DossierResearchLevel, DossierStatus } from "@powerfund/domain";
+import type { Json } from "@powerfund/db";
+import type {
+  DossierResearchLevel,
+  DossierStatus,
+} from "@powerfund/domain";
 
-type DbClient = SupabaseClient<Database>;
+import type { DbClient } from "@/lib/supabase/db";
 
 export type DossierSnapshot = {
   status: DossierStatus;
@@ -33,6 +35,30 @@ const emptyJournalFields: JournalDossierFields = {
   invalidation: null,
   dossierVersionId: null,
 };
+
+function sortJson(value: unknown): unknown {
+  if (Array.isArray(value)) {
+    return value.map(sortJson);
+  }
+  if (value && typeof value === "object") {
+    const record = value as Record<string, unknown>;
+    return Object.keys(record)
+      .sort()
+      .reduce<Record<string, unknown>>((acc, key) => {
+        acc[key] = sortJson(record[key]);
+        return acc;
+      }, {});
+  }
+  return value;
+}
+
+export function canonicalJson(value: unknown): string {
+  return JSON.stringify(sortJson(value));
+}
+
+export function snapshotsEqual(left: unknown, right: unknown): boolean {
+  return canonicalJson(left) === canonicalJson(right);
+}
 
 export function assembleDossierSnapshot(row: DossierSnapshot): DossierSnapshot {
   return {
@@ -89,6 +115,29 @@ export async function loadJournalDossierFields(
   };
 }
 
+export async function loadCurrentDossierVersion(
+  supabase: DbClient,
+  dossierId: string,
+): Promise<{ id: string; version_number: number } | null> {
+  const { data, error } = await supabase
+    .from("dossier_versions")
+    .select("id, version_number")
+    .eq("dossier_id", dossierId)
+    .order("version_number", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (error) {
+    throw new Error(`Failed to load dossier version: ${error.message}`);
+  }
+  return data;
+}
+
+/**
+ * Kept for callers that only need to snapshot after an already-written row.
+ * Live dossier writes should go through `saveDossierVersioned` so the header
+ * update and version insert stay in one transaction.
+ */
 export async function recordDossierVersion(
   supabase: DbClient,
   dossierId: string,
@@ -107,10 +156,7 @@ export async function recordDossierVersion(
     throw new Error(`Failed to load dossier versions: ${latestError.message}`);
   }
 
-  if (
-    latest &&
-    JSON.stringify(latest.snapshot) === JSON.stringify(snapshot)
-  ) {
+  if (latest && snapshotsEqual(latest.snapshot, snapshot)) {
     return latest.id;
   }
 

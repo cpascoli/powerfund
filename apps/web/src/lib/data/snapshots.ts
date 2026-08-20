@@ -10,7 +10,7 @@ import {
 import type { Database } from "@powerfund/db";
 
 import type { MandateFlag } from "@/lib/data/portfolio";
-import { createClient } from "@/lib/supabase/server";
+import { resolveDb, type DbClient } from "@/lib/supabase/db";
 
 type TransactionKind = Database["public"]["Enums"]["transaction_kind"];
 
@@ -32,8 +32,9 @@ type SnapshotDbRow = {
 
 export async function listPortfolioSnapshots(
   limit = 365,
+  client?: DbClient,
 ): Promise<SnapshotRow[]> {
-  const supabase = await createClient();
+  const supabase = await resolveDb(client);
   const { data, error } = await supabase
     .from("portfolio_snapshots")
     .select("as_of, nav, cash, invested, positions_value")
@@ -69,8 +70,10 @@ export type DrawdownSummary = {
   killSwitchBreached: boolean;
 };
 
-export async function listLedgerFlows(): Promise<Map<string, DailyFlows>> {
-  const supabase = await createClient();
+export async function listLedgerFlows(
+  client?: DbClient,
+): Promise<Map<string, DailyFlows>> {
+  const supabase = await resolveDb(client);
   const { data, error } = await supabase
     .from("transactions")
     .select("occurred_at, kind, cash_delta");
