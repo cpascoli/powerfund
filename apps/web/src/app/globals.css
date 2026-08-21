@@ -878,6 +878,15 @@ a {
   padding-right: 0;
 }
 
+.event-subjects {
+  margin-top: 0.15rem;
+}
+
+.event-instructions {
+  margin-top: 0.25rem;
+  white-space: pre-wrap;
+}
+
 .agenda tr.is-today .agenda-date strong,
 .agenda tr.is-today .agenda-date span {
   color: var(--accent);

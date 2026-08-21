@@ -18,17 +18,25 @@ export type AttentionKind =
   | "thesis_review"
   | "diligence";
 
+export type ReviewSubjectLink = {
+  label: string;
+  href: string | null;
+};
+
 export type AttentionItem = {
   id: string;
   kind: AttentionKind;
   title: string;
   detail: string;
-  href: string;
+  href: string | null;
+  subjects?: ReviewSubjectLink[];
+  instructions?: string | null;
 };
 
 export type BriefingReview = {
   id: string;
   title: string;
+  instructions?: string | null;
   status: "pending" | "due" | "in_progress" | "completed" | "deferred" | "cancelled";
   scheduled_for: string | null;
   not_before: string | null;
@@ -181,16 +189,29 @@ export function reviewCalendarDate(review: BriefingReview): string | null {
   return iso ? iso.slice(0, 10) : null;
 }
 
-export function reviewTaskHref(review: BriefingReview): string {
-  const theme = review.themes[0];
-  if (review.themes.length === 1 && theme) {
-    return `/themes#${theme.slug}`;
+export function reviewInstructions(
+  review: Pick<BriefingReview, "instructions">,
+): string | null {
+  const trimmed = review.instructions?.trim() ?? "";
+  return trimmed.length > 0 ? trimmed : null;
+}
+
+export function reviewTaskSubjectLinks(
+  review: BriefingReview,
+): ReviewSubjectLink[] {
+  const links: ReviewSubjectLink[] = review.themes.map((theme) => ({
+    label: theme.name,
+    href: `/themes#${theme.slug}`,
+  }));
+  const shown =
+    review.symbols.length > 6 ? review.symbols.slice(0, 5) : review.symbols;
+  for (const symbol of shown) {
+    links.push({ label: symbol, href: `/explore/${symbol}` });
   }
-  const symbol = review.symbols[0];
-  if (symbol) {
-    return `/explore/${symbol}`;
+  if (review.symbols.length > 6) {
+    links.push({ label: `+${review.symbols.length - 5}`, href: null });
   }
-  return "/themes";
+  return links;
 }
 
 export function formatReviewWhen(iso: string): string {
@@ -206,24 +227,9 @@ export function formatReviewWhen(iso: string): string {
   return date;
 }
 
-export function reviewTaskSubjects(review: BriefingReview): string {
-  const symbols =
-    review.symbols.length > 6
-      ? `${review.symbols.slice(0, 5).join(" ")} +${review.symbols.length - 5}`
-      : review.symbols.join(" ");
-  const parts = [
-    ...review.themes.map((theme) => theme.name),
-    symbols,
-  ].filter((part) => part.length > 0);
-  return parts.join(" · ") || "Review obligation — not a trade";
-}
-
 export function reviewTaskDetail(review: BriefingReview): string {
   const iso = reviewWhenIso(review);
-  const who = reviewTaskSubjects(review);
-  if (iso && who) return `${formatReviewWhen(iso)} · ${who}`;
-  if (iso) return formatReviewWhen(iso);
-  return who;
+  return iso ? formatReviewWhen(iso) : "";
 }
 
 function reviewIsDueNow(review: BriefingReview, now: Date): boolean {
@@ -302,7 +308,9 @@ export function buildAttentionItems(args: {
       kind: "review_due",
       title: review.title,
       detail: reviewTaskDetail(review),
-      href: reviewTaskHref(review),
+      href: null,
+      subjects: reviewTaskSubjectLinks(review),
+      instructions: reviewInstructions(review),
     });
   }
 
@@ -538,9 +546,11 @@ export type UpcomingAgendaRow = {
   kind: UpcomingItem["kind"];
   kindLabel: string;
   time: string | null;
-  href: string;
+  href: string | null;
   title: string;
   detail: string;
+  subjects: ReviewSubjectLink[];
+  instructions: string | null;
 };
 
 export type UpcomingDayGroup = {
@@ -580,6 +590,8 @@ export function toUpcomingAgendaRow(item: UpcomingItem): UpcomingAgendaRow {
         href: `/explore/${action.symbol}`,
         title: action.symbol,
         detail: action.rationale ? `${line} · ${action.rationale}` : line,
+        subjects: [],
+        instructions: null,
       };
     }
     case "review":
@@ -588,9 +600,11 @@ export function toUpcomingAgendaRow(item: UpcomingItem): UpcomingAgendaRow {
         kind: "review",
         kindLabel: "Review",
         time,
-        href: reviewTaskHref(item.review),
+        href: null,
         title: item.review.title,
-        detail: reviewTaskSubjects(item.review),
+        detail: "",
+        subjects: reviewTaskSubjectLinks(item.review),
+        instructions: reviewInstructions(item.review),
       };
     default: {
       const _exhaustive: never = item;

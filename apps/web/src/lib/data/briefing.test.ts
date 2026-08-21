@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   buildAttentionItems,
+  toUpcomingAgendaRow,
   upcomingDayGroups,
   upcomingSections,
   type BriefingReview,
@@ -29,6 +30,8 @@ const emptyBook: PortfolioBook = {
 const nvidiaReview: BriefingReview = {
   id: "a75a0cbc-a7d4-4169-a0b0-6f27861b81f5",
   title: "Review NVIDIA Q2 FY27 earnings and reassess AI deployment",
+  instructions:
+    "Re-read the AI-capex thesis after the print. Do not add unless invalidation still holds.",
   status: "pending",
   scheduled_for: "2026-08-26T21:00:00.000Z",
   not_before: "2026-08-26T21:00:00.000Z",
@@ -101,7 +104,12 @@ describe("briefing reviews", () => {
       expect.objectContaining({
         kind: "review_due",
         title: nvidiaReview.title,
-        href: "/themes#ai-infrastructure",
+        href: null,
+        instructions: nvidiaReview.instructions,
+        subjects: expect.arrayContaining([
+          { label: "AI Infrastructure", href: "/themes#ai-infrastructure" },
+          { label: "NVDA", href: "/explore/NVDA" },
+        ]),
       }),
     ]);
   });
@@ -139,6 +147,47 @@ describe("briefing reviews", () => {
     expect(sections[0]?.items.map((item) => item.kind)).toEqual([
       "planned_action",
       "review",
+    ]);
+  });
+
+  it("shows review instructions and links subjects, not the title", () => {
+    const bwxt: BriefingReview = {
+      id: "bwxt-review",
+      title: "Review BWXT bottoming/reversal structure",
+      instructions:
+        "Check weekly close vs the August low. Do not queue a buy unless the structure confirms.",
+      status: "pending",
+      scheduled_for: "2026-08-28T00:00:00.000Z",
+      not_before: "2026-08-28T00:00:00.000Z",
+      due_by: null,
+      symbols: ["BWXT"],
+      themes: [{ slug: "defence", name: "Defence" }],
+    };
+    const row = toUpcomingAgendaRow({
+      kind: "review",
+      id: bwxt.id,
+      review: bwxt,
+    });
+    expect(row.href).toBeNull();
+    expect(row.title).toBe(bwxt.title);
+    expect(row.instructions).toBe(bwxt.instructions);
+    expect(row.subjects).toEqual([
+      { label: "Defence", href: "/themes#defence" },
+      { label: "BWXT", href: "/explore/BWXT" },
+    ]);
+
+    const themeOnly = toUpcomingAgendaRow({
+      kind: "review",
+      id: "theme-review",
+      review: {
+        ...bwxt,
+        id: "theme-review",
+        symbols: [],
+        themes: [{ slug: "energy", name: "Energy" }],
+      },
+    });
+    expect(themeOnly.subjects).toEqual([
+      { label: "Energy", href: "/themes#energy" },
     ]);
   });
 });

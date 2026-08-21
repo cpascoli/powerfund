@@ -11,6 +11,7 @@ import {
   upcomingDayGroups,
   upcomingSections,
   type AttentionItem,
+  type ReviewSubjectLink,
   type UpcomingDayGroup,
   type UpcomingItem,
 } from "@/lib/data/briefing";
@@ -279,6 +280,41 @@ export default async function BriefingPage({
   );
 }
 
+function EventTitle({
+  title,
+  href,
+}: {
+  title: string;
+  href: string | null;
+}) {
+  if (href) {
+    return (
+      <strong>
+        <Link href={href}>{title}</Link>
+      </strong>
+    );
+  }
+  return <strong>{title}</strong>;
+}
+
+function SubjectLinks({ subjects }: { subjects: ReviewSubjectLink[] }) {
+  if (subjects.length === 0) return null;
+  return (
+    <div className="muted event-subjects">
+      {subjects.map((subject, index) => (
+        <span key={`${subject.label}-${subject.href ?? index}`}>
+          {index > 0 ? " · " : null}
+          {subject.href ? (
+            <Link href={subject.href}>{subject.label}</Link>
+          ) : (
+            subject.label
+          )}
+        </span>
+      ))}
+    </div>
+  );
+}
+
 function AttentionPanel({ items }: { items: AttentionItem[] }) {
   return (
     <section className="panel" aria-label="Needs attention">
@@ -294,10 +330,16 @@ function AttentionPanel({ items }: { items: AttentionItem[] }) {
           {items.map((item) => (
             <li key={item.id}>
               <div>
-                <strong>
-                  <Link href={item.href}>{item.title}</Link>
-                </strong>
-                <div className="muted">{item.detail}</div>
+                <EventTitle title={item.title} href={item.href} />
+                <SubjectLinks subjects={item.subjects ?? []} />
+                {item.instructions ? (
+                  <div className="muted event-instructions">
+                    {item.instructions}
+                  </div>
+                ) : null}
+                {item.detail ? (
+                  <div className="muted">{item.detail}</div>
+                ) : null}
               </div>
               <span
                 className={
@@ -403,9 +445,13 @@ function AgendaSection({
               </td>
               <td className="agenda-time">{row.time ?? "—"}</td>
               <td>
-                <strong>
-                  <Link href={row.href}>{row.title}</Link>
-                </strong>
+                <EventTitle title={row.title} href={row.href} />
+                <SubjectLinks subjects={row.subjects} />
+                {row.instructions ? (
+                  <div className="muted event-instructions">
+                    {row.instructions}
+                  </div>
+                ) : null}
                 {row.detail ? <div className="muted">{row.detail}</div> : null}
               </td>
               <td className="agenda-kind">
