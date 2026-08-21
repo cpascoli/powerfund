@@ -206,16 +206,24 @@ export function formatReviewWhen(iso: string): string {
   return date;
 }
 
+export function reviewTaskSubjects(review: BriefingReview): string {
+  const symbols =
+    review.symbols.length > 6
+      ? `${review.symbols.slice(0, 5).join(" ")} +${review.symbols.length - 5}`
+      : review.symbols.join(" ");
+  const parts = [
+    ...review.themes.map((theme) => theme.name),
+    symbols,
+  ].filter((part) => part.length > 0);
+  return parts.join(" · ") || "Review obligation — not a trade";
+}
+
 export function reviewTaskDetail(review: BriefingReview): string {
   const iso = reviewWhenIso(review);
-  const who = [
-    ...review.themes.map((theme) => theme.name),
-    ...review.symbols,
-  ].join(" · ");
+  const who = reviewTaskSubjects(review);
   if (iso && who) return `${formatReviewWhen(iso)} · ${who}`;
   if (iso) return formatReviewWhen(iso);
-  if (who) return who;
-  return "Review obligation — not a trade";
+  return who;
 }
 
 function reviewIsDueNow(review: BriefingReview, now: Date): boolean {
@@ -433,16 +441,198 @@ export function upcomingSections(
 }
 
 function upcomingSortKey(item: UpcomingItem): string {
+  const { date, time } = upcomingItemSchedule(item);
   switch (item.kind) {
     case "planned_action":
-      return `${item.action.dueBy ?? "9999"}|${item.action.symbol}`;
+      return `${date ?? "9999"}|${time ?? "00:00"}|${item.action.symbol}`;
     case "review":
-      return `${reviewCalendarDate(item.review) ?? "9999"}|${item.review.title}`;
+      return `${date ?? "9999"}|${time ?? "00:00"}|${item.review.title}`;
     default: {
       const _exhaustive: never = item;
       return _exhaustive;
     }
   }
+}
+
+export type UpcomingSchedule = {
+  date: string | null;
+  time: string | null;
+};
+
+export function upcomingClockTime(iso: string | null | undefined): string | null {
+  if (iso == null || iso.trim().length === 0) return null;
+  const stamp = new Date(iso);
+  if (Number.isNaN(stamp.getTime())) return null;
+  const time = stamp.toISOString().slice(11, 16);
+  return time === "00:00" ? null : time;
+}
+
+export function upcomingItemSchedule(item: UpcomingItem): UpcomingSchedule {
+  switch (item.kind) {
+    case "planned_action":
+      return { date: item.action.dueBy, time: null };
+    case "review":
+      return {
+        date: reviewCalendarDate(item.review),
+        time: upcomingClockTime(reviewWhenIso(item.review)),
+      };
+    default: {
+      const _exhaustive: never = item;
+      return _exhaustive;
+    }
+  }
+}
+
+const WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"] as const;
+const MONTHS = [
+  "Jan",
+  "Feb",
+  "Mar",
+  "Apr",
+  "May",
+  "Jun",
+  "Jul",
+  "Aug",
+  "Sep",
+  "Oct",
+  "Nov",
+  "Dec",
+] as const;
+
+export function formatAgendaDay(
+  date: string,
+  today = startOfUtcDay(),
+): {
+  weekday: string;
+  dayMonth: string;
+  monthLabel: string;
+  isToday: boolean;
+  isTomorrow: boolean;
+} {
+  const match = /^(\d{4})-(\d{2})-(\d{2})/.exec(date);
+  if (!match || match[1] == null || match[2] == null || match[3] == null) {
+    return {
+      weekday: "",
+      dayMonth: date,
+      monthLabel: "",
+      isToday: false,
+      isTomorrow: false,
+    };
+  }
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+  const utc = new Date(Date.UTC(year, month - 1, day));
+  const days = daysUntil(date, today);
+  return {
+    weekday: WEEKDAYS[utc.getUTCDay()] ?? "",
+    dayMonth: `${utc.getUTCDate()} ${MONTHS[utc.getUTCMonth()]}`,
+    monthLabel: `${MONTHS[utc.getUTCMonth()]} ${utc.getUTCFullYear()}`,
+    isToday: days === 0,
+    isTomorrow: days === 1,
+  };
+}
+
+export type UpcomingAgendaRow = {
+  key: string;
+  kind: UpcomingItem["kind"];
+  kindLabel: string;
+  time: string | null;
+  href: string;
+  title: string;
+  detail: string;
+};
+
+export type UpcomingDayGroup = {
+  date: string | null;
+  weekday: string;
+  dayMonth: string;
+  monthLabel: string;
+  isToday: boolean;
+  isTomorrow: boolean;
+  rows: UpcomingAgendaRow[];
+};
+
+function moneyUsd(value: number): string {
+  return value.toLocaleString("en-US", {
+    style: "currency",
+    currency: "USD",
+    maximumFractionDigits: 0,
+  });
+}
+
+export function toUpcomingAgendaRow(item: UpcomingItem): UpcomingAgendaRow {
+  const { time } = upcomingItemSchedule(item);
+  switch (item.kind) {
+    case "planned_action": {
+      const action = item.action;
+      const line = [
+        `${action.actionType} ${moneyUsd(action.plannedUsd)}`,
+        action.windowLabel,
+      ]
+        .filter(Boolean)
+        .join(" · ");
+      return {
+        key: `action-${action.id}`,
+        kind: "planned_action",
+        kindLabel: action.actionType,
+        time,
+        href: `/explore/${action.symbol}`,
+        title: action.symbol,
+        detail: action.rationale ? `${line} · ${action.rationale}` : line,
+      };
+    }
+    case "review":
+      return {
+        key: `review-${item.review.id}`,
+        kind: "review",
+        kindLabel: "Review",
+        time,
+        href: reviewTaskHref(item.review),
+        title: item.review.title,
+        detail: reviewTaskSubjects(item.review),
+      };
+    default: {
+      const _exhaustive: never = item;
+      return _exhaustive;
+    }
+  }
+}
+
+export function upcomingDayGroups(
+  items: UpcomingItem[],
+  now = new Date(),
+): UpcomingDayGroup[] {
+  const today = startOfUtcDay(now);
+  const groups: UpcomingDayGroup[] = [];
+  for (const item of items) {
+    const { date } = upcomingItemSchedule(item);
+    const row = toUpcomingAgendaRow(item);
+    const last = groups[groups.length - 1];
+    if (last && last.date === date) {
+      last.rows.push(row);
+      continue;
+    }
+    if (date == null) {
+      groups.push({
+        date: null,
+        weekday: "",
+        dayMonth: "No date",
+        monthLabel: "",
+        isToday: false,
+        isTomorrow: false,
+        rows: [row],
+      });
+      continue;
+    }
+    const formatted = formatAgendaDay(date, today);
+    groups.push({
+      date,
+      ...formatted,
+      rows: [row],
+    });
+  }
+  return groups;
 }
 
 export function themePulse(args: {

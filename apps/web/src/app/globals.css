@@ -795,6 +795,94 @@ a {
   border-top: 1px solid var(--line);
 }
 
+.agenda {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 0.85rem 0 0;
+}
+
+.agenda th,
+.agenda td {
+  text-align: left;
+  vertical-align: top;
+  padding: 0.7rem 0.9rem 0.7rem 0;
+}
+
+.agenda thead th {
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 650;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  border-bottom: 1px solid var(--line);
+  padding-top: 0.2rem;
+  padding-bottom: 0.5rem;
+}
+
+.agenda tbody td {
+  border-top: 1px solid var(--line);
+}
+
+.agenda-section-row td {
+  padding: 1.15rem 0 0.35rem;
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 650;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  border-top: none;
+}
+
+.agenda-month td {
+  border-top: none;
+  padding: 0.85rem 0 0.2rem;
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 650;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.agenda-date {
+  width: 5.6rem;
+  white-space: nowrap;
+}
+
+.agenda-date strong {
+  display: block;
+  font-family: var(--font-display);
+  font-size: 0.98rem;
+  letter-spacing: -0.02em;
+}
+
+.agenda-date span {
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 650;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.agenda-time {
+  width: 3.6rem;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+  font-size: 0.88rem;
+  white-space: nowrap;
+}
+
+.agenda-kind {
+  width: 1%;
+  white-space: nowrap;
+  text-align: right;
+  padding-right: 0;
+}
+
+.agenda tr.is-today .agenda-date strong,
+.agenda tr.is-today .agenda-date span {
+  color: var(--accent);
+}
+
 .tag {
   display: inline-flex;
   align-items: center;
@@ -853,6 +941,16 @@ a {
   .price-panel-head {
     flex-direction: column;
     align-items: flex-start;
+  }
+
+  .agenda-date,
+  .agenda-time {
+    width: auto;
+  }
+
+  .agenda th,
+  .agenda td {
+    padding-right: 0.5rem;
   }
 }
 

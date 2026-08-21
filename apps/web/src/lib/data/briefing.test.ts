@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   buildAttentionItems,
+  upcomingDayGroups,
   upcomingSections,
   type BriefingReview,
 } from "./briefing";
@@ -103,6 +104,33 @@ describe("briefing reviews", () => {
         href: "/themes#ai-infrastructure",
       }),
     ]);
+  });
+
+  it("groups same-day reviews and extracts UTC time, hiding midnight", () => {
+    const asOf = new Date("2026-08-21T09:00:00.000Z");
+    const pce: BriefingReview = {
+      ...nvidiaReview,
+      id: "pce",
+      title: "Assess PCE/GDP reaction before NVIDIA",
+      scheduled_for: "2026-08-26T13:30:00.000Z",
+      not_before: "2026-08-26T13:30:00.000Z",
+      symbols: [],
+      themes: [],
+    };
+    const settlement: BriefingReview = {
+      ...nvidiaReview,
+      id: "nbis-financing",
+      title: "Review NBIS financing settlement and dilution impact",
+      scheduled_for: "2026-08-24T00:00:00.000Z",
+      not_before: "2026-08-24T00:00:00.000Z",
+      symbols: ["NBIS"],
+      themes: [],
+    };
+    const sections = upcomingSections([], [settlement, pce, nvidiaReview], asOf);
+    const thisWeek = upcomingDayGroups(sections[0]?.items ?? [], asOf);
+    expect(thisWeek.map((day) => day.dayMonth)).toEqual(["24 Aug", "26 Aug"]);
+    expect(thisWeek[0]?.rows[0]?.time).toBeNull();
+    expect(thisWeek[1]?.rows.map((row) => row.time)).toEqual(["13:30", "21:00"]);
   });
 
   it("keeps planned trades distinct from reviews in the same week", () => {

@@ -6,23 +6,18 @@ import {
   attentionKindLabel,
   bookPulse,
   buildAttentionItems,
-  daysUntil,
-  formatReviewWhen,
   isUrgentAttention,
-  reviewCalendarDate,
-  reviewTaskDetail,
-  reviewTaskHref,
-  reviewWhenIso,
   themePulse,
+  upcomingDayGroups,
   upcomingSections,
   type AttentionItem,
+  type UpcomingDayGroup,
   type UpcomingItem,
 } from "@/lib/data/briefing";
 import { listDecisions } from "@/lib/data/decisions";
 import {
   buildDeploymentQueue,
   listOpenPlannedActions,
-  type PlannedActionRow,
 } from "@/lib/data/planned-actions";
 import { getOpenPortfolioBook, withLiveMarks } from "@/lib/data/portfolio";
 import {
@@ -76,22 +71,10 @@ function money(value: number): string {
   });
 }
 
-function dueLabel(action: PlannedActionRow): string {
-  if (action.dueBy == null) return "no date";
-  const days = daysUntil(action.dueBy);
-  if (days < 0) return `overdue ${action.dueBy}`;
-  if (days === 0) return "due today";
-  return `due ${action.dueBy}`;
-}
-
-function reviewDueLabel(item: Extract<UpcomingItem, { kind: "review" }>): string {
-  const iso = reviewWhenIso(item.review);
-  if (iso == null) return "no date";
-  const date = reviewCalendarDate(item.review);
-  if (date == null) return "no date";
-  const days = daysUntil(date);
-  if (days === 0) return `review today · ${formatReviewWhen(iso)}`;
-  return `review ${formatReviewWhen(iso)}`;
+function weekdayCaption(day: UpcomingDayGroup): string {
+  if (day.isToday) return "Today";
+  if (day.isTomorrow) return "Tomorrow";
+  return day.weekday;
 }
 
 export default async function BriefingPage({
@@ -341,86 +324,33 @@ function UpcomingPanel({
     <section className="panel" aria-label="Upcoming">
       <h2>Upcoming</h2>
       <p className="muted">
-        Time-bound queue items and review obligations. Trades stay on the{" "}
-        <Link href="/portfolio?tab=queue">deployment queue</Link>; a review is
-        not a fill.
+        A dated agenda of review obligations and queued trades. Reviews are not
+        fills; the deployment list stays on the{" "}
+        <Link href="/portfolio?tab=queue">queue</Link>.
       </p>
       {hasAny ? (
-        sections.map((section) =>
-          section.items.length === 0 ? null : (
-            <div key={section.id}>
-              <h3>{section.label}</h3>
-              <ul className="list">
-                {section.items.map((item) => {
-                  switch (item.kind) {
-                    case "planned_action": {
-                      const action = item.action;
-                      const days =
-                        action.dueBy != null ? daysUntil(action.dueBy) : null;
-                      return (
-                        <li key={`action-${action.id}`}>
-                          <div>
-                            <strong>
-                              <Link href={`/explore/${action.symbol}`}>
-                                {action.symbol}
-                              </Link>
-                            </strong>
-                            <span className="muted">
-                              {" "}
-                              {action.actionType} {money(action.plannedUsd)}
-                              {action.windowLabel
-                                ? ` · ${action.windowLabel}`
-                                : ""}
-                            </span>
-                            {action.rationale ? (
-                              <div className="muted">{action.rationale}</div>
-                            ) : null}
-                          </div>
-                          <span
-                            className={
-                              days != null && days <= 7 ? "tag warn-tag" : "tag"
-                            }
-                          >
-                            {dueLabel(action)}
-                          </span>
-                        </li>
-                      );
-                    }
-                    case "review": {
-                      const date = reviewCalendarDate(item.review);
-                      const days = date != null ? daysUntil(date) : null;
-                      return (
-                        <li key={`review-${item.review.id}`}>
-                          <div>
-                            <strong>
-                              <Link href={reviewTaskHref(item.review)}>
-                                {item.review.title}
-                              </Link>
-                            </strong>
-                            <div className="muted">
-                              {reviewTaskDetail(item.review)}
-                            </div>
-                          </div>
-                          <span
-                            className={
-                              days != null && days <= 7 ? "tag warn-tag" : "tag"
-                            }
-                          >
-                            {reviewDueLabel(item)}
-                          </span>
-                        </li>
-                      );
-                    }
-                    default: {
-                      const _exhaustive: never = item;
-                      return _exhaustive;
-                    }
-                  }
-                })}
-              </ul>
-            </div>
-          ),
-        )
+        <table className="agenda">
+          <thead>
+            <tr>
+              <th scope="col">Date</th>
+              <th scope="col">UTC</th>
+              <th scope="col">Event</th>
+              <th scope="col">Type</th>
+            </tr>
+          </thead>
+          <tbody>
+            {sections.map((section) =>
+              section.items.length === 0 ? null : (
+                <AgendaSection
+                  key={section.id}
+                  label={section.label}
+                  items={section.items}
+                  showMonths={section.id === "later"}
+                />
+              ),
+            )}
+          </tbody>
+        </table>
       ) : (
         <p className="empty">
           Nothing dated in the queue or review calendar. Plan buys from the{" "}
@@ -428,6 +358,71 @@ function UpcomingPanel({
         </p>
       )}
     </section>
+  );
+}
+
+function AgendaSection({
+  label,
+  items,
+  showMonths,
+}: {
+  label: string;
+  items: UpcomingItem[];
+  showMonths: boolean;
+}) {
+  const days = upcomingDayGroups(items);
+  let lastMonth = "";
+  return (
+    <>
+      <tr className="agenda-section-row">
+        <td colSpan={4}>{label}</td>
+      </tr>
+      {days.flatMap((day) => {
+        const nodes: ReactNode[] = [];
+        if (showMonths && day.monthLabel && day.monthLabel !== lastMonth) {
+          lastMonth = day.monthLabel;
+          nodes.push(
+            <tr key={`${label}-${day.monthLabel}`} className="agenda-month">
+              <td colSpan={4}>{day.monthLabel}</td>
+            </tr>,
+          );
+        }
+        day.rows.forEach((row, index) => {
+          nodes.push(
+            <tr
+              key={row.key}
+              className={day.isToday ? "is-today" : undefined}
+            >
+              <td className="agenda-date">
+                {index === 0 ? (
+                  <>
+                    <strong>{day.dayMonth}</strong>
+                    <span>{weekdayCaption(day)}</span>
+                  </>
+                ) : null}
+              </td>
+              <td className="agenda-time">{row.time ?? "—"}</td>
+              <td>
+                <strong>
+                  <Link href={row.href}>{row.title}</Link>
+                </strong>
+                {row.detail ? <div className="muted">{row.detail}</div> : null}
+              </td>
+              <td className="agenda-kind">
+                <span
+                  className={
+                    row.kind === "planned_action" ? "tag warn-tag" : "tag"
+                  }
+                >
+                  {row.kindLabel}
+                </span>
+              </td>
+            </tr>,
+          );
+        });
+        return nodes;
+      })}
+    </>
   );
 }
 
