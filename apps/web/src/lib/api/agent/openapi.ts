@@ -210,6 +210,34 @@ const reviewQueueOk = jsonOkBody({
   },
 });
 
+const watchlistCompanySchema = {
+  type: "object",
+  properties: {
+    symbol: { type: "string" },
+    name: { type: "string" },
+    status: { type: "string" },
+    asset_class: { type: "string" },
+    exchange: { type: "string" },
+    notes: { type: "string" },
+    theme: {
+      type: "object",
+      properties: {
+        slug: { type: "string" },
+        name: { type: "string" },
+      },
+    },
+    has_dossier: { type: "boolean" },
+  },
+};
+
+const addWatchlistCompanyOk = jsonOkBody({
+  type: "object",
+  properties: {
+    created: { type: "boolean" },
+    company: watchlistCompanySchema,
+  },
+});
+
 const dossierChangesSchema = {
   type: "object",
   description: "Fields to change on the live dossier. Omit unchanged fields.",
@@ -281,8 +309,8 @@ export function agentOpenApiDocument(origin: string) {
       title: "Power Fund agent API",
       version: AGENT_API_VERSION,
       description:
-        "Private Power Fund actions for ChatGPT. Read the book, update dossiers, " +
-        "append journal decisions, queue intended trades, and create review obligations. " +
+        "Private Power Fund actions for ChatGPT. Read the book, add watchlist names, " +
+        "update dossiers, append journal decisions, queue intended trades, and create review obligations. " +
         "Not table CRUD and not trade execution. Humans book fills. " +
         "Auth: API key as Bearer token (configured in the GPT). " +
         `Scopes: ${AGENT_SCOPES.join(", ")}. ` +
@@ -486,6 +514,65 @@ export function agentOpenApiDocument(origin: string) {
             },
           },
           responses: {
+            "409": errorResponse,
+            "422": errorResponse,
+          },
+        }),
+      },
+      "/api/v1/agent/watchlist": {
+        post: op({
+          operationId: "addWatchlistCompany",
+          summary: "Add a research watchlist company",
+          description:
+            "Insert a ticker as status=watchlist with an existing theme. Does not create a dossier, planned trade, or fill. Duplicate symbols return 409. Bars ingest on the next worker run.",
+          scope: "powerfund:watchlist:write",
+          mutating: true,
+          requestBody: {
+            required: true,
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  required: ["symbol", "name", "theme"],
+                  properties: {
+                    symbol: {
+                      type: "string",
+                      description: "Ticker, for example HII.",
+                    },
+                    name: {
+                      type: "string",
+                      description: "Company name.",
+                    },
+                    theme: {
+                      type: "string",
+                      description:
+                        "Existing theme slug or name. Use defence or Defence, not a free label.",
+                    },
+                    notes: { type: "string" },
+                    asset_class: {
+                      type: "string",
+                      enum: ["equity", "etf", "commodity_proxy", "other"],
+                      description: "Default equity.",
+                    },
+                    exchange: {
+                      type: "string",
+                      description: "Listing venue. Default US.",
+                    },
+                    actor_name: { type: "string" },
+                  },
+                },
+                example: {
+                  symbol: "HII",
+                  name: "Huntington Ingalls",
+                  theme: "defence",
+                  notes: "Shipbuilding / navy",
+                },
+              },
+            },
+          },
+          responses: {
+            "200": addWatchlistCompanyOk,
+            "404": errorResponse,
             "409": errorResponse,
             "422": errorResponse,
           },

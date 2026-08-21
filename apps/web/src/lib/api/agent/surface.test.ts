@@ -68,6 +68,9 @@ describe("API surfaces", () => {
     expect(
       agentDoc.paths["/api/v1/agent/review-tasks/{id}/complete"].post.operationId,
     ).toBe("completeReviewTask");
+    expect(agentDoc.paths["/api/v1/agent/watchlist"].post.operationId).toBe(
+      "addWatchlistCompany",
+    );
     expect(agentDoc.paths["/api/v1/agent/companies/{symbol}/dossier"].patch.operationId).toBe(
       "updateDossier",
     );
@@ -153,5 +156,23 @@ describe("API surfaces", () => {
     expect(Object.keys(createResponses["200"].content["application/json"].schema.properties)).toEqual(
       ["created", "review_task"],
     );
+
+    const addWatchlist =
+      agentDoc.paths["/api/v1/agent/watchlist"].post.requestBody as Record<
+        string,
+        any
+      >;
+    expect(addWatchlist.content["application/json"].schema.required).toEqual([
+      "symbol",
+      "name",
+      "theme",
+    ]);
+    const addWatchlistResponses = agentDoc.paths["/api/v1/agent/watchlist"].post
+      .responses as Record<string, any>;
+    expect(
+      Object.keys(
+        addWatchlistResponses["200"].content["application/json"].schema.properties,
+      ),
+    ).toEqual(["created", "company"]);
   });
 });

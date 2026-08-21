@@ -1,5 +1,12 @@
 export type AssetClass = "equity" | "etf" | "commodity_proxy" | "other";
 
+export const ASSET_CLASSES: readonly AssetClass[] = [
+  "equity",
+  "etf",
+  "commodity_proxy",
+  "other",
+];
+
 export type InstrumentStatus = "watchlist" | "active" | "archived";
 
 export type SignalStatus = "new" | "reviewing" | "acted" | "dismissed";

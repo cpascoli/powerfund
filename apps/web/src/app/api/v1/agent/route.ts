@@ -70,6 +70,11 @@ export async function GET(request: Request) {
               method: "PATCH",
               path: "/api/v1/agent/companies/{symbol}/dossier",
             },
+            {
+              operationId: "addWatchlistCompany",
+              method: "POST",
+              path: "/api/v1/agent/watchlist",
+            },
             { operationId: "createDecision", method: "POST", path: "/api/v1/agent/decisions" },
             {
               operationId: "createPlannedAction",

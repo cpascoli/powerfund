@@ -9,6 +9,7 @@ export const AGENT_SCOPES = [
   "powerfund:deployment:write",
   "powerfund:reviews:read",
   "powerfund:reviews:write",
+  "powerfund:watchlist:write",
 ] as const;
 
 export type AgentScope = (typeof AGENT_SCOPES)[number];
@@ -28,6 +29,7 @@ export const WRITE_SCOPES: readonly AgentScope[] = [
   "powerfund:journal:append",
   "powerfund:deployment:write",
   "powerfund:reviews:write",
+  "powerfund:watchlist:write",
 ] as const;
 
 const SCOPE_SET = new Set<string>(AGENT_SCOPES);

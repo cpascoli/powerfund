@@ -22,6 +22,7 @@ Private agent API: `/api/v1/agent/*` — Bearer token, scoped permissions, dolla
 | `getReviewQueue` | may mark due | Evaluates triggers; never writes the ledger |
 | `createReviewTask` / `updateReviewTask` | review queue | Not a planned trade |
 | `completeReviewTask` | review row + links | Does not create dossiers, decisions, or fills |
+| `addWatchlistCompany` | `instruments` + primary theme | Status is always `watchlist`. No dossier, queue, or fill |
 
 Humans still confirm fills in the UI. There is no agent path to `transactions`, `bookFill`, cash movement, or SQL. `planned_actions` are intended trades. `review_tasks` are “reassess the thesis when X happens.” A review trigger must never create a transaction.
 
@@ -47,7 +48,7 @@ Set `POWERFUND_AGENT_API_KEYS` on the server (Netlify env, never `NEXT_PUBLIC_*`
 `role` is a shortcut:
 
 - `read` → `powerfund:state:read`, `powerfund:portfolio:read`, `powerfund:dossier:read`, `powerfund:journal:read`, `powerfund:deployment:read`, `powerfund:reviews:read`
-- `write` → all read scopes plus `powerfund:dossier:write`, `powerfund:journal:append`, `powerfund:deployment:write`, `powerfund:reviews:write`
+- `write` → all read scopes plus `powerfund:dossier:write`, `powerfund:journal:append`, `powerfund:deployment:write`, `powerfund:reviews:write`, `powerfund:watchlist:write`
 
 Or pass `"scopes": ["powerfund:state:read", ...]` explicitly.
 
@@ -63,7 +64,7 @@ This is not an OAuth authorization server. The same scope strings are the contra
 
 ## Idempotency
 
-On `POST /api/v1/agent/decisions`, `POST /api/v1/agent/planned-actions`, `POST /api/v1/agent/review-tasks`, and `POST /api/v1/agent/review-tasks/{id}/complete` send:
+On `POST /api/v1/agent/decisions`, `POST /api/v1/agent/planned-actions`, `POST /api/v1/agent/review-tasks`, `POST /api/v1/agent/review-tasks/{id}/complete`, and `POST /api/v1/agent/watchlist` send:
 
 ```
 Idempotency-Key: <uuid>
@@ -199,6 +200,18 @@ curl -sS -X POST -H "Authorization: Bearer $TOKEN" \
     ]
   }' \
   "$ORIGIN/api/v1/agent/review-tasks/REVIEW_TASK_UUID/complete"
+
+# Add a research name (not a trade, not a dossier)
+curl -sS -X POST -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -H "Idempotency-Key: 44444444-4444-4444-4444-444444444444" \
+  -d '{
+    "symbol": "HII",
+    "name": "Huntington Ingalls",
+    "theme": "defence",
+    "notes": "Shipbuilding / navy"
+  }' \
+  "$ORIGIN/api/v1/agent/watchlist"
 ```
 
 Optional `target_weight_pct` on create/update is converted to `planned_usd` using current NAV. The stored field remains `planned_usd`.
@@ -234,7 +247,7 @@ v1 auto-evaluates `price` and `price_return_pct` against `market_bars`. Other me
 | 401 | `UNAUTHENTICATED` |
 | 403 | `PERMISSION_DENIED` |
 | 404 | `UNKNOWN_SYMBOL` / `UNKNOWN_THEME` / `UNKNOWN_VERSION` / `UNKNOWN_PLANNED_ACTION` / `UNKNOWN_REVIEW_TASK` |
-| 409 | `DOSSIER_VERSION_CONFLICT` / `IDEMPOTENCY_KEY_REUSED` |
+| 409 | `DOSSIER_VERSION_CONFLICT` / `IDEMPOTENCY_KEY_REUSED` / `SYMBOL_EXISTS` |
 | 422 | `VALIDATION_ERROR` |
 | 429 | `RATE_LIMITED` |
 | 500 | `DOSSIER_VERSIONING_FAILED` / `INTERNAL_ERROR` |
@@ -260,16 +273,18 @@ These `operationId`s are stable tool names. A later MCP server can wrap each HTT
 | `createReviewTask` | `POST /api/v1/agent/review-tasks` |
 | `updateReviewTask` | `PATCH /api/v1/agent/review-tasks/{id}` |
 | `completeReviewTask` | `POST /api/v1/agent/review-tasks/{id}/complete` |
+| `addWatchlistCompany` | `POST /api/v1/agent/watchlist` |
 
 Do not generate tools for table CRUD, SQL, or fill confirmation.
 
 Typical workflow:
 
 1. `getFundState`
-2. `getCompanyDossier("MRCY")`
-3. external research
-4. user approval
-5. `updateDossier`
-6. optionally `createDecision` / `createPlannedAction` / `createReviewTask`
+2. `addWatchlistCompany` if the ticker is not in the universe yet (`theme` must already exist)
+3. `getCompanyDossier("MRCY")`
+4. external research
+5. user approval
+6. `updateDossier` (creates the first dossier version if none exists)
+7. optionally `createDecision` / `createPlannedAction` / `createReviewTask`
 
 Machine-readable contract: `GET /api/v1/agent/openapi.json` (public, no Bearer token). ChatGPT Actions can import that URL. Configure the GPT's authentication separately as API key / Bearer for the actual operations. The schema is OpenAPI 3.1.0, with no `oneOf`/`anyOf`/`$ref`, so Actions can parse every tool including `createReviewTask.trigger`.

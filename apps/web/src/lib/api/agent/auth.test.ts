@@ -33,7 +33,9 @@ describe("agent auth", () => {
     expect(keys[1]?.scopes).toContain("powerfund:dossier:write");
     expect(keys[0]?.scopes).toContain("powerfund:reviews:read");
     expect(keys[0]?.scopes).not.toContain("powerfund:reviews:write");
+    expect(keys[0]?.scopes).not.toContain("powerfund:watchlist:write");
     expect(keys[1]?.scopes).toContain("powerfund:reviews:write");
+    expect(keys[1]?.scopes).toContain("powerfund:watchlist:write");
   });
 
   it("rejects missing bearer tokens", () => {
