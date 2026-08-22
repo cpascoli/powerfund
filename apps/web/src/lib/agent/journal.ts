@@ -1,5 +1,6 @@
 import {
   DECISION_TYPES,
+  fractionToPercent,
   utcDay,
   type DecisionType,
 } from "@powerfund/domain";
@@ -35,7 +36,7 @@ function isDecisionType(value: string): value is DecisionType {
 
 function pctFromFraction(value: number | null): number | null {
   if (value == null || Number.isNaN(value)) return null;
-  return Math.round(value * 1000) / 10;
+  return fractionToPercent(value);
 }
 
 function toAgentRelative(report: DecisionRelativeReturns) {

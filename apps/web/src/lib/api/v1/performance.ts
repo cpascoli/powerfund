@@ -1,10 +1,12 @@
-import { createAdminClient } from "@/lib/supabase/admin";
+import { fractionToPercent, roundPercent } from "@powerfund/domain";
+
 import {
   buildPerformanceReport,
   loadLivePerformanceMark,
   type PerformanceReport,
   type PerformanceWindowReport,
 } from "@/lib/data/performance";
+import { createAdminClient } from "@/lib/supabase/admin";
 
 export type PublicPerformanceWindow = {
   id: string;
@@ -38,12 +40,12 @@ export type PublicPerformance = {
 
 function pct1(value: number | null): number | null {
   if (value == null || Number.isNaN(value)) return null;
-  return Math.round(value * 1000) / 10;
+  return fractionToPercent(value);
 }
 
 function pp1(value: number | null): number | null {
   if (value == null || Number.isNaN(value)) return null;
-  return Math.round(value * 10) / 10;
+  return roundPercent(value);
 }
 
 function toPublicWindow(

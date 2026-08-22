@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
+  aiCapexWeight,
+  aiMemoryWeight,
   evaluateProposedBuy,
+  projectBookAfterBuy,
   RISK_DEFAULTS,
   shouldHaltNewRiskForKillSwitch,
   type MandateBook,
@@ -100,5 +103,47 @@ describe("evaluateProposedBuy kill-switch gate", () => {
       costUsd: 4_000,
     });
     expect(violations.map((row) => row.code)).toContain("drawdown_kill_switch");
+  });
+});
+
+describe("evaluateProposedBuy size and cash gates", () => {
+  it("keeps NAV unchanged and flags a position that would exceed 10% NAV", () => {
+    const before = seedBook({ killSwitchBreached: false });
+    const after = projectBookAfterBuy(before, {
+      symbol: "ISRG",
+      themeSlug: "robotics-ai",
+      costUsd: 30_000,
+    });
+    expect(after.nav).toBe(before.nav);
+    expect(after.cash).toBe(before.cash - 30_000);
+    expect(after.invested).toBe(before.invested + 30_000);
+    const violations = evaluateProposedBuy(before, {
+      symbol: "ISRG",
+      themeSlug: "robotics-ai",
+      costUsd: 30_000,
+    });
+    expect(violations.map((row) => row.code)).toContain("position_cap");
+  });
+
+  it("flags cash below the 10% floor after a large buy", () => {
+    const book = seedBook({
+      killSwitchBreached: false,
+      cash: 30_000,
+      nav: 250_000,
+      invested: 18_000,
+    });
+    const violations = evaluateProposedBuy(book, {
+      symbol: "ISRG",
+      themeSlug: "robotics-ai",
+      costUsd: 10_000,
+    });
+    expect(violations.map((row) => row.code)).toContain("cash_floor");
+  });
+
+  it("counts HBM names fully toward both the memory sleeve and the AI-capex cap", () => {
+    expect(aiMemoryWeight("MU")).toBe(1);
+    expect(aiCapexWeight("MU")).toBe(1);
+    expect(aiCapexWeight("MRCY")).toBeCloseTo(0.1, 8);
+    expect(aiCapexWeight("ISRG")).toBe(0);
   });
 });

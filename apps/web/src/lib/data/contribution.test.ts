@@ -140,4 +140,65 @@ describe("contributionFromLedger", () => {
     expect(report.tickers[0]?.incomeUsd).toBe(5);
     expect(report.tickers[0]?.pnlUsd).toBe(5);
   });
+
+  it("attributes a sell as realized vs cost and as MTM vs the prior close", () => {
+    const report = contributionFromLedger({
+      from: "2026-08-12",
+      to: "2026-08-13",
+      tradingDays: ["2026-08-12", "2026-08-13"],
+      instruments: [vrt],
+      ledger: [
+        buy("2026-08-12T14:00:00.000Z", 10, 100),
+        {
+          occurredAt: "2026-08-13T14:00:00.000Z",
+          kind: "sell",
+          instrumentId: "vrt",
+          quantity: 10,
+          cashDelta: 1100,
+          realizedPnl: 100,
+        },
+      ],
+      bars: bars([
+        ["2026-08-12", 100],
+        ["2026-08-13", 110],
+      ]),
+    });
+    expect(report.tickers[0]?.pnlUsd).toBe(100);
+    expect(report.tickers[0]?.realizedUsd).toBe(100);
+    expect(report.tickers[0]?.endMarketValueUsd).toBe(0);
+  });
+
+  it("splits a mixed-factor name across buckets without double-counting dollars", () => {
+    const mrcy: HoldingInstrument = {
+      id: "mrcy",
+      symbol: "MRCY",
+      themeSlug: "defence",
+      themeName: "Defence",
+    };
+    const report = contributionFromLedger({
+      from: "2026-08-12",
+      to: "2026-08-13",
+      tradingDays: ["2026-08-12", "2026-08-13"],
+      instruments: [mrcy],
+      ledger: [
+        {
+          occurredAt: "2026-08-12T14:00:00.000Z",
+          kind: "buy",
+          instrumentId: "mrcy",
+          quantity: 10,
+          cashDelta: -1000,
+          realizedPnl: null,
+        },
+      ],
+      bars: [
+        { instrumentId: "mrcy", date: "2026-08-12", close: 100 },
+        { instrumentId: "mrcy", date: "2026-08-13", close: 110 },
+      ],
+    });
+    const defence = report.factors.find((row) => row.key === "defence");
+    const capex = report.factors.find((row) => row.key === "ai_capex");
+    expect(defence?.pnlUsd).toBe(90);
+    expect(capex?.pnlUsd).toBe(10);
+    expect((defence?.pnlUsd ?? 0) + (capex?.pnlUsd ?? 0)).toBe(100);
+  });
 });

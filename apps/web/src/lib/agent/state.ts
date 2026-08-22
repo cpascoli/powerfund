@@ -12,6 +12,11 @@ import {
   listInstrumentsWithThemes,
   listThemes,
 } from "@/lib/data/research";
+import {
+  listLedgerFlows,
+  listPortfolioSnapshots,
+  mergeBookAndSnapshotFlags,
+} from "@/lib/data/snapshots";
 import { getReviewRadar } from "@/lib/reviews/queue";
 import type { DbClient } from "@/lib/supabase/db";
 
@@ -33,19 +38,41 @@ export async function getFundState(
   const recentLimit = clamp(query.recent_decisions ?? 20, 1, 50);
   const includeWatchlist = query.include_watchlist !== false;
 
-  const [book, ledger, instruments, themes, plannedRaw, decisions, radar] =
-    await Promise.all([
-      getOpenPortfolioBook(supabase),
-      getLedgerSummary(12, supabase),
-      listInstrumentsWithThemes(supabase),
-      listThemes(supabase),
-      listOpenPlannedActions(supabase),
-      listDecisions(supabase),
-      getReviewRadar(supabase),
-    ]);
+  const [
+    book,
+    ledger,
+    instruments,
+    themes,
+    plannedRaw,
+    decisions,
+    radar,
+    snapshots,
+    flows,
+  ] = await Promise.all([
+    getOpenPortfolioBook(supabase),
+    getLedgerSummary(12, supabase),
+    listInstrumentsWithThemes(supabase),
+    listThemes(supabase),
+    listOpenPlannedActions(supabase),
+    listDecisions(supabase),
+    getReviewRadar(supabase),
+    listPortfolioSnapshots(365, supabase),
+    listLedgerFlows(supabase),
+  ]);
 
   const queue = buildDeploymentQueue(book, instruments, plannedRaw);
   const privateBook = toPrivatePortfolio(book, ledger);
+  const flags = mergeBookAndSnapshotFlags(
+    privateBook.flags,
+    snapshots,
+    {
+      nav: book.nav,
+      invested: book.invested,
+      positionsValue: book.marketValue,
+      asOf: new Date().toISOString(),
+    },
+    flows,
+  );
 
   const { data: dossierRows, error } = await supabase
     .from("dossiers")
@@ -120,7 +147,7 @@ export async function getFundState(
       unrealized_pnl_usd: privateBook.unrealized_pnl_usd,
       realized_pnl_usd: privateBook.realized_pnl_usd,
       deposited_capital_usd: privateBook.deposited_capital_usd,
-      flags: privateBook.flags,
+      flags,
       mark: privateBook.mark,
       price_data_through: privateBook.price_data_through,
       price_data_stale: privateBook.price_data_stale,

@@ -394,7 +394,7 @@ export function agentOpenApiDocument(origin: string) {
           operationId: "getPortfolio",
           summary: "Private portfolio book",
           description:
-            "Ledger-derived book: NAV, cash, quantities, cost, last_close plus last_close_session. TWR is getPerformance, not this payload. *_pct here are percent. Check price_data_stale before using marks.",
+            "Ledger-derived book: NAV, cash, quantities, cost, last_close plus last_close_session. Flags include the kill-switch diagnostic. TWR is getPerformance. *_pct are percent.",
           scope: "powerfund:portfolio:read",
           mutating: false,
         }),

@@ -239,3 +239,18 @@ export function snapshotFlags(
 
   return flags;
 }
+
+export function mergeBookAndSnapshotFlags(
+  bookFlags: MandateFlag[],
+  history: SnapshotRow[],
+  current: {
+    nav: number;
+    invested: number;
+    positionsValue: number;
+    asOf?: string;
+  },
+  flows: Map<string, DailyFlows> = new Map(),
+): MandateFlag[] {
+  const drawdown = computeDrawdown(history, current, flows);
+  return [...snapshotFlags(history, drawdown), ...bookFlags];
+}

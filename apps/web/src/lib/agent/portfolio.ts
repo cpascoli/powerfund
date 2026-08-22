@@ -1,6 +1,13 @@
+import { roundPercent } from "@powerfund/domain";
+
 import { getLedgerSummary, type LedgerSummary } from "@/lib/data/ledger";
 import { getOpenPortfolioBook, type PortfolioBook } from "@/lib/data/portfolio";
 import { freshnessPayload } from "@/lib/data/price-freshness";
+import {
+  listLedgerFlows,
+  listPortfolioSnapshots,
+  mergeBookAndSnapshotFlags,
+} from "@/lib/data/snapshots";
 import type { DbClient } from "@/lib/supabase/db";
 
 function round2(value: number): number {
@@ -9,7 +16,7 @@ function round2(value: number): number {
 
 function round1(value: number | null): number | null {
   if (value == null || Number.isNaN(value)) return null;
-  return Math.round(value * 10) / 10;
+  return roundPercent(value);
 }
 
 export function toPrivatePortfolio(book: PortfolioBook, ledger: LedgerSummary) {
@@ -58,13 +65,27 @@ export function toPrivatePortfolio(book: PortfolioBook, ledger: LedgerSummary) {
 }
 
 export async function getPrivatePortfolio(supabase: DbClient) {
-  const [book, ledger] = await Promise.all([
+  const [book, ledger, snapshots, flows] = await Promise.all([
     getOpenPortfolioBook(supabase),
     getLedgerSummary(25, supabase),
+    listPortfolioSnapshots(365, supabase),
+    listLedgerFlows(supabase),
   ]);
+  const payload = toPrivatePortfolio(book, ledger);
   return {
     as_of: new Date().toISOString(),
-    ...toPrivatePortfolio(book, ledger),
+    ...payload,
+    flags: mergeBookAndSnapshotFlags(
+      payload.flags,
+      snapshots,
+      {
+        nav: book.nav,
+        invested: book.invested,
+        positionsValue: book.marketValue,
+        asOf: new Date().toISOString(),
+      },
+      flows,
+    ),
     recent_ledger: ledger.entries.map((row) => ({
       id: row.id,
       occurred_at: row.occurredAt,
@@ -78,6 +99,7 @@ export async function getPrivatePortfolio(supabase: DbClient) {
     })),
     notes: [
       "TWR, unitized drawdowns, and dollar contribution are on getPerformance. Do not read a performance block here.",
+      "flags include the snapshot kill-switch diagnostic (same measure as getPerformance deployed_current_pct). all_clear is book-only and can sit next to an ok kill-switch row.",
       "last_close_session is the market_bars date for last_close. price_data_through is the latest of those sessions. If price_data_stale is true, do not treat last_close as today's mark.",
       "cash.pct_nav, weight_pct_nav, and unrealized_pnl_pct are percent (1.2 means 1.2%).",
     ],

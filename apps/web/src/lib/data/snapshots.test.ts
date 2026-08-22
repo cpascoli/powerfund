@@ -1,6 +1,12 @@
 import { describe, expect, it } from "vitest";
 
-import { snapshotFlags, type DrawdownSummary } from "./snapshots";
+import {
+  computeDrawdown,
+  mergeBookAndSnapshotFlags,
+  snapshotFlags,
+  type DrawdownSummary,
+  type SnapshotRow,
+} from "./snapshots";
 
 function summary(overrides: Partial<DrawdownSummary> = {}): DrawdownSummary {
   return {
@@ -37,5 +43,84 @@ describe("snapshotFlags kill-switch copy", () => {
     );
     const row = flags.find((flag) => flag.code === "drawdown_kill_switch");
     expect(row?.label).toContain("halt new risk");
+  });
+});
+
+describe("computeDrawdown", () => {
+  it("does not treat a same-session fill at cost as a deployed drawdown", () => {
+    const history: SnapshotRow[] = [
+      {
+        asOf: "2026-08-12T22:30:00.000Z",
+        nav: 250_000,
+        cash: 250_000,
+        invested: 0,
+        positionsValue: 0,
+      },
+    ];
+    const flows = new Map([
+      ["2026-08-13", { external: 0, sleeve: 10_000 }],
+    ]);
+    const summary = computeDrawdown(
+      history,
+      {
+        nav: 250_000,
+        invested: 10_000,
+        positionsValue: 10_000,
+        asOf: "2026-08-13T22:30:00.000Z",
+      },
+      flows,
+    );
+    expect(summary.deployedDrawdownPp).toBe(0);
+    expect(summary.killSwitchBreached).toBe(false);
+  });
+
+  it("breaches the 15% diagnostic without blocking Phase-1 buys", () => {
+    const history: SnapshotRow[] = [
+      {
+        asOf: "2026-08-12T22:30:00.000Z",
+        nav: 250_000,
+        cash: 240_000,
+        invested: 10_000,
+        positionsValue: 10_000,
+      },
+    ];
+    const summary = computeDrawdown(history, {
+      nav: 248_500,
+      invested: 10_000,
+      positionsValue: 8_500,
+      asOf: "2026-08-13T22:30:00.000Z",
+    });
+    expect(summary.deployedDrawdownPp).toBeCloseTo(15, 5);
+    expect(summary.killSwitchBreached).toBe(true);
+    expect(summary.killSwitchBlocksNewRisk).toBe(false);
+  });
+
+  it("puts the kill-switch row on the agent book ahead of all_clear", () => {
+    const liveAsOf = new Date().toISOString();
+    const prior = new Date(Date.now() - 86_400_000).toISOString();
+    const history: SnapshotRow[] = [
+      {
+        asOf: prior,
+        nav: 250_000,
+        cash: 240_000,
+        invested: 10_000,
+        positionsValue: 10_000,
+      },
+    ];
+    const flags = mergeBookAndSnapshotFlags(
+      [{ code: "all_clear", severity: "ok", label: "Mandate checks clear vs NAV" }],
+      history,
+      {
+        nav: 248_500,
+        invested: 10_000,
+        positionsValue: 8_500,
+        asOf: liveAsOf,
+      },
+    );
+    expect(flags.map((flag) => flag.code)).toContain("drawdown_kill_switch");
+    expect(flags.some((flag) => flag.code === "all_clear")).toBe(true);
+    expect(flags.find((flag) => flag.code === "drawdown_kill_switch")?.severity).toBe(
+      "warn",
+    );
   });
 });

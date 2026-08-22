@@ -68,4 +68,16 @@ describe("decisionHorizonReturns", () => {
     expect(rows[0]?.vsSpy).toBeCloseTo(0.1, 8);
     expect(rows[1]?.complete).toBe(false);
   });
+
+  it("returns null ticker return when the name has no bars at the fill session", () => {
+    const rows = decisionHorizonReturns({
+      fillSession: "2026-08-12",
+      asOf: "2026-08-13",
+      tickerBars: [{ date: "2026-08-13", close: 110 }],
+      spyBars: spy,
+    });
+    expect(rows[0]?.tickerReturn).toBeNull();
+    expect(rows[0]?.spyReturn).toBeCloseTo(0.05, 8);
+    expect(rows[0]?.vsSpy).toBeNull();
+  });
 });

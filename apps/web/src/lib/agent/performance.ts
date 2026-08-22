@@ -1,4 +1,8 @@
-import type { ContributionReport } from "@powerfund/domain";
+import {
+  fractionToPercent,
+  roundPercent,
+  type ContributionReport,
+} from "@powerfund/domain";
 
 import { validationError } from "@/lib/api/agent/errors";
 import {
@@ -20,12 +24,12 @@ import type { DbClient } from "@/lib/supabase/db";
 
 function pctFromFraction(value: number | null): number | null {
   if (value == null || Number.isNaN(value)) return null;
-  return Math.round(value * 1000) / 10;
+  return fractionToPercent(value);
 }
 
 function pp(value: number | null): number | null {
   if (value == null || Number.isNaN(value)) return null;
-  return Math.round(value * 10) / 10;
+  return roundPercent(value);
 }
 
 function parseDay(raw: string | null, field: "from" | "to"): string | undefined {

@@ -12,6 +12,27 @@ export function toCents(value: number): number {
   return Math.round((value + Number.EPSILON) * 100) / 100;
 }
 
+/**
+ * Half away from zero. `Math.round` sends n.5 toward +∞, which would turn
+ * −10.15% into −10.1 instead of −10.2.
+ */
+export function roundHalfAwayFromZero(value: number, decimals: number): number {
+  const factor = 10 ** decimals;
+  const shifted = value * factor;
+  const sign = shifted < 0 ? -1 : 1;
+  return (sign * Math.round(Math.abs(shifted))) / factor;
+}
+
+/** Decimal return (0.012) → 1-decimal percent (1.2). */
+export function fractionToPercent(value: number): number {
+  return roundHalfAwayFromZero(value * 100, 1);
+}
+
+/** Already-percent value rounded to 1 decimal. */
+export function roundPercent(value: number): number {
+  return roundHalfAwayFromZero(value, 1);
+}
+
 /** Signed cash effect of a buy: negative, and inclusive of fees. */
 export function buyCashDelta(
   quantity: number,
