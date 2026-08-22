@@ -444,6 +444,30 @@ a {
   margin-bottom: 0.95rem;
 }
 
+.stat-tabs {
+  margin-bottom: 0.95rem;
+}
+
+.stat-tabs .stat-row {
+  margin-top: 0.55rem;
+}
+
+.tab-nav.is-compact {
+  margin-top: 0;
+}
+
+.price-chart.is-nav {
+  height: 240px;
+}
+
+.chart-tooltip {
+  padding: 0.35rem 0.15rem;
+}
+
+.chart-tooltip p {
+  margin: 0.2rem 0;
+}
+
 .stat-block-label {
   margin: 0 0 0.2rem;
   color: var(--muted);
@@ -777,6 +801,7 @@ a {
   display: flex;
   align-items: baseline;
   justify-content: space-between;
+  flex-wrap: wrap;
   gap: 1rem;
   margin-bottom: 0.75rem;
 }

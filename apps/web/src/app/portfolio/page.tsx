@@ -4,6 +4,7 @@ import { RISK_DEFAULTS } from "@powerfund/domain";
 
 import { CashEntryForm } from "@/components/cash-entry-form";
 import { ConfirmFillForm } from "@/components/confirm-fill-form";
+import { NavHistoryChart } from "@/components/nav-history-chart";
 import { PlannedActionForm } from "@/components/planned-action-form";
 import { PositionForm } from "@/components/position-form";
 import { PositionTreemap } from "@/components/position-treemap";
@@ -14,23 +15,34 @@ import {
   restorePlannedAction,
 } from "@/lib/actions/planned-actions";
 import { getLedgerSummary } from "@/lib/data/ledger";
+import { buildNavChartSeries } from "@/lib/data/nav-series";
+import { getPerformanceReport } from "@/lib/data/performance";
 import {
   buildDeploymentQueue,
   listOpenPlannedActions,
 } from "@/lib/data/planned-actions";
 import { getOpenPortfolioBook, withLiveMarks } from "@/lib/data/portfolio";
 import { listInstrumentsWithThemes } from "@/lib/data/research";
-import { getPerformanceReport } from "@/lib/data/performance";
 import {
   computeDrawdown,
   listLedgerFlows,
   listPortfolioSnapshots,
   snapshotFlags,
 } from "@/lib/data/snapshots";
+import {
+  CHART_TABS,
+  parseChartTab,
+  parseSectionTab,
+  parseStatsTab,
+  portfolioHref,
+  type PortfolioQuery,
+  type PortfolioSectionTab,
+  type StatsTab,
+} from "@/lib/portfolio-href";
 
 export const dynamic = "force-dynamic";
 
-type PortfolioTab = "book" | "queue" | "mandate" | "performance" | "ledger";
+type PortfolioTab = PortfolioSectionTab;
 
 const TABS: Array<{ id: PortfolioTab; label: string }> = [
   { id: "book", label: "Open book" },
@@ -38,6 +50,12 @@ const TABS: Array<{ id: PortfolioTab; label: string }> = [
   { id: "mandate", label: "Mandate" },
   { id: "performance", label: "Performance" },
   { id: "ledger", label: "Ledger" },
+];
+
+const STAT_TABS: Array<{ id: StatsTab; label: string }> = [
+  { id: "book", label: "Book" },
+  { id: "score", label: "Score" },
+  { id: "deployment", label: "Deployment" },
 ];
 
 function money(value: number | null | undefined): string {
@@ -56,16 +74,7 @@ function pct(value: number | null | undefined, signed = false): string {
 }
 
 function parseTab(raw: string | undefined): PortfolioTab | null {
-  switch (raw) {
-    case "book":
-    case "queue":
-    case "mandate":
-    case "performance":
-    case "ledger":
-      return raw;
-    default:
-      return null;
-  }
+  return parseSectionTab(raw);
 }
 
 export default async function PortfolioPage({
@@ -73,6 +82,8 @@ export default async function PortfolioPage({
 }: {
   searchParams: Promise<{
     tab?: string;
+    stats?: string;
+    chart?: string;
     add?: string;
     cash?: string;
     plan?: string;
@@ -80,7 +91,16 @@ export default async function PortfolioPage({
     sell?: string;
   }>;
 }) {
-  const { tab, add, cash: cashEdit, plan, confirm, sell } = await searchParams;
+  const {
+    tab,
+    stats: statsRaw,
+    chart: chartRaw,
+    add,
+    cash: cashEdit,
+    plan,
+    confirm,
+    sell,
+  } = await searchParams;
   const [rawBook, instruments, rawQueue, ledger, snapshots, flows] =
     await Promise.all([
       getOpenPortfolioBook(),
@@ -147,6 +167,16 @@ export default async function PortfolioPage({
     book.nav > 0 ? (cashAfterQueueUsd / book.nav) * 100 : null;
   const bookWarnings = riskFlags.filter((flag) => flag.severity === "warn");
   const queueWarnings = queue.flags.filter((flag) => flag.severity === "warn");
+  const statsTab = parseStatsTab(statsRaw);
+  const chartTab = parseChartTab(chartRaw);
+  const navSeries = buildNavChartSeries(snapshots, flows);
+  const href = (patch: Partial<PortfolioQuery> = {}) =>
+    portfolioHref({
+      stats: statsTab,
+      chart: chartTab,
+      tab: activeTab,
+      ...patch,
+    });
 
   const bookPanel = (
     <section className="panel" aria-label="Open book">
@@ -223,7 +253,7 @@ export default async function PortfolioPage({
                     {money(position.unrealizedPnl)} (
                     {pct(position.unrealizedPnlPct, true)})
                   </span>
-                  <Link href={`/portfolio?sell=${position.id}`}>
+                  <Link href={href({ sell: position.id, tab: "book" })}>
                     Sell or close
                   </Link>
                 </div>
@@ -287,7 +317,9 @@ export default async function PortfolioPage({
                 ) : null}
               </div>
               <div className="queue-actions">
-                <Link href={`/portfolio?confirm=${action.id}`}>Confirm</Link>
+                <Link href={href({ confirm: action.id, tab: "queue" })}>
+                  Confirm
+                </Link>
                 {action.status === "deferred" ? (
                   <form action={restorePlannedAction}>
                     <input type="hidden" name="id" value={action.id} />
@@ -606,19 +638,25 @@ export default async function PortfolioPage({
           {busy ? (
             <Link
               className="buttonish subtle"
-              href={`/portfolio?tab=${activeTab}`}
+              href={href({})}
             >
               Cancel
             </Link>
           ) : (
             <>
-              <Link className="buttonish subtle" href="/portfolio?cash=1">
+              <Link
+                className="buttonish subtle"
+                href={href({ cash: "1", tab: "ledger" })}
+              >
                 Cash entry
               </Link>
-              <Link className="buttonish subtle" href="/portfolio?add=1">
+              <Link
+                className="buttonish subtle"
+                href={href({ add: "1", tab: "book" })}
+              >
                 Add fill
               </Link>
-              <Link className="buttonish" href="/portfolio?plan=1">
+              <Link className="buttonish" href={href({ plan: "1", tab: "queue" })}>
                 Plan buy
               </Link>
             </>
@@ -626,158 +664,184 @@ export default async function PortfolioPage({
         </div>
       </header>
 
-      <section className="stat-block" aria-label="Book">
-        <p className="stat-block-label">Book</p>
-        <div className="stat-row">
-          <div className="stat">
-            <span>NAV ({book.markLabel.toLowerCase()})</span>
-            <strong>{money(book.nav)}</strong>
-          </div>
-          <div className="stat">
-            <span>Cash</span>
-            <strong>{money(book.cash)}</strong>
-            <em
-              className={
-                book.cashPctNav < RISK_DEFAULTS.minCashPctNav
-                  ? "stat-note is-down"
-                  : "stat-note"
-              }
+      <section className="stat-tabs" aria-label="Portfolio stats">
+        <nav className="tab-nav is-compact" aria-label="Stat groups">
+          {STAT_TABS.map((entry) => (
+            <Link
+              key={entry.id}
+              href={href({ stats: entry.id })}
+              className={entry.id === statsTab ? "is-active" : undefined}
+              aria-current={entry.id === statsTab ? "page" : undefined}
             >
-              {pct(book.cashPctNav)} NAV
-            </em>
-          </div>
-          <div className="stat">
-            <span>Invested (cost)</span>
-            <strong>{money(book.invested)}</strong>
-            <em className="stat-note">
-              of {money(RISK_DEFAULTS.phase1InvestedCapUsd)} phase-1
-            </em>
-          </div>
-          <div className="stat">
-            <span>Unrealized P&amp;L</span>
-            <strong
-              className={
-                book.unrealizedPnl > 0
-                  ? "is-up"
-                  : book.unrealizedPnl < 0
-                    ? "is-down"
-                    : undefined
-              }
-            >
-              {money(book.unrealizedPnl)}
-            </strong>
-          </div>
-        </div>
-      </section>
-
-      <section className="stat-block" aria-label="Score">
-        <p className="stat-block-label">Score</p>
-        <div className="stat-row">
-          <div className="stat">
-            <span>Total return</span>
-            <strong
-              className={
-                totalReturnPct == null
-                  ? undefined
-                  : totalReturnPct > 0
-                    ? "is-up"
-                    : totalReturnPct < 0
-                      ? "is-down"
-                      : undefined
-              }
-            >
-              {pct(totalReturnPct, true)}
-            </strong>
-            <em className="stat-note">on {money(ledger.depositedCapital)}</em>
-          </div>
-          <div className="stat">
-            <span>NAV vs SPY</span>
-            <strong className={signedClass(inception?.navVsSuccess)}>
-              {pct(
-                inception?.navVsSuccess == null
-                  ? null
-                  : inception.navVsSuccess * 100,
-                true,
-              )}
-            </strong>
-            <em className="stat-note">since inception</em>
-          </div>
-          <div className="stat">
-            <span>Deployed vs SPY</span>
-            <strong className={signedClass(inception?.deployedVsSuccess)}>
-              {pct(
-                inception?.deployedVsSuccess == null
-                  ? null
-                  : inception.deployedVsSuccess * 100,
-                true,
-              )}
-            </strong>
-            <em className="stat-note">stock picking</em>
-          </div>
-          <div className="stat">
-            <span>Realized P&amp;L</span>
-            <strong
-              className={
-                ledger.realizedPnl > 0
-                  ? "is-up"
-                  : ledger.realizedPnl < 0
-                    ? "is-down"
-                    : undefined
-              }
-            >
-              {money(ledger.realizedPnl)}
-            </strong>
-          </div>
-        </div>
-      </section>
-
-      <section className="stat-block" aria-label="Deployment">
-        <p className="stat-block-label">Deployment</p>
-        <div className="stat-row">
-          <div className="stat">
-            <span>Open positions</span>
-            <strong>{book.openCount}</strong>
-          </div>
-          <div className="stat">
-            <span>Queued to deploy</span>
-            <strong>{money(queue.totalPlannedUsd)}</strong>
-          </div>
-          <div className="stat">
-            <span>Phase-1 remaining</span>
-            <strong
-              className={phase1RemainingUsd < 0 ? "is-down" : undefined}
-            >
-              {money(phase1RemainingUsd)}
-            </strong>
-          </div>
-          <div className="stat">
-            <span>Cash after queue</span>
-            <strong
-              className={
-                cashAfterQueuePctNav != null &&
-                cashAfterQueuePctNav < RISK_DEFAULTS.minCashPctNav
-                  ? "is-down"
-                  : undefined
-              }
-            >
-              {money(cashAfterQueueUsd)}
-            </strong>
-            {cashAfterQueuePctNav != null ? (
+              {entry.label}
+            </Link>
+          ))}
+        </nav>
+        {statsTab === "book" ? (
+          <div className="stat-row">
+            <div className="stat">
+              <span>NAV ({book.markLabel.toLowerCase()})</span>
+              <strong>{money(book.nav)}</strong>
+            </div>
+            <div className="stat">
+              <span>Cash</span>
+              <strong>{money(book.cash)}</strong>
               <em
                 className={
-                  cashAfterQueuePctNav < RISK_DEFAULTS.minCashPctNav
+                  book.cashPctNav < RISK_DEFAULTS.minCashPctNav
                     ? "stat-note is-down"
                     : "stat-note"
                 }
               >
-                {pct(cashAfterQueuePctNav)} NAV
+                {pct(book.cashPctNav)} NAV
               </em>
-            ) : null}
+            </div>
+            <div className="stat">
+              <span>Invested (cost)</span>
+              <strong>{money(book.invested)}</strong>
+              <em className="stat-note">
+                of {money(RISK_DEFAULTS.phase1InvestedCapUsd)} phase-1
+              </em>
+            </div>
+            <div className="stat">
+              <span>Unrealized P&amp;L</span>
+              <strong
+                className={
+                  book.unrealizedPnl > 0
+                    ? "is-up"
+                    : book.unrealizedPnl < 0
+                      ? "is-down"
+                      : undefined
+                }
+              >
+                {money(book.unrealizedPnl)}
+              </strong>
+            </div>
           </div>
-        </div>
+        ) : null}
+        {statsTab === "score" ? (
+          <div className="stat-row">
+            <div className="stat">
+              <span>Total return</span>
+              <strong
+                className={
+                  totalReturnPct == null
+                    ? undefined
+                    : totalReturnPct > 0
+                      ? "is-up"
+                      : totalReturnPct < 0
+                        ? "is-down"
+                        : undefined
+                }
+              >
+                {pct(totalReturnPct, true)}
+              </strong>
+              <em className="stat-note">on {money(ledger.depositedCapital)}</em>
+            </div>
+            <div className="stat">
+              <span>NAV vs SPY</span>
+              <strong className={signedClass(inception?.navVsSuccess)}>
+                {pct(
+                  inception?.navVsSuccess == null
+                    ? null
+                    : inception.navVsSuccess * 100,
+                  true,
+                )}
+              </strong>
+              <em className="stat-note">since inception</em>
+            </div>
+            <div className="stat">
+              <span>Deployed vs SPY</span>
+              <strong className={signedClass(inception?.deployedVsSuccess)}>
+                {pct(
+                  inception?.deployedVsSuccess == null
+                    ? null
+                    : inception.deployedVsSuccess * 100,
+                  true,
+                )}
+              </strong>
+              <em className="stat-note">stock picking</em>
+            </div>
+            <div className="stat">
+              <span>Realized P&amp;L</span>
+              <strong
+                className={
+                  ledger.realizedPnl > 0
+                    ? "is-up"
+                    : ledger.realizedPnl < 0
+                      ? "is-down"
+                      : undefined
+                }
+              >
+                {money(ledger.realizedPnl)}
+              </strong>
+            </div>
+          </div>
+        ) : null}
+        {statsTab === "deployment" ? (
+          <div className="stat-row">
+            <div className="stat">
+              <span>Open positions</span>
+              <strong>{book.openCount}</strong>
+            </div>
+            <div className="stat">
+              <span>Queued to deploy</span>
+              <strong>{money(queue.totalPlannedUsd)}</strong>
+            </div>
+            <div className="stat">
+              <span>Phase-1 remaining</span>
+              <strong className={phase1RemainingUsd < 0 ? "is-down" : undefined}>
+                {money(phase1RemainingUsd)}
+              </strong>
+            </div>
+            <div className="stat">
+              <span>Cash after queue</span>
+              <strong
+                className={
+                  cashAfterQueuePctNav != null &&
+                  cashAfterQueuePctNav < RISK_DEFAULTS.minCashPctNav
+                    ? "is-down"
+                    : undefined
+                }
+              >
+                {money(cashAfterQueueUsd)}
+              </strong>
+              {cashAfterQueuePctNav != null ? (
+                <em
+                  className={
+                    cashAfterQueuePctNav < RISK_DEFAULTS.minCashPctNav
+                      ? "stat-note is-down"
+                      : "stat-note"
+                  }
+                >
+                  {pct(cashAfterQueuePctNav)} NAV
+                </em>
+              ) : null}
+            </div>
+          </div>
+        ) : null}
       </section>
 
       <PositionTreemap positions={book.positions} markLabel={book.markLabel} />
+
+      <NavHistoryChart
+        points={navSeries}
+        view={chartTab}
+        tabs={
+          <nav className="seg" aria-label="NAV series">
+            {CHART_TABS.map((entry) => (
+              <Link
+                key={entry.id}
+                href={href({ chart: entry.id })}
+                className={entry.id === chartTab ? "is-active" : undefined}
+                aria-current={entry.id === chartTab ? "page" : undefined}
+              >
+                {entry.label}
+              </Link>
+            ))}
+          </nav>
+        }
+      />
 
       {bookWarnings.length > 0 || queueWarnings.length > 0 ? (
         <section className="panel" aria-label="Mandate warnings">
@@ -814,7 +878,7 @@ export default async function PortfolioPage({
           return (
             <Link
               key={entry.id}
-              href={`/portfolio?tab=${entry.id}`}
+              href={href({ tab: entry.id })}
               className={entry.id === activeTab ? "is-active" : undefined}
               aria-current={entry.id === activeTab ? "page" : undefined}
             >
