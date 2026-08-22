@@ -657,6 +657,44 @@ a {
   border-top: none;
 }
 
+.upcoming-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.65rem;
+  margin: 0.85rem 0 0.25rem;
+}
+
+.seg {
+  display: inline-flex;
+  flex-wrap: nowrap;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  overflow: auto;
+  background: var(--bg);
+}
+
+.seg a {
+  padding: 0.38rem 0.72rem;
+  color: var(--muted);
+  text-decoration: none;
+  font-size: 0.82rem;
+  font-weight: 650;
+  border-right: 1px solid var(--line);
+}
+
+.seg a:last-child {
+  border-right: none;
+}
+
+.seg a:hover {
+  color: var(--ink);
+}
+
+.seg a.is-active {
+  background: var(--bg-elevated);
+  color: var(--ink);
+}
+
 .workbench-controls {
   display: flex;
   flex-wrap: wrap;

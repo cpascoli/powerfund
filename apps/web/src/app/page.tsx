@@ -6,14 +6,19 @@ import {
   attentionKindLabel,
   bookPulse,
   buildAttentionItems,
+  filterUpcomingItems,
+  flattenUpcomingItems,
   isUrgentAttention,
-  themePulse,
+  parseUpcomingHorizonFilter,
+  parseUpcomingKindFilter,
   upcomingDayGroups,
   upcomingSections,
   type AttentionItem,
   type ReviewSubjectLink,
   type UpcomingDayGroup,
+  type UpcomingHorizonFilter,
   type UpcomingItem,
+  type UpcomingKindFilter,
 } from "@/lib/data/briefing";
 import { listDecisions } from "@/lib/data/decisions";
 import {
@@ -24,7 +29,6 @@ import { getOpenPortfolioBook, withLiveMarks } from "@/lib/data/portfolio";
 import {
   listDossierReviews,
   listInstrumentsWithThemes,
-  listThemes,
 } from "@/lib/data/research";
 import { listOpenReviewTasks } from "@/lib/data/reviews";
 import {
@@ -40,23 +44,47 @@ export const metadata = {
   title: "Briefing",
 };
 
-type BriefingTabId = "attention" | "upcoming" | "themes";
+type BriefingTabId = "upcoming" | "attention";
 
 const TABS: Array<{ id: BriefingTabId; label: string }> = [
-  { id: "attention", label: "Attention" },
   { id: "upcoming", label: "Upcoming" },
-  { id: "themes", label: "Themes" },
+  { id: "attention", label: "Attention" },
+];
+
+const KIND_FILTERS: Array<{ id: UpcomingKindFilter; label: string }> = [
+  { id: "all", label: "All" },
+  { id: "review", label: "Reviews" },
+  { id: "planned", label: "Planned" },
+];
+
+const HORIZON_FILTERS: Array<{ id: UpcomingHorizonFilter; label: string }> = [
+  { id: "this_week", label: "This week" },
+  { id: "this_month", label: "This month" },
+  { id: "next_month", label: "Next month" },
+  { id: "later", label: "Later" },
 ];
 
 function parseTab(raw: string | undefined): BriefingTabId | null {
   switch (raw) {
     case "attention":
     case "upcoming":
-    case "themes":
       return raw;
     default:
       return null;
   }
+}
+
+function briefingHref(args: {
+  tab?: BriefingTabId;
+  kind?: UpcomingKindFilter;
+  when?: UpcomingHorizonFilter;
+}): string {
+  if (args.tab === "attention") return "/?tab=attention";
+  const params = new URLSearchParams();
+  if (args.kind && args.kind !== "all") params.set("kind", args.kind);
+  if (args.when && args.when !== "this_week") params.set("when", args.when);
+  const query = params.toString();
+  return query.length > 0 ? `/?${query}` : "/";
 }
 
 function pct(value: number | null | undefined): string {
@@ -81,13 +109,14 @@ function weekdayCaption(day: UpcomingDayGroup): string {
 export default async function BriefingPage({
   searchParams,
 }: {
-  searchParams: Promise<{ tab?: string }>;
+  searchParams: Promise<{ tab?: string; kind?: string; when?: string }>;
 }) {
-  const { tab } = await searchParams;
-  const activeTab = parseTab(tab) ?? "attention";
+  const { tab, kind: kindRaw, when: whenRaw } = await searchParams;
+  const activeTab = parseTab(tab) ?? "upcoming";
+  const kind = parseUpcomingKindFilter(kindRaw);
+  const horizon = parseUpcomingHorizonFilter(whenRaw);
 
   const [
-    themes,
     instruments,
     book,
     rawQueue,
@@ -97,7 +126,6 @@ export default async function BriefingPage({
     dossiers,
     reviews,
   ] = await Promise.all([
-    listThemes(),
     listInstrumentsWithThemes(),
     getOpenPortfolioBook().then(withLiveMarks),
     listOpenPlannedActions(),
@@ -131,7 +159,11 @@ export default async function BriefingPage({
     reviews,
   });
   const upcoming = upcomingSections(queue.actions, reviews);
-  const themesView = themePulse({ themes, instruments, book });
+  const upcomingItems = filterUpcomingItems(
+    flattenUpcomingItems(upcoming),
+    kind,
+    horizon,
+  );
   const pulse = bookPulse(book);
   const thisWeekCount = upcoming[0]?.items.length ?? 0;
   const attentionWarn = attention.some((item) => isUrgentAttention(item.kind));
@@ -146,19 +178,17 @@ export default async function BriefingPage({
 
   let tabContent: ReactNode;
   switch (activeTab) {
-    case "attention":
-      tabContent = <AttentionPanel items={attention} />;
-      break;
     case "upcoming":
-      tabContent = <UpcomingPanel sections={upcoming} />;
-      break;
-    case "themes":
       tabContent = (
-        <ThemesPanel
-          themes={themesView}
-          aiCapexPctNav={pulse.aiCapexPctNav}
+        <UpcomingPanel
+          items={upcomingItems}
+          kind={kind}
+          horizon={horizon}
         />
       );
+      break;
+    case "attention":
+      tabContent = <AttentionPanel items={attention} />;
       break;
     default: {
       const _exhaustive: never = activeTab;
@@ -172,8 +202,7 @@ export default async function BriefingPage({
         <div>
           <h1>Briefing</h1>
           <p>
-            Flags, reviews due, and dated actions — including reviews that are
-            still ahead
+            Dated reviews and queued trades, then flags that need a decision
             {markAsOf
               ? ` — ${book.markLabel.toLowerCase()} as of ${markAsOf}. `
               : ` — ${book.markLabel.toLowerCase()}. `}
@@ -261,7 +290,11 @@ export default async function BriefingPage({
           return (
             <Link
               key={entry.id}
-              href={entry.id === "attention" ? "/" : `/?tab=${entry.id}`}
+              href={
+                entry.id === "upcoming"
+                  ? briefingHref({ kind, when: horizon })
+                  : briefingHref({ tab: "attention" })
+              }
               className={entry.id === activeTab ? "is-active" : undefined}
               aria-current={entry.id === activeTab ? "page" : undefined}
             >
@@ -356,12 +389,69 @@ function AttentionPanel({ items }: { items: AttentionItem[] }) {
   );
 }
 
-function UpcomingPanel({
-  sections,
+function upcomingEmptyCopy(
+  kind: UpcomingKindFilter,
+  horizon: UpcomingHorizonFilter,
+): string {
+  const when =
+    horizon === "this_week"
+      ? "this week"
+      : horizon === "this_month"
+        ? "this month"
+        : horizon === "next_month"
+          ? "next month"
+          : "later";
+  switch (kind) {
+    case "review":
+      return `No review obligations ${when}.`;
+    case "planned":
+      return `No planned trades ${when}.`;
+    case "all":
+      return `Nothing dated ${when}.`;
+    default: {
+      const _exhaustive: never = kind;
+      return _exhaustive;
+    }
+  }
+}
+
+function SegmentedControl<T extends string>({
+  label,
+  value,
+  options,
+  hrefFor,
 }: {
-  sections: ReturnType<typeof upcomingSections>;
+  label: string;
+  value: T;
+  options: Array<{ id: T; label: string }>;
+  hrefFor: (id: T) => string;
 }) {
-  const hasAny = sections.some((section) => section.items.length > 0);
+  return (
+    <div className="seg" role="group" aria-label={label}>
+      {options.map((option) => (
+        <Link
+          key={option.id}
+          href={hrefFor(option.id)}
+          className={option.id === value ? "is-active" : undefined}
+          aria-current={option.id === value ? "page" : undefined}
+        >
+          {option.label}
+        </Link>
+      ))}
+    </div>
+  );
+}
+
+function UpcomingPanel({
+  items,
+  kind,
+  horizon,
+}: {
+  items: UpcomingItem[];
+  kind: UpcomingKindFilter;
+  horizon: UpcomingHorizonFilter;
+}) {
+  const showMonths = horizon !== "this_week";
   return (
     <section className="panel" aria-label="Upcoming">
       <h2>Upcoming</h2>
@@ -370,7 +460,21 @@ function UpcomingPanel({
         fills; the deployment list stays on the{" "}
         <Link href="/portfolio?tab=queue">queue</Link>.
       </p>
-      {hasAny ? (
+      <div className="upcoming-filters">
+        <SegmentedControl
+          label="Event type"
+          value={kind}
+          options={KIND_FILTERS}
+          hrefFor={(next) => briefingHref({ kind: next, when: horizon })}
+        />
+        <SegmentedControl
+          label="When"
+          value={horizon}
+          options={HORIZON_FILTERS}
+          hrefFor={(next) => briefingHref({ kind, when: next })}
+        />
+      </div>
+      {items.length > 0 ? (
         <table className="agenda">
           <thead>
             <tr>
@@ -381,22 +485,15 @@ function UpcomingPanel({
             </tr>
           </thead>
           <tbody>
-            {sections.map((section) =>
-              section.items.length === 0 ? null : (
-                <AgendaSection
-                  key={section.id}
-                  label={section.label}
-                  items={section.items}
-                  showMonths={section.id === "later"}
-                />
-              ),
-            )}
+            <AgendaSection items={items} showMonths={showMonths} />
           </tbody>
         </table>
       ) : (
         <p className="empty">
-          Nothing dated in the queue or review calendar. Plan buys from the{" "}
-          <Link href="/portfolio?tab=queue">deployment queue</Link>.
+          {upcomingEmptyCopy(kind, horizon)}{" "}
+          {kind !== "review" ? (
+            <Link href="/portfolio?tab=queue">Open the queue</Link>
+          ) : null}
         </p>
       )}
     </section>
@@ -404,11 +501,9 @@ function UpcomingPanel({
 }
 
 function AgendaSection({
-  label,
   items,
   showMonths,
 }: {
-  label: string;
   items: UpcomingItem[];
   showMonths: boolean;
 }) {
@@ -416,15 +511,12 @@ function AgendaSection({
   let lastMonth = "";
   return (
     <>
-      <tr className="agenda-section-row">
-        <td colSpan={4}>{label}</td>
-      </tr>
       {days.flatMap((day) => {
         const nodes: ReactNode[] = [];
         if (showMonths && day.monthLabel && day.monthLabel !== lastMonth) {
           lastMonth = day.monthLabel;
           nodes.push(
-            <tr key={`${label}-${day.monthLabel}`} className="agenda-month">
+            <tr key={`${day.date ?? "none"}-month`} className="agenda-month">
               <td colSpan={4}>{day.monthLabel}</td>
             </tr>,
           );
@@ -469,55 +561,5 @@ function AgendaSection({
         return nodes;
       })}
     </>
-  );
-}
-
-function ThemesPanel({
-  themes,
-  aiCapexPctNav,
-}: {
-  themes: ReturnType<typeof themePulse>;
-  aiCapexPctNav: number | null;
-}) {
-  const factorHot =
-    aiCapexPctNav != null &&
-    aiCapexPctNav > RISK_DEFAULTS.maxAiCapexFactorPctNav;
-
-  return (
-    <section className="panel" aria-label="Theme pulse">
-      <h2>Themes</h2>
-      <p className="muted">
-        AI-capex complex {pct(aiCapexPctNav)} of NAV (cap{" "}
-        {RISK_DEFAULTS.maxAiCapexFactorPctNav}%)
-        {factorHot ? <span className="tag warn-tag"> over cap</span> : null}.
-        Memory/storage names are a sleeve inside that complex (guide{" "}
-        {RISK_DEFAULTS.maxAiMemorySleevePctNav}%). Weights vs the{" "}
-        {RISK_DEFAULTS.maxThemePctNav}% theme cap. Coverage is watchlist vs
-        names on the book.
-      </p>
-      <ul className="list">
-        {themes.map((theme) => (
-          <li key={theme.slug}>
-            <div>
-              <strong>
-                <Link href={`/themes#${theme.slug}`}>{theme.name}</Link>
-              </strong>
-              {theme.isCore ? <span className="tag"> core</span> : null}
-              {theme.description ? (
-                <div className="muted">{theme.description}</div>
-              ) : null}
-              <div className="muted">
-                {theme.watchlistCount} watchlist · {theme.bookCount} on book
-                {" · "}
-                <Link href={`/workbench?theme=${theme.slug}`}>Workbench</Link>
-              </div>
-            </div>
-            <span className={theme.overCap ? "tag warn-tag" : "tag"}>
-              {pct(theme.weightPctNav)} NAV
-            </span>
-          </li>
-        ))}
-      </ul>
-    </section>
   );
 }

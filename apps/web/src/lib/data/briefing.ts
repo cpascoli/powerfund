@@ -9,6 +9,17 @@ export const THESIS_REVIEW_AFTER_DAYS = 7;
 export const DILIGENCE_STALE_AFTER_DAYS = 14;
 export const UPCOMING_WEEK_DAYS = 7;
 
+export const UPCOMING_KIND_FILTERS = ["all", "review", "planned"] as const;
+export type UpcomingKindFilter = (typeof UPCOMING_KIND_FILTERS)[number];
+
+export const UPCOMING_HORIZON_FILTERS = [
+  "this_week",
+  "this_month",
+  "next_month",
+  "later",
+] as const;
+export type UpcomingHorizonFilter = (typeof UPCOMING_HORIZON_FILTERS)[number];
+
 export type AttentionKind =
   | "flag"
   | "overdue"
@@ -446,6 +457,98 @@ export function upcomingSections(
     { id: "later", label: "Later", items: later },
     { id: "undated", label: "No date", items: undated },
   ];
+}
+
+export function flattenUpcomingItems(sections: UpcomingSection[]): UpcomingItem[] {
+  return sections.flatMap((section) => section.items);
+}
+
+export function parseUpcomingKindFilter(
+  value: string | undefined,
+): UpcomingKindFilter {
+  if (value && (UPCOMING_KIND_FILTERS as readonly string[]).includes(value)) {
+    return value as UpcomingKindFilter;
+  }
+  return "all";
+}
+
+export function parseUpcomingHorizonFilter(
+  value: string | undefined,
+): UpcomingHorizonFilter {
+  if (value && (UPCOMING_HORIZON_FILTERS as readonly string[]).includes(value)) {
+    return value as UpcomingHorizonFilter;
+  }
+  return "this_week";
+}
+
+function utcYearMonth(date: Date): number {
+  return date.getUTCFullYear() * 12 + date.getUTCMonth();
+}
+
+function itemYearMonth(item: UpcomingItem): number | null {
+  const { date } = upcomingItemSchedule(item);
+  if (date == null) return null;
+  const match = /^(\d{4})-(\d{2})-(\d{2})/.exec(date);
+  if (!match || match[1] == null || match[2] == null) return null;
+  return Number(match[1]) * 12 + (Number(match[2]) - 1);
+}
+
+function matchesUpcomingKind(
+  item: UpcomingItem,
+  kind: UpcomingKindFilter,
+): boolean {
+  switch (kind) {
+    case "all":
+      return true;
+    case "review":
+      return item.kind === "review";
+    case "planned":
+      return item.kind === "planned_action";
+    default: {
+      const _exhaustive: never = kind;
+      return _exhaustive;
+    }
+  }
+}
+
+function matchesUpcomingHorizon(
+  item: UpcomingItem,
+  horizon: UpcomingHorizonFilter,
+  today: Date,
+): boolean {
+  const { date } = upcomingItemSchedule(item);
+  const itemMonth = itemYearMonth(item);
+  const todayMonth = utcYearMonth(today);
+  switch (horizon) {
+    case "this_week": {
+      if (date == null) return false;
+      return daysUntil(date, today) <= UPCOMING_WEEK_DAYS;
+    }
+    case "this_month":
+      return itemMonth === todayMonth;
+    case "next_month":
+      return itemMonth === todayMonth + 1;
+    case "later":
+      return itemMonth == null || itemMonth > todayMonth + 1;
+    default: {
+      const _exhaustive: never = horizon;
+      return _exhaustive;
+    }
+  }
+}
+
+export function filterUpcomingItems(
+  items: UpcomingItem[],
+  kind: UpcomingKindFilter,
+  horizon: UpcomingHorizonFilter,
+  now = new Date(),
+): UpcomingItem[] {
+  const today = startOfUtcDay(now);
+  return items.filter(
+    (item) =>
+      matchesUpcomingKind(item, kind) &&
+      matchesUpcomingHorizon(item, horizon, today),
+  );
 }
 
 function upcomingSortKey(item: UpcomingItem): string {

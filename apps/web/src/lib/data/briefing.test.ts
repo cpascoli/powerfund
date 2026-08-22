@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 
 import {
   buildAttentionItems,
+  filterUpcomingItems,
+  flattenUpcomingItems,
   toUpcomingAgendaRow,
   upcomingDayGroups,
   upcomingSections,
@@ -189,5 +191,66 @@ describe("briefing reviews", () => {
     expect(themeOnly.subjects).toEqual([
       { label: "Energy", href: "/themes#energy" },
     ]);
+  });
+});
+
+describe("upcoming filters", () => {
+  it("filters reviews vs planned trades", () => {
+    const asOf = new Date("2026-08-20T18:00:00.000Z");
+    const items = flattenUpcomingItems(
+      upcomingSections([action()], [nvidiaReview], asOf),
+    );
+    expect(filterUpcomingItems(items, "review", "this_week", asOf).map((row) => row.kind)).toEqual([
+      "review",
+    ]);
+    expect(filterUpcomingItems(items, "planned", "this_week", asOf).map((row) => row.kind)).toEqual([
+      "planned_action",
+    ]);
+  });
+
+  it("buckets this week, this month, next month, and later", () => {
+    const asOf = new Date("2026-08-22T12:00:00.000Z");
+    const september: BriefingReview = {
+      ...nvidiaReview,
+      id: "sep",
+      title: "September check",
+      scheduled_for: "2026-09-10T00:00:00.000Z",
+      not_before: "2026-09-10T00:00:00.000Z",
+      symbols: ["NVDA"],
+      themes: [],
+    };
+    const october: BriefingReview = {
+      ...nvidiaReview,
+      id: "oct",
+      title: "October check",
+      scheduled_for: "2026-10-02T00:00:00.000Z",
+      not_before: "2026-10-02T00:00:00.000Z",
+      symbols: ["NVDA"],
+      themes: [],
+    };
+    const lateAugust: BriefingReview = {
+      ...nvidiaReview,
+      id: "aug-30",
+      title: "Late August check",
+      scheduled_for: "2026-08-30T00:00:00.000Z",
+      not_before: "2026-08-30T00:00:00.000Z",
+      symbols: ["NVDA"],
+      themes: [],
+    };
+    const items = flattenUpcomingItems(
+      upcomingSections([], [nvidiaReview, lateAugust, september, october], asOf),
+    );
+    expect(
+      filterUpcomingItems(items, "all", "this_week", asOf).map((row) => row.id),
+    ).toEqual([nvidiaReview.id]);
+    expect(
+      filterUpcomingItems(items, "all", "this_month", asOf).map((row) => row.id),
+    ).toEqual([nvidiaReview.id, "aug-30"]);
+    expect(
+      filterUpcomingItems(items, "all", "next_month", asOf).map((row) => row.id),
+    ).toEqual(["sep"]);
+    expect(
+      filterUpcomingItems(items, "all", "later", asOf).map((row) => row.id),
+    ).toEqual(["oct"]);
   });
 });
