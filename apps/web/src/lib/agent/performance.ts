@@ -6,6 +6,10 @@ import {
   resolvedContributionRange,
 } from "@/lib/data/contribution";
 import {
+  loadSuccessBenchmarkThrough,
+  freshnessPayload,
+} from "@/lib/data/price-freshness";
+import {
   buildPerformanceReport,
   loadLivePerformanceMark,
   type PerformanceRange,
@@ -105,9 +109,15 @@ function toAgentContribution(report: ContributionReport) {
 export function toAgentPerformance(
   report: PerformanceReport,
   contribution: ContributionReport,
+  through: string | null,
+  windowTo?: string,
 ) {
+  const asOf = report.asOf;
+  const markThrough =
+    contribution.tradingDays > 0 ? contribution.end : through;
   return {
-    as_of: report.asOf,
+    as_of: asOf,
+    ...freshnessPayload(markThrough, windowTo ?? asOf),
     success_benchmark: "S&P 500 TR (SPY)",
     style_benchmark: "Nasdaq-100 TR (QQQ)",
     units: "percent",
@@ -123,6 +133,7 @@ export function toAgentPerformance(
       ...report.notes,
       ...contribution.notes,
       "Return *_pct fields are percent (1.2 means 1.2%). Contribution pnl_usd is dollars, not TWR. Per-decision 30/90/180d vs SPY is on getJournal, not this payload.",
+      "price_data_through is the last session in this series. as_of is when the response was built. If price_data_stale is true, bars have not reached the last weekday.",
     ],
   };
 }
@@ -133,9 +144,10 @@ export async function getAgentPerformance(
 ) {
   const live = await loadLivePerformanceMark(supabase);
   const window = resolvedContributionRange(range, live.asOf);
-  const [report, contribution] = await Promise.all([
+  const [report, contribution, spyThrough] = await Promise.all([
     buildPerformanceReport(supabase, live, range),
     loadContributionReport(supabase, window),
+    loadSuccessBenchmarkThrough(supabase),
   ]);
-  return toAgentPerformance(report, contribution);
+  return toAgentPerformance(report, contribution, spyThrough, window.to);
 }

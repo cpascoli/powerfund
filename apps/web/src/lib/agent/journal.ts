@@ -11,6 +11,10 @@ import {
 } from "@/lib/data/decision-returns";
 import { listDecisions, type DecisionListItem } from "@/lib/data/decisions";
 import {
+  freshnessPayload,
+  loadSuccessBenchmarkThrough,
+} from "@/lib/data/price-freshness";
+import {
   listDecisionOutcomes,
   type RecordedDecisionOutcome,
 } from "@/lib/journal/record-outcome";
@@ -133,21 +137,32 @@ export async function getAgentJournal(supabase: DbClient, query: JournalQuery) {
   const next =
     sliced.length === limit ? sliced[sliced.length - 1]?.action_at ?? null : null;
   const asOf = utcDay(new Date().toISOString());
-  const [relative, outcomes] = await Promise.all([
+  const [relative, outcomes, spyThrough] = await Promise.all([
     loadDecisionRelativeReturns(supabase, sliced, asOf),
     listDecisionOutcomes(
       supabase,
       sliced.map((row) => row.id),
     ),
+    loadSuccessBenchmarkThrough(supabase),
   ]);
+  let returnsThrough = spyThrough;
+  for (const row of relative.values()) {
+    for (const horizon of row.horizons) {
+      if (returnsThrough == null || horizon.asOf > returnsThrough) {
+        returnsThrough = horizon.asOf;
+      }
+    }
+  }
 
   return {
     as_of: new Date().toISOString(),
+    ...freshnessPayload(returnsThrough),
     count: sliced.length,
     next_before: next,
     notes: [
       "relative_returns are close-to-close percent from the linked fill session, not action_at. vs_spy_pct is ticker minus SPY. Horizons that have not elapsed still report so far.",
       "outcomes are append-only child rows. They do not set reviewed_at or complete a weekly hold — that is still a new createDecision.",
+      "price_data_through is the last bar used for relative_returns. If price_data_stale is true, do not treat those marks as today.",
     ],
     entries: sliced.map((row) =>
       serializeDecision(row, relative.get(row.id), outcomes.get(row.id) ?? []),

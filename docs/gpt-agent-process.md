@@ -220,7 +220,7 @@ Purpose: a stale or internally inconsistent dossier cannot authorize a planned `
 Run before `createPlannedAction` `buy` / `add` (and before asking the human to confirm that fill):
 
 1. `getCompanyDossier` — ticker and name match the instrument; share class is the one you meant (ADR vs ordinary, dual listing).
-2. `getPortfolio` (if already held) or last close on the dossier vs the **scenario anchor** in the write-up. If the reference price in the valuation section is stale or from the wrong listing, refresh scenarios with `updateDossier` before sizing.
+2. `getPortfolio` (if already held) or `getCompanyDossier` last_close vs the **scenario anchor** in the write-up. Use `last_close_session` / `price_data_through`. If `price_data_stale` is true, those closes are not today’s mark — do not pass the gate on them. If the reference price in the valuation section is stale or from the wrong listing, refresh scenarios with `updateDossier` before sizing.
 3. `verified_at` is recent enough for a capital decision (if missing or weeks old, re-verify).
 4. Primary `source` links resolve; major results since `verified_at` are in the thesis.
 5. Scenario math is internally consistent with the reference price you just checked (probability-weighted 24/60m returns still use that price).
@@ -233,7 +233,7 @@ There is no separate integrity API. The agent compares dossier text to `getPortf
 | Step | Tool |
 |------|------|
 | Live thesis | `getCompanyDossier` |
-| Mark / last close | `getPortfolio` |
+| Mark / last close | `getPortfolio` or `getCompanyDossier` (`last_close_session`) |
 | Refresh if the anchor moved | `updateDossier` |
 
 ---

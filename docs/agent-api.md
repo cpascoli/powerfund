@@ -11,10 +11,10 @@ Private agent API: `/api/v1/agent/*` — Bearer token, scoped permissions, dolla
 | Operation | Mutates | Notes |
 |-----------|---------|--------|
 | `getFundState` | no | Compact current investment state |
-| `getPortfolio` | no | Private book from the ledger |
-| `getPerformance` | no | NAV and deployed TWR vs SPY/QQQ, unitized drawdowns, and dollar contribution by ticker / theme / factor. Optional `from`/`to`. Not a ledger dump |
-| `getJournal` | no | Decisions + pinned `dossier_version`, fill-based 30/90/180d vs SPY, append-only outcomes |
-| `getCompanyDossier` | no | Live research object |
+| `getPortfolio` | no | Private book from the ledger. Marks include `last_close_session` and `price_data_through`. TWR is `getPerformance` |
+| `getPerformance` | no | NAV and deployed TWR vs SPY/QQQ, unitized drawdowns, and dollar contribution by ticker / theme / factor. Optional `from`/`to`. Percent returns. `price_data_through` is the last session, not `as_of` |
+| `getJournal` | no | Decisions + pinned `dossier_version`, fill-based 30/90/180d vs SPY, append-only outcomes. `price_data_through` is the last bar used |
+| `getCompanyDossier` | no | Live research object. Includes `last_close` / `last_close_session` and `price_data_stale` |
 | `getDossierVersions` / `getDossierVersion` | no | Immutable snapshots. No diff endpoint — fetch two versions and compare |
 | `updateDossier` | live dossier | New version **only if** assembled JSON changed |
 | `createDecision` | journal insert | Auto-pins current dossier version |
@@ -329,10 +329,11 @@ Typical workflows:
 **Scoreboard vs SPY / QQQ**
 
 1. `getPerformance` (optional `from` / `to` as `YYYY-MM-DD`)
-2. Read `drawdown.nav_max_pct` and `drawdown.deployed_max_pct` (unitized; percent)
-3. Compare window `nav_return_pct` and `deployed_return_pct` to `spy_return_pct` / `qqq_return_pct`
-4. Read `contribution.tickers` / `themes` / `factors` (`pnl_usd` is dollars, not TWR)
-5. Per-decision 30/90/180d vs SPY is on `getJournal` (`relative_returns`, keyed off the linked fill session)
+2. Read `price_data_through` / `price_data_stale` before treating marks as today
+3. Read `drawdown.nav_max_pct` and `drawdown.deployed_max_pct` (unitized; percent)
+4. Compare window `nav_return_pct` and `deployed_return_pct` to `spy_return_pct` / `qqq_return_pct`
+5. Read `contribution.tickers` / `themes` / `factors` (`pnl_usd` is dollars, not TWR)
+6. Per-decision 30/90/180d vs SPY is on `getJournal` (`relative_returns`, keyed off the linked fill session). Do not read TWR from `getPortfolio`.
 
 **What we believed when we bought it**
 

@@ -394,7 +394,7 @@ export function agentOpenApiDocument(origin: string) {
           operationId: "getPortfolio",
           summary: "Private portfolio book",
           description:
-            "Ledger-derived book: NAV, cash, quantities, average cost, market value, weights, P&L, and theme mix. Not a second source of truth for positions.",
+            "Ledger-derived book: NAV, cash, quantities, cost, last_close plus last_close_session. TWR is getPerformance, not this payload. *_pct here are percent. Check price_data_stale before using marks.",
           scope: "powerfund:portfolio:read",
           mutating: false,
         }),
@@ -404,7 +404,7 @@ export function agentOpenApiDocument(origin: string) {
           operationId: "getPerformance",
           summary: "NAV and deployed performance",
           description:
-            "NAV and deployed TWR vs SPY/QQQ, unitized drawdowns, and dollar contribution by ticker, theme, and factor. Optional from/to as YYYY-MM-DD. Returns are percent. Not a ledger dump.",
+            "NAV and deployed TWR vs SPY/QQQ, unitized drawdowns, and dollar contribution by ticker, theme, and factor. Optional from/to as YYYY-MM-DD. Returns are percent. price_data_through is the last session, not as_of.",
           scope: "powerfund:portfolio:read",
           mutating: false,
           parameters: [
@@ -429,7 +429,7 @@ export function agentOpenApiDocument(origin: string) {
           operationId: "getJournal",
           summary: "Investment journal",
           description:
-            "Read decisions with pinned dossier_version, fill-based 30/90/180d vs SPY, and append-only outcomes. Use getDossierVersion for the pin. Outcomes do not set reviewed_at.",
+            "Read decisions with pinned dossier_version, fill-based 30/90/180d vs SPY, and append-only outcomes. price_data_through is the last bar used. Outcomes do not set reviewed_at.",
           scope: "powerfund:journal:read",
           mutating: false,
           parameters: [
@@ -490,7 +490,7 @@ export function agentOpenApiDocument(origin: string) {
           operationId: "getCompanyDossier",
           summary: "Current company dossier",
           description:
-            "Instrument metadata, live thesis fields, and the current dossier version id and number.",
+            "Instrument metadata, live thesis, current version pointer, and last_close with last_close_session. Check price_data_stale before using that mark.",
           scope: "powerfund:dossier:read",
           mutating: false,
           parameters: [symbolParam],

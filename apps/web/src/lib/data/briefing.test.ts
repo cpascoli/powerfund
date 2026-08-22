@@ -27,6 +27,7 @@ const emptyBook: PortfolioBook = {
   cashNotes: null,
   markLabel: "Last close",
   markAsOf: null,
+  priceDataThrough: null,
 };
 
 const nvidiaReview: BriefingReview = {

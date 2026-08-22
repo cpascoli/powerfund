@@ -3,6 +3,7 @@ import {
   aiMemoryNavPct,
   RISK_DEFAULTS,
   unclassifiedSymbols,
+  utcDay,
 } from "@powerfund/domain";
 import { fetchYahooQuotes, type LiveQuote } from "@powerfund/data-clients";
 
@@ -20,6 +21,7 @@ export type OpenPositionRow = {
   avgCost: number;
   costBasis: number;
   lastClose: number | null;
+  lastCloseSession: string | null;
   marketValue: number | null;
   unrealizedPnl: number | null;
   unrealizedPnlPct: number | null;
@@ -69,6 +71,7 @@ export type PortfolioBook = {
   cashNotes: string | null;
   markLabel: string;
   markAsOf: string | null;
+  priceDataThrough: string | null;
 };
 
 type PositionDbRow = {
@@ -146,6 +149,7 @@ export async function getOpenPortfolioBook(
       cashNotes,
       markLabel: "Close",
       markAsOf: null,
+      priceDataThrough: null,
     };
   }
 
@@ -215,16 +219,24 @@ export async function getOpenPortfolioBook(
     instrumentIds.map(async (instrumentId) => {
       const { data } = await supabase
         .from("market_bars")
-        .select("close, adj_close")
+        .select("bar_date, close, adj_close")
         .eq("instrument_id", instrumentId)
         .order("bar_date", { ascending: false })
         .limit(1)
         .maybeSingle();
       const bar = data as {
+        bar_date: string;
         close: number | null;
         adj_close: number | null;
       } | null;
-      return [instrumentId, bar?.adj_close ?? bar?.close ?? null] as const;
+      const close = bar?.adj_close ?? bar?.close ?? null;
+      if (close == null || bar == null) {
+        return [instrumentId, null] as const;
+      }
+      return [
+        instrumentId,
+        { close: Number(close), date: bar.bar_date },
+      ] as const;
     }),
   );
   const closeMap = new Map(closes);
@@ -234,7 +246,9 @@ export async function getOpenPortfolioBook(
     const quantity = Number(position.quantity);
     const avgCost = Number(position.avg_cost);
     const costBasis = quantity * avgCost;
-    const lastClose = closeMap.get(position.instrument_id) ?? null;
+    const mark = closeMap.get(position.instrument_id) ?? null;
+    const lastClose = mark?.close ?? null;
+    const lastCloseSession = mark?.date ?? null;
     const marketValue = lastClose == null ? null : quantity * lastClose;
     const unrealizedPnl =
       marketValue == null ? null : marketValue - costBasis;
@@ -256,6 +270,7 @@ export async function getOpenPortfolioBook(
       avgCost,
       costBasis,
       lastClose,
+      lastCloseSession,
       marketValue,
       unrealizedPnl,
       unrealizedPnlPct,
@@ -327,6 +342,7 @@ export async function withLiveMarks(
     return {
       ...row,
       lastClose,
+      lastCloseSession: quote.asOf ? utcDay(quote.asOf) : row.lastCloseSession,
       marketValue,
       unrealizedPnl,
       unrealizedPnlPct,
@@ -403,6 +419,12 @@ function assembleBook(args: {
     })
     .sort((a, b) => b.marketValue - a.marketValue);
 
+  const sessions = rows
+    .map((row) => row.lastCloseSession)
+    .filter((date): date is string => date != null)
+    .sort();
+  const priceDataThrough = sessions.at(-1) ?? null;
+
   return {
     positions: rows,
     invested,
@@ -424,6 +446,7 @@ function assembleBook(args: {
     cashNotes: args.cashNotes,
     markLabel: args.markLabel,
     markAsOf: args.markAsOf,
+    priceDataThrough,
   };
 }
 

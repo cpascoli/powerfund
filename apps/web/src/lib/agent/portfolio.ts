@@ -1,9 +1,6 @@
-import {
-  buildPerformanceReport,
-  loadLivePerformanceMark,
-} from "@/lib/data/performance";
 import { getLedgerSummary, type LedgerSummary } from "@/lib/data/ledger";
 import { getOpenPortfolioBook, type PortfolioBook } from "@/lib/data/portfolio";
+import { freshnessPayload } from "@/lib/data/price-freshness";
 import type { DbClient } from "@/lib/supabase/db";
 
 function round2(value: number): number {
@@ -38,6 +35,7 @@ export function toPrivatePortfolio(book: PortfolioBook, ledger: LedgerSummary) {
       avg_cost: round2(row.avgCost),
       cost_basis_usd: round2(row.costBasis),
       last_close: row.lastClose,
+      last_close_session: row.lastCloseSession,
       market_value_usd: row.marketValue == null ? round2(row.costBasis) : round2(row.marketValue),
       unrealized_pnl_usd: row.unrealizedPnl == null ? null : round2(row.unrealizedPnl),
       unrealized_pnl_pct: round1(row.unrealizedPnlPct),
@@ -55,6 +53,7 @@ export function toPrivatePortfolio(book: PortfolioBook, ledger: LedgerSummary) {
     })),
     flags: book.flags,
     mark: { label: book.markLabel, as_of: book.markAsOf },
+    ...freshnessPayload(book.priceDataThrough),
   };
 }
 
@@ -63,8 +62,6 @@ export async function getPrivatePortfolio(supabase: DbClient) {
     getOpenPortfolioBook(supabase),
     getLedgerSummary(25, supabase),
   ]);
-  const live = await loadLivePerformanceMark(supabase);
-  const performance = await buildPerformanceReport(supabase, live);
   return {
     as_of: new Date().toISOString(),
     ...toPrivatePortfolio(book, ledger),
@@ -79,22 +76,10 @@ export async function getPrivatePortfolio(supabase: DbClient) {
       realized_pnl: row.realizedPnl,
       notes: row.notes,
     })),
-    performance: {
-      success_benchmark: "S&P 500 TR (SPY)",
-      style_benchmark: "Nasdaq-100 TR (QQQ)",
-      windows: performance.windows.map((window) => ({
-        id: window.id,
-        label: window.label,
-        start: window.start,
-        end: window.end,
-        nav_return_pct: window.navReturn,
-        deployed_return_pct: window.deployedReturn,
-        spy_return_pct: window.successReturn,
-        qqq_return_pct: window.styleReturn,
-        nav_vs_spy_pct: window.navVsSuccess,
-        nav_vs_qqq_pct: window.navVsStyle,
-      })),
-      notes: performance.notes,
-    },
+    notes: [
+      "TWR, unitized drawdowns, and dollar contribution are on getPerformance. Do not read a performance block here.",
+      "last_close_session is the market_bars date for last_close. price_data_through is the latest of those sessions. If price_data_stale is true, do not treat last_close as today's mark.",
+      "cash.pct_nav, weight_pct_nav, and unrealized_pnl_pct are percent (1.2 means 1.2%).",
+    ],
   };
 }

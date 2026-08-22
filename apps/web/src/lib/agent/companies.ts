@@ -1,4 +1,5 @@
 import { notFound } from "@/lib/api/agent/errors";
+import { freshnessPayload } from "@/lib/data/price-freshness";
 import { getInstrumentDossier } from "@/lib/data/research";
 import type { DossierSnapshot } from "@/lib/dossiers/versions";
 import type { DbClient } from "@/lib/supabase/db";
@@ -36,13 +37,34 @@ export async function getAgentCompany(supabase: DbClient, symbol: string) {
     }
   }
 
+  const { data: bar, error: barError } = await supabase
+    .from("market_bars")
+    .select("bar_date, close, adj_close")
+    .eq("instrument_id", loaded.instrument.id)
+    .order("bar_date", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (barError) {
+    throw new Error(`Failed to load last close: ${barError.message}`);
+  }
+  const lastBar = bar as {
+    bar_date: string;
+    close: number | null;
+    adj_close: number | null;
+  } | null;
+  const lastClose = lastBar?.adj_close ?? lastBar?.close ?? null;
+  const lastCloseSession = lastBar?.bar_date ?? null;
+
   return {
     as_of: new Date().toISOString(),
+    ...freshnessPayload(lastCloseSession),
     symbol: loaded.instrument.symbol,
     name: loaded.instrument.name,
     asset_class: loaded.instrument.asset_class,
     status: loaded.instrument.status,
     notes: loaded.instrument.notes,
+    last_close: lastClose == null ? null : Number(lastClose),
+    last_close_session: lastCloseSession,
     theme: {
       slug: loaded.instrument.theme_slug,
       name: loaded.instrument.theme_name,

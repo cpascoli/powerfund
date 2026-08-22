@@ -122,6 +122,8 @@ export async function getFundState(
       deposited_capital_usd: privateBook.deposited_capital_usd,
       flags: privateBook.flags,
       mark: privateBook.mark,
+      price_data_through: privateBook.price_data_through,
+      price_data_stale: privateBook.price_data_stale,
     },
     theme_exposure: privateBook.theme_exposure,
     holdings: privateBook.holdings,
