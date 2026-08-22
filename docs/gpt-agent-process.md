@@ -180,7 +180,7 @@ The agent **cannot** archive or delete a name. Propose drops in chat; the operat
 
 Purpose: cash and concentration are decisions, not drift. Numbers live in [mandate.md](./mandate.md) (10% max position, 40% max theme, 10% min cash, 15% deployed-drawdown **diagnostic**, ~$10k/month baseline tranche, $75k phase-1 invested cap).
 
-1. `getFundState` + `getPortfolio` — flags, cash % NAV, largest weight, AI-capex factor, open planned dollars. `getPerformance` for NAV/deployed vs SPY/QQQ and drawdowns.
+1. `getFundState` + `getPortfolio` — flags, cash % NAV, largest weight, AI-capex factor, open planned dollars. `getPerformance` for NAV/deployed vs SPY/QQQ, drawdowns, and dollar contribution by ticker/theme/factor.
 2. If cash is above plan for a second consecutive monthly pass: either queue deployment per the ladder or write why not (journal or chat, then a `hold` / mandate note as appropriate).
 3. If a **size / theme / cash / AI-capex cap** flag is on: queue `reduce` / `sell` or halt new `buy`s. If the flag is the **15% deployed diagnostic**, run ritual 11 — do not treat it as a cap during Phase 1. Do not edit the mandate file via the API.
 4. Check the baseline tranche vs phase-1 cap. Continuing past $75k cost is ritual 13, not creep.
@@ -247,7 +247,7 @@ Purpose: the fund succeeds by answering “given everything else we could own, i
 4. Check factor overlap: several “different” themes can still be one AI-capex trade. Prefer the next dollar in an independent sleeve when the ranking is close.
 5. Only then `createPlannedAction` for the names that won the rank, after user approval and ritual 8.
 
-No ranking endpoint. Write the table in chat (or a journal `watch` / `hold` if the conclusion is durable). `getPortfolio.performance` is book-level TWR vs SPY/QQQ, not name-level relative value.
+No ranking endpoint. Write the table in chat (or a journal `watch` / `hold` if the conclusion is durable). `getPerformance` is book-level TWR vs SPY/QQQ plus dollar contribution — not probability-weighted relative value.
 
 | Step | Tool |
 |------|------|
@@ -312,8 +312,8 @@ Qualitative (works today):
 
 Quantitative (partial today):
 
-- `getPerformance` — NAV TWR and deployed TWR vs SPY and QQQ, plus **current and max** unitized drawdowns. Optional `from` / `to`. Values are percent. That is the mandate scoreboard.
-- There is **no** contribution-by-ticker/theme/factor yet, **no** per-decision 30/90/180d return, and **no** `recordDecisionOutcome`. Do not invent numbers the tools did not return.
+- `getPerformance` — NAV TWR and deployed TWR vs SPY and QQQ, plus **current and max** unitized drawdowns, plus **dollar contribution** by ticker, theme, and factor. Optional `from` / `to`. Returns are percent; `pnl_usd` is dollars. That is the mandate scoreboard.
+- There is **no** per-decision 30/90/180d return yet and **no** `recordDecisionOutcome`. Do not invent numbers the tools did not return.
 
 | Step | Tool |
 |------|------|

@@ -33,6 +33,16 @@ export type FactorKey =
   | "grid"
   | "other";
 
+export const FACTOR_KEYS: readonly FactorKey[] = [
+  "ai_capex",
+  "ai_memory",
+  "defence",
+  "nuclear",
+  "robotics",
+  "grid",
+  "other",
+];
+
 export type FactorWeights = Partial<Record<FactorKey, number>>;
 
 export type FactorExposureRecord = {

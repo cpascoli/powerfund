@@ -12,7 +12,7 @@ Private agent API: `/api/v1/agent/*` — Bearer token, scoped permissions, dolla
 |-----------|---------|--------|
 | `getFundState` | no | Compact current investment state |
 | `getPortfolio` | no | Private book from the ledger |
-| `getPerformance` | no | NAV and deployed TWR vs SPY/QQQ, plus current and max unitized drawdowns. Optional `from`/`to`. Not contribution-by-name |
+| `getPerformance` | no | NAV and deployed TWR vs SPY/QQQ, unitized drawdowns, and dollar contribution by ticker / theme / factor. Optional `from`/`to`. Not a ledger dump |
 | `getJournal` | no | Decisions + pinned `dossier_version` |
 | `getCompanyDossier` | no | Live research object |
 | `getDossierVersions` / `getDossierVersion` | no | Immutable snapshots. No diff endpoint — fetch two versions and compare |
@@ -92,7 +92,7 @@ curl -sS -H "Authorization: Bearer $TOKEN" \
 # Private portfolio
 curl -sS -H "Authorization: Bearer $TOKEN" "$ORIGIN/api/v1/agent/portfolio"
 
-# Performance (percent; optional from/to). Not contribution-by-name.
+# Performance (percent returns; dollar contribution by ticker/theme/factor)
 curl -sS -H "Authorization: Bearer $TOKEN" "$ORIGIN/api/v1/agent/performance"
 curl -sS -H "Authorization: Bearer $TOKEN" \
   "$ORIGIN/api/v1/agent/performance?from=2026-08-12&to=2026-08-22"
@@ -316,7 +316,8 @@ Typical workflows:
 1. `getPerformance` (optional `from` / `to` as `YYYY-MM-DD`)
 2. Read `drawdown.nav_max_pct` and `drawdown.deployed_max_pct` (unitized; percent)
 3. Compare window `nav_return_pct` and `deployed_return_pct` to `spy_return_pct` / `qqq_return_pct`
-4. There is no contribution-by-ticker or per-decision 30/90/180d return yet
+4. Read `contribution.tickers` / `themes` / `factors` (`pnl_usd` is dollars, not TWR)
+5. There is no per-decision 30/90/180d return yet
 
 **What we believed when we bought it**
 

@@ -1,4 +1,10 @@
+import type { ContributionReport } from "@powerfund/domain";
+
 import { validationError } from "@/lib/api/agent/errors";
+import {
+  loadContributionReport,
+  resolvedContributionRange,
+} from "@/lib/data/contribution";
 import {
   buildPerformanceReport,
   loadLivePerformanceMark,
@@ -62,7 +68,44 @@ function toAgentWindow(window: PerformanceWindowReport) {
   };
 }
 
-export function toAgentPerformance(report: PerformanceReport) {
+function toAgentContribution(report: ContributionReport) {
+  return {
+    start: report.start,
+    end: report.end,
+    trading_days: report.tradingDays,
+    method: report.method,
+    tickers: report.tickers.map((row) => ({
+      symbol: row.symbol,
+      theme: { slug: row.themeSlug, name: row.themeName },
+      pnl_usd: row.pnlUsd,
+      realized_usd: row.realizedUsd,
+      income_usd: row.incomeUsd,
+      start_market_value_usd: row.startMarketValueUsd,
+      end_market_value_usd: row.endMarketValueUsd,
+      avg_weight_pct_nav: row.avgWeightPctNav,
+      avg_weight_pct_deployed: row.avgWeightPctDeployed,
+      days_held: row.daysHeld,
+    })),
+    themes: report.themes.map((row) => ({
+      key: row.key,
+      name: row.name,
+      pnl_usd: row.pnlUsd,
+      avg_weight_pct_nav: row.avgWeightPctNav,
+    })),
+    factors: report.factors.map((row) => ({
+      key: row.key,
+      name: row.name,
+      pnl_usd: row.pnlUsd,
+      avg_weight_pct_nav: row.avgWeightPctNav,
+    })),
+    notes: report.notes,
+  };
+}
+
+export function toAgentPerformance(
+  report: PerformanceReport,
+  contribution: ContributionReport,
+) {
   return {
     as_of: report.asOf,
     success_benchmark: "S&P 500 TR (SPY)",
@@ -75,10 +118,11 @@ export function toAgentPerformance(report: PerformanceReport) {
       deployed_max_pct: pp(report.drawdown.deployedMaxPct),
     },
     windows: report.windows.map(toAgentWindow),
+    contribution: toAgentContribution(contribution),
     notes: [
       ...report.notes,
-      "All *_pct fields are percent (1.2 means 1.2%), not fractions. Drawdowns use the unitized curve so deposits and fills at cost are not phantom losses.",
-      "Contribution by ticker, theme, or factor is not in this payload.",
+      ...contribution.notes,
+      "Return *_pct fields are percent (1.2 means 1.2%). Contribution pnl_usd is dollars, not TWR. Per-decision 30/90/180d returns are not in this payload.",
     ],
   };
 }
@@ -88,6 +132,10 @@ export async function getAgentPerformance(
   range?: PerformanceRange,
 ) {
   const live = await loadLivePerformanceMark(supabase);
-  const report = await buildPerformanceReport(supabase, live, range);
-  return toAgentPerformance(report);
+  const window = resolvedContributionRange(range, live.asOf);
+  const [report, contribution] = await Promise.all([
+    buildPerformanceReport(supabase, live, range),
+    loadContributionReport(supabase, window),
+  ]);
+  return toAgentPerformance(report, contribution);
 }

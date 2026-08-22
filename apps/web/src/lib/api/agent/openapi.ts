@@ -378,7 +378,7 @@ export function agentOpenApiDocument(origin: string) {
           operationId: "getPerformance",
           summary: "NAV and deployed performance",
           description:
-            "Time-weighted NAV and deployed-sleeve returns vs SPY and QQQ, plus current and max unitized drawdowns. Optional from and to as YYYY-MM-DD. Values are percent, not fractions. Not contribution-by-name.",
+            "NAV and deployed TWR vs SPY/QQQ, unitized drawdowns, and dollar contribution by ticker, theme, and factor. Optional from/to as YYYY-MM-DD. Returns are percent. Not a ledger dump.",
           scope: "powerfund:portfolio:read",
           mutating: false,
           parameters: [
