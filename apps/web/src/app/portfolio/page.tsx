@@ -1,4 +1,3 @@
-import type { ReactNode } from "react";
 import Link from "next/link";
 import { RISK_DEFAULTS } from "@powerfund/domain";
 
@@ -6,6 +5,8 @@ import { CashEntryForm } from "@/components/cash-entry-form";
 import { ConfirmFillForm } from "@/components/confirm-fill-form";
 import { NavHistoryChart } from "@/components/nav-history-chart";
 import { PlannedActionForm } from "@/components/planned-action-form";
+import { PortfolioSectionTabs } from "@/components/portfolio-section-tabs";
+import { PortfolioStatTabs } from "@/components/portfolio-stat-tabs";
 import { PositionForm } from "@/components/position-form";
 import { PositionTreemap } from "@/components/position-treemap";
 import { SellForm } from "@/components/sell-form";
@@ -30,7 +31,6 @@ import {
   snapshotFlags,
 } from "@/lib/data/snapshots";
 import {
-  CHART_TABS,
   parseChartTab,
   parseSectionTab,
   parseStatsTab,
@@ -43,20 +43,6 @@ import {
 export const dynamic = "force-dynamic";
 
 type PortfolioTab = PortfolioSectionTab;
-
-const TABS: Array<{ id: PortfolioTab; label: string }> = [
-  { id: "book", label: "Open book" },
-  { id: "queue", label: "Deployment queue" },
-  { id: "mandate", label: "Mandate" },
-  { id: "performance", label: "Performance" },
-  { id: "ledger", label: "Ledger" },
-];
-
-const STAT_TABS: Array<{ id: StatsTab; label: string }> = [
-  { id: "book", label: "Book" },
-  { id: "score", label: "Score" },
-  { id: "deployment", label: "Deployment" },
-];
 
 function money(value: number | null | undefined): string {
   if (value == null || Number.isNaN(value)) return "—";
@@ -537,83 +523,6 @@ export default async function PortfolioPage({
     </section>
   );
 
-  let tabContent: ReactNode;
-  switch (activeTab) {
-    case "book":
-      tabContent = (
-        <>
-          {sellPositionRow ? (
-            <section className="panel">
-              <h2>Sell {sellPositionRow.symbol}</h2>
-              <SellForm position={sellPositionRow} />
-            </section>
-          ) : null}
-          {showForm ? (
-            <section className="panel">
-              <h2>Add fill</h2>
-              <p className="muted">
-                Unplanned fill (already executed). Prefer the queue for new
-                risk. Cash available: {money(book.cash)}.
-              </p>
-              <PositionForm instruments={instruments} />
-            </section>
-          ) : null}
-          {bookPanel}
-        </>
-      );
-      break;
-    case "queue":
-      tabContent = (
-        <>
-          {confirmAction ? (
-            <section className="panel">
-              <h2>Confirm fill</h2>
-              <ConfirmFillForm action={confirmAction} />
-            </section>
-          ) : null}
-          {showPlan ? (
-            <section className="panel">
-              <h2>Plan a buy</h2>
-              <p className="muted">
-                Size in dollars, not shares. This does not debit cash until you
-                confirm a fill.
-              </p>
-              <PlannedActionForm instruments={instruments} />
-            </section>
-          ) : null}
-          {queuePanel}
-        </>
-      );
-      break;
-    case "mandate":
-      tabContent = mandatePanel;
-      break;
-    case "performance":
-      tabContent = performancePanel;
-      break;
-    case "ledger":
-      tabContent = (
-        <>
-          {showCash ? (
-            <section className="panel">
-              <h2>Cash entry</h2>
-              <p className="muted">
-                Cash is the sum of the ledger, so it changes only through
-                entries. Current balance {money(book.cash)}.
-              </p>
-              <CashEntryForm />
-            </section>
-          ) : null}
-          {ledgerPanel}
-        </>
-      );
-      break;
-    default: {
-      const _exhaustive: never = activeTab;
-      tabContent = _exhaustive;
-    }
-  }
-
   return (
     <>
       <header className="page-header">
@@ -664,20 +573,10 @@ export default async function PortfolioPage({
         </div>
       </header>
 
-      <section className="stat-tabs" aria-label="Portfolio stats">
-        <nav className="tab-nav is-compact" aria-label="Stat groups">
-          {STAT_TABS.map((entry) => (
-            <Link
-              key={entry.id}
-              href={href({ stats: entry.id })}
-              className={entry.id === statsTab ? "is-active" : undefined}
-              aria-current={entry.id === statsTab ? "page" : undefined}
-            >
-              {entry.label}
-            </Link>
-          ))}
-        </nav>
-        {statsTab === "book" ? (
+      <PortfolioStatTabs
+        initialTab={statsTab}
+        panels={{
+          book: (
           <div className="stat-row">
             <div className="stat">
               <span>NAV ({book.markLabel.toLowerCase()})</span>
@@ -718,8 +617,8 @@ export default async function PortfolioPage({
               </strong>
             </div>
           </div>
-        ) : null}
-        {statsTab === "score" ? (
+          ),
+          score: (
           <div className="stat-row">
             <div className="stat">
               <span>Total return</span>
@@ -777,8 +676,8 @@ export default async function PortfolioPage({
               </strong>
             </div>
           </div>
-        ) : null}
-        {statsTab === "deployment" ? (
+          ),
+          deployment: (
           <div className="stat-row">
             <div className="stat">
               <span>Open positions</span>
@@ -819,29 +718,13 @@ export default async function PortfolioPage({
               ) : null}
             </div>
           </div>
-        ) : null}
-      </section>
+          ),
+        }}
+      />
 
       <PositionTreemap positions={book.positions} markLabel={book.markLabel} />
 
-      <NavHistoryChart
-        points={navSeries}
-        view={chartTab}
-        tabs={
-          <nav className="seg" aria-label="NAV series">
-            {CHART_TABS.map((entry) => (
-              <Link
-                key={entry.id}
-                href={href({ chart: entry.id })}
-                className={entry.id === chartTab ? "is-active" : undefined}
-                aria-current={entry.id === chartTab ? "page" : undefined}
-              >
-                {entry.label}
-              </Link>
-            ))}
-          </nav>
-        }
-      />
+      <NavHistoryChart points={navSeries} initialView={chartTab} />
 
       {bookWarnings.length > 0 || queueWarnings.length > 0 ? (
         <section className="panel" aria-label="Mandate warnings">
@@ -862,37 +745,81 @@ export default async function PortfolioPage({
         </section>
       ) : null}
 
-      <nav className="tab-nav" aria-label="Portfolio sections">
-        {TABS.map((entry) => {
-          const badge =
-            entry.id === "book"
-              ? book.openCount
-              : entry.id === "queue"
-                ? queue.actions.length
-                : entry.id === "ledger"
-                  ? ledger.entryCount
-                  : null;
-          const warn =
-            (entry.id === "mandate" && bookWarnings.length > 0) ||
-            (entry.id === "queue" && queueWarnings.length > 0);
-          return (
-            <Link
-              key={entry.id}
-              href={href({ tab: entry.id })}
-              className={entry.id === activeTab ? "is-active" : undefined}
-              aria-current={entry.id === activeTab ? "page" : undefined}
-            >
-              {entry.label}
-              {badge != null && badge > 0 ? (
-                <span className="tab-badge">{badge}</span>
-              ) : null}
-              {warn ? <span className="tab-badge warn">!</span> : null}
-            </Link>
-          );
-        })}
-      </nav>
-
-      {tabContent}
+      <PortfolioSectionTabs
+        initialTab={activeTab}
+        badges={{
+          book: book.openCount,
+          queue: queue.actions.length,
+          ledger: ledger.entryCount,
+        }}
+        warnings={{
+          mandate: bookWarnings.length > 0,
+          queue: queueWarnings.length > 0,
+        }}
+        panels={{
+          book: {
+            form: (
+              <>
+                {sellPositionRow ? (
+                  <section className="panel">
+                    <h2>Sell {sellPositionRow.symbol}</h2>
+                    <SellForm position={sellPositionRow} />
+                  </section>
+                ) : null}
+                {showForm ? (
+                  <section className="panel">
+                    <h2>Add fill</h2>
+                    <p className="muted">
+                      Unplanned fill (already executed). Prefer the queue for
+                      new risk. Cash available: {money(book.cash)}.
+                    </p>
+                    <PositionForm instruments={instruments} />
+                  </section>
+                ) : null}
+              </>
+            ),
+            body: bookPanel,
+          },
+          queue: {
+            form: (
+              <>
+                {confirmAction ? (
+                  <section className="panel">
+                    <h2>Confirm fill</h2>
+                    <ConfirmFillForm action={confirmAction} />
+                  </section>
+                ) : null}
+                {showPlan ? (
+                  <section className="panel">
+                    <h2>Plan a buy</h2>
+                    <p className="muted">
+                      Size in dollars, not shares. This does not debit cash
+                      until you confirm a fill.
+                    </p>
+                    <PlannedActionForm instruments={instruments} />
+                  </section>
+                ) : null}
+              </>
+            ),
+            body: queuePanel,
+          },
+          mandate: { body: mandatePanel },
+          performance: { body: performancePanel },
+          ledger: {
+            form: showCash ? (
+              <section className="panel">
+                <h2>Cash entry</h2>
+                <p className="muted">
+                  Cash is the sum of the ledger, so it changes only through
+                  entries. Current balance {money(book.cash)}.
+                </p>
+                <CashEntryForm />
+              </section>
+            ) : null,
+            body: ledgerPanel,
+          },
+        }}
+      />
     </>
   );
 }

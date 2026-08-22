@@ -1,6 +1,6 @@
 "use client";
 
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import {
   Area,
   AreaChart,
@@ -15,11 +15,11 @@ import {
 } from "recharts";
 
 import type { NavChartPoint, NavChartView } from "@/lib/data/nav-series";
+import { CHART_TABS, replacePortfolioSearchParam } from "@/lib/portfolio-href";
 
 type NavHistoryChartProps = {
   points: NavChartPoint[];
-  view: NavChartView;
-  tabs?: ReactNode;
+  initialView: NavChartView;
 };
 
 function formatAxisDate(value: string): string {
@@ -171,8 +171,28 @@ function chartCopy(view: NavChartView): { title: string; blurb: string } {
   }
 }
 
-export function NavHistoryChart({ points, view, tabs }: NavHistoryChartProps) {
+export function NavHistoryChart({ points, initialView }: NavHistoryChartProps) {
+  const [view, setView] = useState<NavChartView>(initialView);
   const copy = chartCopy(view);
+  const tabs = (
+    <div className="seg" role="tablist" aria-label="NAV series">
+      {CHART_TABS.map((entry) => (
+        <button
+          key={entry.id}
+          type="button"
+          role="tab"
+          aria-selected={entry.id === view}
+          className={entry.id === view ? "is-active" : undefined}
+          onClick={() => {
+            setView(entry.id);
+            replacePortfolioSearchParam("chart", entry.id, "nav");
+          }}
+        >
+          {entry.label}
+        </button>
+      ))}
+    </div>
+  );
   const head = (
     <div className="price-panel-head">
       <div>
@@ -284,7 +304,9 @@ export function NavHistoryChart({ points, view, tabs }: NavHistoryChartProps) {
         </BarChart>
       );
       break;
-    case "pnl":
+    case "pnl": {
+      const lastPnl = points.at(-1)?.cumulativePnl ?? 0;
+      const tone = lastPnl < 0 ? "var(--danger)" : "var(--accent)";
       plot = (
         <AreaChart
           data={points}
@@ -292,24 +314,25 @@ export function NavHistoryChart({ points, view, tabs }: NavHistoryChartProps) {
         >
           <defs>
             <linearGradient id="pnlFill" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor="var(--accent)" stopOpacity={0.35} />
-              <stop offset="100%" stopColor="var(--accent)" stopOpacity={0.02} />
+              <stop offset="0%" stopColor={tone} stopOpacity={0.35} />
+              <stop offset="100%" stopColor={tone} stopOpacity={0.02} />
             </linearGradient>
           </defs>
           {cartesian}
           <Area
             type="monotone"
             dataKey="cumulativePnl"
-            stroke="var(--accent)"
+            stroke={tone}
             strokeWidth={2}
             fill="url(#pnlFill)"
             isAnimationActive={false}
             dot={false}
-            activeDot={{ r: 4, fill: "var(--accent)" }}
+            activeDot={{ r: 4, fill: tone }}
           />
         </AreaChart>
       );
       break;
+    }
     default: {
       const _exhaustive: never = view;
       plot = _exhaustive;

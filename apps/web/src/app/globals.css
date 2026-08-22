@@ -634,7 +634,8 @@ a {
   border-bottom: 1px solid var(--line);
 }
 
-.tab-nav a {
+.tab-nav a,
+.tab-nav button {
   display: inline-flex;
   align-items: center;
   gap: 0.4rem;
@@ -642,16 +643,22 @@ a {
   margin-bottom: -1px;
   color: var(--muted);
   text-decoration: none;
+  font: inherit;
   font-size: 0.92rem;
   font-weight: 650;
+  background: none;
+  border: none;
   border-bottom: 2px solid transparent;
+  cursor: pointer;
 }
 
-.tab-nav a:hover {
+.tab-nav a:hover,
+.tab-nav button:hover {
   color: var(--ink);
 }
 
-.tab-nav a.is-active {
+.tab-nav a.is-active,
+.tab-nav button.is-active {
   color: var(--ink);
   border-bottom-color: var(--accent);
 }
@@ -697,24 +704,32 @@ a {
   background: var(--bg);
 }
 
-.seg a {
+.seg a,
+.seg button {
   padding: 0.38rem 0.72rem;
   color: var(--muted);
   text-decoration: none;
+  font: inherit;
   font-size: 0.82rem;
   font-weight: 650;
+  border: none;
   border-right: 1px solid var(--line);
+  background: none;
+  cursor: pointer;
 }
 
-.seg a:last-child {
+.seg a:last-child,
+.seg button:last-child {
   border-right: none;
 }
 
-.seg a:hover {
+.seg a:hover,
+.seg button:hover {
   color: var(--ink);
 }
 
-.seg a.is-active {
+.seg a.is-active,
+.seg button.is-active {
   background: var(--bg-elevated);
   color: var(--ink);
 }
