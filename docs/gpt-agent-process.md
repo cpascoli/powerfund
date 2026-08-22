@@ -180,7 +180,7 @@ The agent **cannot** archive or delete a name. Propose drops in chat; the operat
 
 Purpose: cash and concentration are decisions, not drift. Numbers live in [mandate.md](./mandate.md) (10% max position, 40% max theme, 10% min cash, 15% deployed-drawdown **diagnostic**, ~$10k/month baseline tranche, $75k phase-1 invested cap).
 
-1. `getFundState` + `getPortfolio` — flags, cash % NAV, largest weight, AI-capex factor, open planned dollars, `performance` windows vs SPY/QQQ.
+1. `getFundState` + `getPortfolio` — flags, cash % NAV, largest weight, AI-capex factor, open planned dollars. `getPerformance` for NAV/deployed vs SPY/QQQ and drawdowns.
 2. If cash is above plan for a second consecutive monthly pass: either queue deployment per the ladder or write why not (journal or chat, then a `hold` / mandate note as appropriate).
 3. If a **size / theme / cash / AI-capex cap** flag is on: queue `reduce` / `sell` or halt new `buy`s. If the flag is the **15% deployed diagnostic**, run ritual 11 — do not treat it as a cap during Phase 1. Do not edit the mandate file via the API.
 4. Check the baseline tranche vs phase-1 cap. Continuing past $75k cost is ritual 13, not creep.
@@ -281,7 +281,7 @@ Purpose: theme labels are not diversification. Mandate and [themes.md](./themes.
 
 Purpose: when the 15% deployed-sleeve diagnostic fires (or a major factor shock hits), stop and classify. Do not improvise a de-risk.
 
-1. `getFundState` + `getPortfolio` — sleeve drawdown flag, NAV, cash %, holdings, `performance` vs QQQ/SPY.
+1. `getFundState` + `getPortfolio` — sleeve drawdown flag, NAV, cash %, holdings. `getPerformance` for NAV/deployed vs QQQ/SPY and max drawdown.
 2. Freeze **new correlated buys** until the classification is written. During Phase 1 do **not** freeze the whole ladder and do **not** raise cash just to “do something.”
 3. For each open name: `getCompanyDossier` + `getJournal?symbol=`. Has invalidation triggered? Have estimates/backlog/guidance changed, or only the multiple?
 4. Classify the book move as **valuation / factor / earnings / thesis failure** ([mandate.md](./mandate.md) rule 8).
@@ -312,12 +312,12 @@ Qualitative (works today):
 
 Quantitative (partial today):
 
-- `getPortfolio.performance` — NAV TWR and deployed TWR vs SPY and QQQ for inception and “since review” windows. That is the mandate scoreboard.
-- There is **no** contribution-by-ticker/theme API yet and **no** `recordDecisionOutcome`. Do not invent numbers the tools did not return.
+- `getPerformance` — NAV TWR and deployed TWR vs SPY and QQQ, plus **current and max** unitized drawdowns. Optional `from` / `to`. Values are percent. That is the mandate scoreboard.
+- There is **no** contribution-by-ticker/theme/factor yet, **no** per-decision 30/90/180d return, and **no** `recordDecisionOutcome`. Do not invent numbers the tools did not return.
 
 | Step | Tool |
 |------|------|
-| Scoreboard | `getPortfolio` (`performance`) |
+| Scoreboard | `getPerformance` |
 | What we believed | `getJournal`, `getDossierVersion` |
 
 ---

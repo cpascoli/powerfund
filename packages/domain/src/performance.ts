@@ -61,6 +61,14 @@ export type WindowReturn = {
   points: number;
   navReturn: number | null;
   deployedReturn: number | null;
+  /** Current unitized NAV drawdown from peak, percent. */
+  navDrawdownPct: number | null;
+  /** Worst peak-to-trough unitized NAV drawdown in the window, percent. */
+  navMaxDrawdownPct: number | null;
+  /** Current unitized deployed-sleeve drawdown from peak, percent. */
+  deployedDrawdownPct: number | null;
+  /** Worst peak-to-trough deployed-sleeve drawdown in the window, percent. */
+  deployedMaxDrawdownPct: number | null;
 };
 
 function chainTwr(returns: number[]): number | null {
@@ -177,6 +185,28 @@ export function unitizedDeployedIndex(points: PerformancePoint[]): number[] {
   return series;
 }
 
+/**
+ * Unitized NAV equity curve. Day 0 is 1.0; deposits and withdrawals are
+ * stripped so a contribution is not a gain and not a phantom recovery.
+ */
+export function unitizedNavIndex(points: PerformancePoint[]): number[] {
+  if (points.length === 0) return [];
+  const series = [1];
+  let value = 1;
+  for (let i = 1; i < points.length; i += 1) {
+    const prev = points[i - 1];
+    const curr = points[i];
+    if (prev == null || curr == null) {
+      series.push(value);
+      continue;
+    }
+    const daily = dailyReturn(curr.nav, prev.nav, curr.externalFlow);
+    if (daily != null) value *= 1 + daily;
+    series.push(value);
+  }
+  return series;
+}
+
 /** Current drawdown from the high-water mark, in percent of the peak. */
 export function drawdownFromPeakPct(series: number[]): number | null {
   if (series.length < 2) return null;
@@ -185,6 +215,25 @@ export function drawdownFromPeakPct(series: number[]): number | null {
   const peak = Math.max(...series);
   if (peak <= 0) return null;
   return ((peak - last) / peak) * 100;
+}
+
+/**
+ * Worst peak-to-trough drawdown in the series, in percent of the local peak.
+ * Distinct from current drawdown, which only looks at the last point.
+ */
+export function maxDrawdownPct(series: number[]): number | null {
+  if (series.length < 2) return null;
+  const first = series[0];
+  if (first == null || first <= 0) return null;
+  let peak = first;
+  let worst = 0;
+  for (const value of series) {
+    if (value > peak) peak = value;
+    if (peak <= 0) continue;
+    const drawdown = ((peak - value) / peak) * 100;
+    if (drawdown > worst) worst = drawdown;
+  }
+  return worst;
 }
 
 export function indexReturn(
@@ -222,6 +271,16 @@ export function slicePointsOnOrAfter(
   return points.slice(startIndex);
 }
 
+export function slicePointsInRange(
+  points: PerformancePoint[],
+  fromDate?: string,
+  toDate?: string,
+): PerformancePoint[] {
+  const sliced = fromDate ? slicePointsOnOrAfter(points, fromDate) : points;
+  if (toDate == null) return sliced;
+  return sliced.filter((point) => point.date <= toDate);
+}
+
 export function windowReturn(
   points: PerformancePoint[],
 ): WindowReturn | null {
@@ -229,12 +288,18 @@ export function windowReturn(
   const start = points[0];
   const end = points[points.length - 1];
   if (start == null || end == null) return null;
+  const navIndex = unitizedNavIndex(points);
+  const deployedIndex = unitizedDeployedIndex(points);
   return {
     start: start.date,
     end: end.date,
     points: points.length,
     navReturn: navPeriodReturn(points),
     deployedReturn: deployedPeriodReturn(points),
+    navDrawdownPct: drawdownFromPeakPct(navIndex),
+    navMaxDrawdownPct: maxDrawdownPct(navIndex),
+    deployedDrawdownPct: drawdownFromPeakPct(deployedIndex),
+    deployedMaxDrawdownPct: maxDrawdownPct(deployedIndex),
   };
 }
 

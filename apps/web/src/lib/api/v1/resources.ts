@@ -47,7 +47,7 @@ export const PUBLIC_RESOURCES = [
     path: "/api/v1/performance",
     title: "Performance",
     description:
-      "NAV and deployed-sleeve returns vs S&P 500 (SPY) and QQQ. Percentages only.",
+      "NAV and deployed-sleeve returns vs S&P 500 (SPY) and QQQ, plus unitized max drawdown. Percentages only.",
   },
   {
     path: "/api/v1/journal",

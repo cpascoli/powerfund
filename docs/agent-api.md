@@ -12,6 +12,7 @@ Private agent API: `/api/v1/agent/*` — Bearer token, scoped permissions, dolla
 |-----------|---------|--------|
 | `getFundState` | no | Compact current investment state |
 | `getPortfolio` | no | Private book from the ledger |
+| `getPerformance` | no | NAV and deployed TWR vs SPY/QQQ, plus current and max unitized drawdowns. Optional `from`/`to`. Not contribution-by-name |
 | `getJournal` | no | Decisions + pinned `dossier_version` |
 | `getCompanyDossier` | no | Live research object |
 | `getDossierVersions` / `getDossierVersion` | no | Immutable snapshots. No diff endpoint — fetch two versions and compare |
@@ -90,6 +91,11 @@ curl -sS -H "Authorization: Bearer $TOKEN" \
 
 # Private portfolio
 curl -sS -H "Authorization: Bearer $TOKEN" "$ORIGIN/api/v1/agent/portfolio"
+
+# Performance (percent; optional from/to). Not contribution-by-name.
+curl -sS -H "Authorization: Bearer $TOKEN" "$ORIGIN/api/v1/agent/performance"
+curl -sS -H "Authorization: Bearer $TOKEN" \
+  "$ORIGIN/api/v1/agent/performance?from=2026-08-12&to=2026-08-22"
 
 # Journal
 curl -sS -H "Authorization: Bearer $TOKEN" \
@@ -274,6 +280,7 @@ These `operationId`s are stable tool names. A later MCP server can wrap each HTT
 |----------|------|
 | `getFundState` | `GET /api/v1/agent/state` |
 | `getPortfolio` | `GET /api/v1/agent/portfolio` |
+| `getPerformance` | `GET /api/v1/agent/performance` |
 | `getJournal` | `GET /api/v1/agent/journal` |
 | `getPlannedActions` | `GET /api/v1/agent/deployment-queue` |
 | `getReviewQueue` | `GET /api/v1/agent/review-queue` |
@@ -303,6 +310,13 @@ Typical workflows:
 6. user approval
 7. `updateDossier` (creates version 1 if none exists; later writes version only if assembled JSON changed)
 8. optionally `createDecision` / `createPlannedAction` (`buy` for a first entry, `add` for a second tranche) / `createReviewTask`
+
+**Scoreboard vs SPY / QQQ**
+
+1. `getPerformance` (optional `from` / `to` as `YYYY-MM-DD`)
+2. Read `drawdown.nav_max_pct` and `drawdown.deployed_max_pct` (unitized; percent)
+3. Compare window `nav_return_pct` and `deployed_return_pct` to `spy_return_pct` / `qqq_return_pct`
+4. There is no contribution-by-ticker or per-decision 30/90/180d return yet
 
 **What we believed when we bought it**
 

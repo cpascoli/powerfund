@@ -93,7 +93,7 @@ export function openApiDocument(origin: string) {
           responses: {
             "200": {
               description:
-                "NAV and deployed returns vs SPY and QQQ. Percentages only.",
+                "NAV and deployed returns vs SPY and QQQ, plus unitized max drawdown. Percentages only.",
             },
           },
         },

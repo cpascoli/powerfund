@@ -59,6 +59,9 @@ describe("API surfaces", () => {
     expect(agentDoc.paths["/api/v1/agent/portfolio"].get.operationId).toBe(
       "getPortfolio",
     );
+    expect(agentDoc.paths["/api/v1/agent/performance"].get.operationId).toBe(
+      "getPerformance",
+    );
     expect(agentDoc.paths["/api/v1/agent/state"].get.operationId).toBe(
       "getFundState",
     );

@@ -19,18 +19,31 @@ export type PublicPerformanceWindow = {
   nav_vs_qqq_pct: number | null;
   deployed_vs_spy_pct: number | null;
   deployed_vs_qqq_pct: number | null;
+  nav_max_drawdown_pct: number | null;
+  deployed_max_drawdown_pct: number | null;
 };
 
 export type PublicPerformance = {
   success_benchmark: "S&P 500 TR (SPY)";
   style_benchmark: "Nasdaq-100 TR (QQQ)";
   windows: PublicPerformanceWindow[];
+  drawdown: {
+    nav_current_pct: number | null;
+    nav_max_pct: number | null;
+    deployed_current_pct: number | null;
+    deployed_max_pct: number | null;
+  };
   notes: string[];
 };
 
 function pct1(value: number | null): number | null {
   if (value == null || Number.isNaN(value)) return null;
   return Math.round(value * 1000) / 10;
+}
+
+function pp1(value: number | null): number | null {
+  if (value == null || Number.isNaN(value)) return null;
+  return Math.round(value * 10) / 10;
 }
 
 function toPublicWindow(
@@ -49,6 +62,8 @@ function toPublicWindow(
     nav_vs_qqq_pct: pct1(window.navVsStyle),
     deployed_vs_spy_pct: pct1(window.deployedVsSuccess),
     deployed_vs_qqq_pct: pct1(window.deployedVsStyle),
+    nav_max_drawdown_pct: pp1(window.navMaxDrawdownPct),
+    deployed_max_drawdown_pct: pp1(window.deployedMaxDrawdownPct),
   };
 }
 
@@ -59,6 +74,12 @@ export function toPublicPerformance(
     success_benchmark: "S&P 500 TR (SPY)",
     style_benchmark: "Nasdaq-100 TR (QQQ)",
     windows: report.windows.map(toPublicWindow),
+    drawdown: {
+      nav_current_pct: pp1(report.drawdown.navCurrentPct),
+      nav_max_pct: pp1(report.drawdown.navMaxPct),
+      deployed_current_pct: pp1(report.drawdown.deployedCurrentPct),
+      deployed_max_pct: pp1(report.drawdown.deployedMaxPct),
+    },
     notes: report.notes,
   };
 }
@@ -75,10 +96,14 @@ export async function getPublicPerformance(): Promise<PublicPerformance> {
 }
 
 export function performanceMarkdown(report: PublicPerformance): string {
+  const cellPct = (value: number | null) =>
+    value == null ? "—" : `${value}%`;
   const lines = [
     "# Performance",
     "",
     `Success benchmark: ${report.success_benchmark}. Style benchmark: ${report.style_benchmark}. No blend. Percentages only.`,
+    "",
+    `Max drawdown (unitized): NAV ${cellPct(report.drawdown.nav_max_pct)} (now ${cellPct(report.drawdown.nav_current_pct)}); deployed ${cellPct(report.drawdown.deployed_max_pct)} (now ${cellPct(report.drawdown.deployed_current_pct)}).`,
     "",
   ];
 

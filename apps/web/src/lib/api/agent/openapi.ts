@@ -373,6 +373,31 @@ export function agentOpenApiDocument(origin: string) {
           mutating: false,
         }),
       },
+      "/api/v1/agent/performance": {
+        get: op({
+          operationId: "getPerformance",
+          summary: "NAV and deployed performance",
+          description:
+            "Time-weighted NAV and deployed-sleeve returns vs SPY and QQQ, plus current and max unitized drawdowns. Optional from and to as YYYY-MM-DD. Values are percent, not fractions. Not contribution-by-name.",
+          scope: "powerfund:portfolio:read",
+          mutating: false,
+          parameters: [
+            {
+              name: "from",
+              in: "query",
+              description: "Inclusive start date YYYY-MM-DD. Omit for since-inception windows.",
+              schema: { type: "string", format: "date" },
+            },
+            {
+              name: "to",
+              in: "query",
+              description: "Inclusive end date YYYY-MM-DD. Omit to include today's live mark.",
+              schema: { type: "string", format: "date" },
+            },
+          ],
+          responses: { "422": errorResponse },
+        }),
+      },
       "/api/v1/agent/journal": {
         get: op({
           operationId: "getJournal",

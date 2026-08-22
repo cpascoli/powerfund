@@ -24,6 +24,11 @@ export async function GET(request: Request) {
           operations: [
             { operationId: "getFundState", method: "GET", path: "/api/v1/agent/state" },
             { operationId: "getPortfolio", method: "GET", path: "/api/v1/agent/portfolio" },
+            {
+              operationId: "getPerformance",
+              method: "GET",
+              path: "/api/v1/agent/performance",
+            },
             { operationId: "getJournal", method: "GET", path: "/api/v1/agent/journal" },
             {
               operationId: "getPlannedActions",

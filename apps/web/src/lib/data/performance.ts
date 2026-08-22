@@ -5,6 +5,7 @@ import {
   accumulateLedgerFlows,
   excessReturn,
   indexReturn,
+  slicePointsInRange,
   slicePointsOnOrAfter,
   utcDay,
   windowReturn,
@@ -39,12 +40,29 @@ export type PerformanceWindowReport = {
   navVsStyle: number | null;
   deployedVsSuccess: number | null;
   deployedVsStyle: number | null;
+  navDrawdownPct: number | null;
+  navMaxDrawdownPct: number | null;
+  deployedDrawdownPct: number | null;
+  deployedMaxDrawdownPct: number | null;
+};
+
+export type PerformanceDrawdownReport = {
+  navCurrentPct: number | null;
+  navMaxPct: number | null;
+  deployedCurrentPct: number | null;
+  deployedMaxPct: number | null;
 };
 
 export type PerformanceReport = {
   asOf: string;
   windows: PerformanceWindowReport[];
+  drawdown: PerformanceDrawdownReport;
   notes: string[];
+};
+
+export type PerformanceRange = {
+  from?: string;
+  to?: string;
 };
 
 type SnapshotDbRow = {
@@ -117,6 +135,7 @@ function toPoint(
 export async function buildPerformanceReport(
   db: Db,
   live: LivePerformanceMark,
+  range?: PerformanceRange,
 ): Promise<PerformanceReport> {
   const notes: string[] = [
     "S&P 500 (SPY) is the success benchmark; QQQ is the style benchmark. No blend.",
@@ -159,18 +178,21 @@ export async function buildPerformanceReport(
   );
 
   const liveDate = utcDay(live.asOf);
-  const last = points.at(-1);
-  const livePoint = toPoint(
-    liveDate,
-    live.nav,
-    live.invested,
-    live.positionsValue,
-    flows,
-  );
-  if (last == null || last.date < liveDate) {
-    points.push(livePoint);
-  } else if (last.date === liveDate) {
-    points[points.length - 1] = livePoint;
+  const includeLive = range?.to == null || liveDate <= range.to;
+  if (includeLive) {
+    const last = points.at(-1);
+    const livePoint = toPoint(
+      liveDate,
+      live.nav,
+      live.invested,
+      live.positionsValue,
+      flows,
+    );
+    if (last == null || last.date < liveDate) {
+      points.push(livePoint);
+    } else if (last.date === liveDate) {
+      points[points.length - 1] = livePoint;
+    }
   }
 
   const benchmarks = (benchmarkData as BenchmarkDbRow[] | null) ?? [];
@@ -211,18 +233,34 @@ export async function buildPerformanceReport(
     notes.push("Need two NAV marks to score a window. The nightly snapshot job fills the series.");
   }
 
-  const windowSpecs = [
-    { id: "inception", label: "Since inception", startDate: INCEPTION_DATE },
-    ...PERFORMANCE_REVIEWS.map((review) => ({
-      id: review.id,
-      label: `Since ${review.label}`,
-      startDate: review.date,
-    })),
-  ];
+  const customRange = range?.from != null || range?.to != null;
+  const windowSpecs = customRange
+    ? [
+        {
+          id: "custom",
+          label:
+            range?.from && range.to
+              ? `${range.from} → ${range.to}`
+              : range?.from
+                ? `Since ${range.from}`
+                : `Through ${range.to}`,
+          startDate: range?.from ?? INCEPTION_DATE,
+        },
+      ]
+    : [
+        { id: "inception", label: "Since inception", startDate: INCEPTION_DATE },
+        ...PERFORMANCE_REVIEWS.map((review) => ({
+          id: review.id,
+          label: `Since ${review.label}`,
+          startDate: review.date,
+        })),
+      ];
 
   const windows: PerformanceWindowReport[] = [];
   for (const spec of windowSpecs) {
-    const sliced = slicePointsOnOrAfter(points, spec.startDate);
+    const sliced = customRange
+      ? slicePointsInRange(points, range?.from, range?.to)
+      : slicePointsOnOrAfter(points, spec.startDate);
     const computed = windowReturn(sliced);
     if (computed == null) continue;
 
@@ -268,12 +306,27 @@ export async function buildPerformanceReport(
       navVsStyle: excessReturn(computed.navReturn, styleRet),
       deployedVsSuccess: excessReturn(computed.deployedReturn, successRet),
       deployedVsStyle: excessReturn(computed.deployedReturn, styleRet),
+      navDrawdownPct: computed.navDrawdownPct,
+      navMaxDrawdownPct: computed.navMaxDrawdownPct,
+      deployedDrawdownPct: computed.deployedDrawdownPct,
+      deployedMaxDrawdownPct: computed.deployedMaxDrawdownPct,
     });
   }
+
+  const drawdownSlice = customRange
+    ? slicePointsInRange(points, range?.from, range?.to)
+    : points;
+  const scored = windowReturn(drawdownSlice);
 
   return {
     asOf: live.asOf,
     windows,
+    drawdown: {
+      navCurrentPct: scored?.navDrawdownPct ?? null,
+      navMaxPct: scored?.navMaxDrawdownPct ?? null,
+      deployedCurrentPct: scored?.deployedDrawdownPct ?? null,
+      deployedMaxPct: scored?.deployedMaxDrawdownPct ?? null,
+    },
     notes,
   };
 }
@@ -341,10 +394,11 @@ export async function loadLivePerformanceMark(
 
 export async function getPerformanceReport(
   live?: LivePerformanceMark,
+  range?: PerformanceRange,
 ): Promise<PerformanceReport> {
   const supabase = await createClient();
   const mark = live ?? (await loadLivePerformanceMark(supabase));
-  return buildPerformanceReport(supabase, mark);
+  return buildPerformanceReport(supabase, mark, range);
 }
 
 export { BENCHMARKS };
