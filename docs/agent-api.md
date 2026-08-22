@@ -14,7 +14,7 @@ Private agent API: `/api/v1/agent/*` — Bearer token, scoped permissions, dolla
 | `getPortfolio` | no | Private book from the ledger |
 | `getJournal` | no | Decisions + pinned `dossier_version` |
 | `getCompanyDossier` | no | Live research object |
-| `getDossierVersions` / `getDossierVersion` | no | Immutable snapshots |
+| `getDossierVersions` / `getDossierVersion` | no | Immutable snapshots. No diff endpoint — fetch two versions and compare |
 | `updateDossier` | live dossier | New version **only if** assembled JSON changed |
 | `createDecision` | journal insert | Auto-pins current dossier version |
 | `getPlannedActions` | no | Open deployment queue |
@@ -64,13 +64,13 @@ This is not an OAuth authorization server. The same scope strings are the contra
 
 ## Idempotency
 
-On `POST /api/v1/agent/decisions`, `POST /api/v1/agent/planned-actions`, `POST /api/v1/agent/review-tasks`, `POST /api/v1/agent/review-tasks/{id}/complete`, and `POST /api/v1/agent/watchlist` send:
+On mutating `POST` and `PATCH` agent routes send:
 
 ```
 Idempotency-Key: <uuid>
 ```
 
-A retry with the same key and body returns the original result. A reused key with a different body returns `409 IDEMPOTENCY_KEY_REUSED`.
+That includes `POST` decisions, planned-actions, review-tasks, review-tasks complete, and watchlist, plus `PATCH` planned-actions, review-tasks, and dossiers. A retry with the same key and body returns the original result. A reused key with a different body returns `409 IDEMPOTENCY_KEY_REUSED`.
 
 ## Example curl
 
@@ -101,9 +101,13 @@ curl -sS -H "Authorization: Bearer $TOKEN" "$ORIGIN/api/v1/agent/deployment-queu
 # Current dossier
 curl -sS -H "Authorization: Bearer $TOKEN" "$ORIGIN/api/v1/agent/companies/MRCY"
 
-# Version history + one snapshot (“what did we believe when we bought it?”)
+# Version headers (number, change_reason, created_at — no snapshot bodies)
 curl -sS -H "Authorization: Bearer $TOKEN" "$ORIGIN/api/v1/agent/companies/MRCY/versions"
-curl -sS -H "Authorization: Bearer $TOKEN" "$ORIGIN/api/v1/agent/companies/MRCY/versions/1"
+
+# One snapshot by version_number or UUID. There is no diff endpoint:
+# fetch v2 and v3 and compare thesis / invalidation / source in the client.
+curl -sS -H "Authorization: Bearer $TOKEN" "$ORIGIN/api/v1/agent/companies/MRCY/versions/2"
+curl -sS -H "Authorization: Bearer $TOKEN" "$ORIGIN/api/v1/agent/companies/MRCY/versions/3"
 
 # Update dossier (creates version 4 only if assembled JSON changed)
 curl -sS -X PATCH -H "Authorization: Bearer $TOKEN" \
@@ -147,6 +151,7 @@ curl -sS -X POST -H "Authorization: Bearer $TOKEN" \
 # Defer a queued action
 curl -sS -X PATCH -H "Authorization: Bearer $TOKEN" \
   -H "Content-Type: application/json" \
+  -H "Idempotency-Key: 55555555-5555-5555-5555-555555555555" \
   -d '{"status":"deferred"}' \
   "$ORIGIN/api/v1/agent/planned-actions/PLAN_ACTION_UUID"
 
@@ -189,6 +194,15 @@ curl -sS -X POST -H "Authorization: Bearer $TOKEN" \
     }
   }' \
   "$ORIGIN/api/v1/agent/review-tasks"
+
+# Enrich a review's "what to do" text (cannot set due or completed)
+curl -sS -X PATCH -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -H "Idempotency-Key: 66666666-6666-6666-6666-666666666666" \
+  -d '{
+    "instructions": "Check weekly close vs the August low, volume on the bounce, and whether invalidation still holds. Do not queue a buy unless the structure confirms."
+  }' \
+  "$ORIGIN/api/v1/agent/review-tasks/REVIEW_TASK_UUID"
 
 # Complete a review, linking work that already exists
 curl -sS -X POST -H "Authorization: Bearer $TOKEN" \
@@ -277,14 +291,29 @@ These `operationId`s are stable tool names. A later MCP server can wrap each HTT
 
 Do not generate tools for table CRUD, SQL, or fill confirmation.
 
-Typical workflow:
+Typical workflows:
+
+**New name or live rewrite**
 
 1. `getFundState`
 2. `addWatchlistCompany` if the ticker is not in the universe yet (`theme` must already exist)
 3. `getCompanyDossier("MRCY")`
-4. external research
-5. user approval
-6. `updateDossier` (creates the first dossier version if none exists)
-7. optionally `createDecision` / `createPlannedAction` / `createReviewTask`
+4. `getDossierVersions` then `getDossierVersion` for any prior snapshot you need to compare (v2 vs v3, or vs a journal pin). There is no diff tool.
+5. external research
+6. user approval
+7. `updateDossier` (creates version 1 if none exists; later writes version only if assembled JSON changed)
+8. optionally `createDecision` / `createPlannedAction` (`buy` for a first entry, `add` for a second tranche) / `createReviewTask`
+
+**What we believed when we bought it**
+
+1. `getJournal?symbol=MRCY`
+2. `getDossierVersion` with the pinned `dossier_version` id or number on that row
+3. Do not use the live dossier as a proxy for that date
+
+**Tighten a review already on Upcoming**
+
+1. `getReviewQueue` (or `getFundState`) to get the task id
+2. `updateReviewTask` with `instructions` (and optionally `title`, `trigger`, `symbols` / `themes`)
+3. Status may be `pending`, `in_progress`, `deferred`, or `cancelled`. Triggers mark `due`; `completeReviewTask` records the outcome.
 
 Machine-readable contract: `GET /api/v1/agent/openapi.json` (public, no Bearer token). ChatGPT Actions can import that URL. Configure the GPT's authentication separately as API key / Bearer for the actual operations. The schema is OpenAPI 3.1.0, with no `oneOf`/`anyOf`/`$ref`, so Actions can parse every tool including `createReviewTask.trigger`.
