@@ -212,7 +212,7 @@ export function reviewTaskSubjectLinks(
 ): ReviewSubjectLink[] {
   const links: ReviewSubjectLink[] = review.themes.map((theme) => ({
     label: theme.name,
-    href: `/themes#${theme.slug}`,
+    href: `/explore?theme=${theme.slug}`,
   }));
   const shown =
     review.symbols.length > 6 ? review.symbols.slice(0, 5) : review.symbols;

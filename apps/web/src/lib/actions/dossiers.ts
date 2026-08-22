@@ -87,7 +87,6 @@ export async function saveDossier(
 
   revalidatePath("/explore");
   revalidatePath(`/explore/${symbol}`);
-  revalidatePath("/themes");
   revalidatePath("/");
   redirect(`/explore/${symbol}`);
 }

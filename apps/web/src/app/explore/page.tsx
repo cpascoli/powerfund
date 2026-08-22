@@ -1,9 +1,9 @@
-import Link from "next/link";
-
+import { ExploreCatalog } from "@/components/explore-catalog";
+import { getExploreCatalog } from "@/lib/data/explore";
 import {
-  listInstrumentsWithThemes,
-  listThemes,
-} from "@/lib/data/research";
+  parseExploreFocus,
+  parseExploreTheme,
+} from "@/lib/data/explore-catalog";
 
 export const dynamic = "force-dynamic";
 
@@ -11,19 +11,13 @@ export const metadata = {
   title: "Explore",
 };
 
-export default async function ExplorePage() {
-  const [themes, instruments] = await Promise.all([
-    listThemes(),
-    listInstrumentsWithThemes(),
-  ]);
+type PageProps = {
+  searchParams: Promise<{ theme?: string; focus?: string; q?: string }>;
+};
 
-  const counts = new Map<string, number>();
-  for (const instrument of instruments) {
-    counts.set(
-      instrument.theme_slug,
-      (counts.get(instrument.theme_slug) ?? 0) + 1,
-    );
-  }
+export default async function ExplorePage({ searchParams }: PageProps) {
+  const { theme, focus, q } = await searchParams;
+  const catalog = await getExploreCatalog();
 
   return (
     <>
@@ -31,62 +25,19 @@ export default async function ExplorePage() {
         <div>
           <h1>Explore</h1>
           <p>
-            Research universe by theme. Drill into names here; open-ended charts
-            belong in Workbench.
+            Research universe by theme. Open a name for the dossier; compare
+            charts in Workbench.
           </p>
         </div>
       </header>
 
-      <section className="panel">
-        <h2>Theme map</h2>
-        <ul className="list">
-          {themes.map((theme) => (
-            <li key={theme.id}>
-              <div>
-                <strong>
-                  <Link href={`/themes#${theme.slug}`}>{theme.name}</Link>
-                </strong>
-                <div className="muted">{theme.description}</div>
-              </div>
-              <span className="tag">
-                {counts.get(theme.slug) ?? 0} names
-              </span>
-            </li>
-          ))}
-        </ul>
-      </section>
-
-      <section className="panel">
-        <h2>Watchlist</h2>
-        {instruments.length === 0 ? (
-          <p className="empty">
-            No instruments yet. Run <code>pnpm db:reset</code> to seed the
-            starter universe.
-          </p>
-        ) : (
-          <ul className="list">
-            {instruments.map((instrument) => (
-              <li key={instrument.id}>
-                <div>
-                  <strong>
-                    <Link href={`/explore/${instrument.symbol}`}>
-                      {instrument.symbol}
-                    </Link>{" "}
-                    <span className="muted">{instrument.name}</span>
-                  </strong>
-                  <div className="muted">
-                    {instrument.theme_name}
-                    {instrument.notes ? ` · ${instrument.notes}` : ""}
-                  </div>
-                </div>
-                <span className="tag">
-                  {instrument.has_dossier ? "dossier" : instrument.status}
-                </span>
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
+      <ExploreCatalog
+        themes={catalog.themes}
+        names={catalog.names}
+        initialTheme={parseExploreTheme(theme, catalog.themes)}
+        initialFocus={parseExploreFocus(focus)}
+        initialQuery={q?.trim() ?? ""}
+      />
     </>
   );
 }

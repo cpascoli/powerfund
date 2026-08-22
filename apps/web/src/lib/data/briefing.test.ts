@@ -110,7 +110,7 @@ describe("briefing reviews", () => {
         href: null,
         instructions: nvidiaReview.instructions,
         subjects: expect.arrayContaining([
-          { label: "AI Infrastructure", href: "/themes#ai-infrastructure" },
+          { label: "AI Infrastructure", href: "/explore?theme=ai-infrastructure" },
           { label: "NVDA", href: "/explore/NVDA" },
         ]),
       }),
@@ -175,7 +175,7 @@ describe("briefing reviews", () => {
     expect(row.title).toBe(bwxt.title);
     expect(row.instructions).toBe(bwxt.instructions);
     expect(row.subjects).toEqual([
-      { label: "Defence", href: "/themes#defence" },
+      { label: "Defence", href: "/explore?theme=defence" },
       { label: "BWXT", href: "/explore/BWXT" },
     ]);
 
@@ -190,7 +190,7 @@ describe("briefing reviews", () => {
       },
     });
     expect(themeOnly.subjects).toEqual([
-      { label: "Energy", href: "/themes#energy" },
+      { label: "Energy", href: "/explore?theme=energy" },
     ]);
   });
 });

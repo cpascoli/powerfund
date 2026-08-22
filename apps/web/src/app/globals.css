@@ -526,13 +526,15 @@ a {
 
 .stat strong.is-up,
 .return-stat strong.is-up,
-.position-mtm .is-up {
+.position-mtm .is-up,
+.catalog-num.is-up {
   color: var(--accent);
 }
 
 .stat strong.is-down,
 .return-stat strong.is-down,
-.position-mtm .is-down {
+.position-mtm .is-down,
+.catalog-num.is-down {
   color: var(--danger);
 }
 
@@ -691,8 +693,17 @@ a {
 .upcoming-filters {
   display: flex;
   flex-wrap: wrap;
+  align-items: flex-end;
   gap: 0.65rem;
   margin: 0.85rem 0 0.25rem;
+}
+
+.journal-filters {
+  justify-content: space-between;
+}
+
+.journal-filters .seg {
+  margin-left: auto;
 }
 
 .seg {
@@ -734,6 +745,54 @@ a {
   color: var(--ink);
 }
 
+.chip-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin: 0.85rem 0 0.25rem;
+}
+
+.chip-row button {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.32rem 0.7rem;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--bg);
+  color: var(--muted);
+  font: inherit;
+  font-size: 0.82rem;
+  font-weight: 650;
+  cursor: pointer;
+}
+
+.chip-row button span {
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+
+.chip-row button:hover {
+  color: var(--ink);
+}
+
+.chip-row button.is-active {
+  background: var(--bg-elevated);
+  color: var(--ink);
+  border-color: var(--ink);
+}
+
+.chip-row button.is-active span {
+  color: var(--ink);
+}
+
+.theme-blurb {
+  margin: 0.7rem 0 0;
+  color: var(--muted);
+  line-height: 1.5;
+}
+
 .workbench-controls {
   display: flex;
   flex-wrap: wrap;
@@ -751,7 +810,8 @@ a {
   text-transform: uppercase;
 }
 
-.workbench-controls select {
+.workbench-controls select,
+.workbench-controls input[type="search"] {
   border: 1px solid var(--line);
   border-radius: 8px;
   padding: 0.45rem 0.6rem;
@@ -823,6 +883,11 @@ a {
 
 .price-panel-head h2 {
   margin: 0;
+}
+
+.price-panel-head h2 .tag {
+  vertical-align: middle;
+  font-family: var(--font-sans);
 }
 
 .price-panel-head p {
@@ -983,6 +1048,45 @@ a {
   text-transform: uppercase;
 }
 
+.tag.warn {
+  background: #f5e6c8;
+  color: var(--warn);
+}
+
+.catalog thead th button {
+  display: inline;
+  padding: 0;
+  border: none;
+  background: none;
+  color: inherit;
+  font: inherit;
+  letter-spacing: inherit;
+  text-transform: inherit;
+  cursor: pointer;
+}
+
+.catalog thead th button:hover {
+  color: var(--ink);
+}
+
+.catalog-num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.catalog tbody tr {
+  cursor: pointer;
+}
+
+.catalog tbody tr:hover td {
+  background: var(--bg-elevated);
+}
+
+.catalog td .tag + .tag {
+  margin-left: 0.35rem;
+}
+
 .empty {
   margin-top: 0.75rem;
   color: var(--muted);
@@ -1038,6 +1142,10 @@ a {
   .agenda th,
   .agenda td {
     padding-right: 0.5rem;
+  }
+
+  .catalog-hide-narrow {
+    display: none;
   }
 }
 

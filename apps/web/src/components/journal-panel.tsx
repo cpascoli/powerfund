@@ -76,7 +76,14 @@ export function JournalPanel({
           Log decision
         </Link>
       </div>
-      <div className="upcoming-filters">
+      <div className="upcoming-filters journal-filters">
+        <div className="workbench-controls">
+          <JournalCompanyFilter
+            companies={companies}
+            value={symbol}
+            onChange={selectSymbol}
+          />
+        </div>
         <div className="seg" role="group" aria-label="When">
           {JOURNAL_HORIZON_ITEMS.map((entry) => (
             <button
@@ -89,13 +96,6 @@ export function JournalPanel({
               {entry.label}
             </button>
           ))}
-        </div>
-        <div className="workbench-controls">
-          <JournalCompanyFilter
-            companies={companies}
-            value={symbol}
-            onChange={selectSymbol}
-          />
         </div>
       </div>
       {filtered.length === 0 ? (

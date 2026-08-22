@@ -16,7 +16,6 @@ export function JournalCompanyFilter({
 }) {
   return (
     <label>
-      Company
       <select
         aria-label="Filter journal by company"
         value={value}
