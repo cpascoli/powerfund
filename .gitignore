@@ -37,3 +37,6 @@ apps/*/.netlify
 
 # Scratch file used to compose commit messages
 .commit-msg.tmp
+
+# Shell scripts
+*.sh
