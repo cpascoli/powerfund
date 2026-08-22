@@ -13,6 +13,7 @@ Intelligence for managing and growing capital in the markets — starting with p
 | [ux.md](./ux.md) | Research UI information architecture and viz principles |
 | [deploy.md](./deploy.md) | GitHub → Netlify CI and remote Supabase |
 | [agent-api.md](./agent-api.md) | Private authenticated API for AI agents (ChatGPT / MCP) |
+| [gpt-agent-process.md](./gpt-agent-process.md) | How a GPT should run the book against that API (cadence, Briefing objects, rituals) |
 
 ## Reviews
 

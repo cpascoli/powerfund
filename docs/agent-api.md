@@ -1,6 +1,6 @@
 # Agent API
 
-Private, authenticated domain API for AI agents (ChatGPT, MCP, etc.). It is **not** the public catalog and **not** trade execution.
+Private, authenticated domain API for AI agents (ChatGPT, MCP, etc.). It is **not** the public catalog and **not** trade execution. Operating rituals (daily sweep, weekly holds, calendar fill, new names): [gpt-agent-process.md](./gpt-agent-process.md).
 
 Public anonymous catalog: [`/api/v1`](https://powerfund.netlify.app/api/v1) — weights and research text only.
 
