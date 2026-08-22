@@ -47,7 +47,22 @@ Exact percentages can be tuned; the existence of hard caps cannot.
 5. **No average-down without new evidence** — adding requires incremental information, not price alone.
 6. **Parabolic / crowded filter** — prefer not initiating full size into vertical, highly crowded moves without a fresh asymmetric catalyst. Crowding is **measured, not felt**: check valuation percentile vs the name's own 5-year history, short interest, extension above the 200-day average, and consensus-revision breadth before entry. "Skip if it feels like chasing" notes are binding — if the note exists and the tape gaps up, the answer is skip.
 7. **Liquidity** — position size must respect average volume and expected exit horizon.
-8. **Kill-switch** — defined on **deployed capital**, not total NAV (a 90%-cash book can never trigger an NAV-level switch, and a fully deployed book in high-vol names makes a tight NAV switch a near-certain forced sale). Measure drawdown on the **unitized** deployed sleeve (time-weighted, so a new fill at cost is not a loss). If that drawdown from peak exceeds the threshold, reduce risk (trim, halt new risk, or raise cash) until review is complete.
+8. **Kill-switch** — measure **both** (a) drawdown on the **unitized** deployed sleeve (time-weighted, so a new fill at cost is not a loss) and (b) NAV drawdown (cash included). The sleeve answers “are we selecting or timing badly?” NAV answers “is fund capital actually impaired?” A 90%-cash book can never trip an NAV switch, which is why the **diagnostic** stays on deployed capital. Do not treat a 15% loss on an $18k seed book as the same event as a 15% loss on $200k deployed.
+
+   **−15% unitized deployed sleeve = mandatory diagnostic review**, not an automatic trim. Classify the move before acting:
+
+   | Class | Meaning | Typical Phase-1 response |
+   |-------|---------|--------------------------|
+   | Valuation shock | Prices down; estimates, backlog, and catalysts intact | Hold; may **accelerate** per the deployment ladder |
+   | Factor shock | One common exposure (e.g. AI-capex) is repriced | Pause more capital into that factor; keep deploying independent themes |
+   | Earnings / fundamental shock | Intrinsic values are falling | Slow or halt new risk in the affected names |
+   | Thesis failure | The investment premise is wrong | Reduce/exit **that name** regardless of portfolio drawdown |
+
+   Per-name invalidation (rule 4) still forces exit or reduce immediately. Do not wait for a book-level trigger.
+
+   **Phase 1 (invested cost at or below $75k):** cash is already the risk-management lever. A 15% sleeve drawdown does **not** halt thesis-intact buys and does **not** require raising cash. The buy gate matches this: it will not refuse a fill solely on the 15% flag while still under the Phase-1 cap.
+
+   **After Phase 1:** the same 15% remains a diagnostic. Until a harder NAV-aware capital-preservation threshold is set (revise after the first live month), new buys still need a written override while the flag is on. That is a temporary software halt, not an order to sell the book.
 9. **AI memory cycle discipline** — HBM/DRAM/NAND names are the **`ai_memory` sleeve** inside AI infrastructure (not a separate core theme). They count **fully** toward the rule-10 AI-capex cap. Do not treat peak-cycle EPS or trough trailing multiples as “cheap” without contract coverage, mix shift, and normalized-earnings evidence. Prefer starter sizes; add only on new information. Soft guide: memory/storage sleeve ≤ **15% NAV** until it earns a larger allocation in review.
 10. **Factor concentration (correlation-aware)** — theme labels are not diversification. The mandate map is a **unit-sum allocation**, not a stress-beta model: each name has explicit weights, a one-line rationale, and a review date. Unknown names are unclassified and flagged. Cap weighted **AI-capex + AI-memory** as one position-like risk **vs NAV (cash included)**. DoD autonomy, commercial aerospace, and surgical-procedure growth are not hyperscaler capex. Maintain a standing "hyperscaler capex guidance −20%" stress (haircut × mapped AI-capex/memory weight). Cash is a diversifier versus this factor; the kill-switch (rule 8) stays on deployed capital.
 
@@ -58,7 +73,7 @@ Exact percentages can be tuned; the existence of hard caps cannot.
 | Max position | 10% NAV |
 | Max theme | 40% NAV |
 | Min cash | 10% NAV |
-| Drawdown kill-switch | 15% of **deployed capital** from peak → mandatory review + risk reduction |
+| Drawdown diagnostic | 15% of **deployed capital** from peak → mandatory review. Phase 1: no automatic trim and no buy halt. After Phase 1: new buys need an override until a harder capital threshold is chosen |
 | Soft max AI memory/storage sleeve | 15% NAV (inside AI infra) |
 | Soft max AI-capex factor exposure | 40% NAV (cash included; same number as the theme cap) |
 | Phase-1 invested cap | $75,000 cost |
@@ -82,10 +97,10 @@ New risk is planned in the **deployment queue** (dollars + window + why) and onl
 **Deployment ladder (pre-committed, not mood-based):** "keeping ammunition for volatility" without pre-commitment is market timing, and the −25% day will not get bought on discretion. Deploy via:
 
 1. A **baseline tranche** per month up to the phase invested cap. Current: **~$10k/month** (set 2026-08-13), which reaches the $75k Phase-1 cap around January 2027; continuing past the cap is an explicit review decision that opens Phase 2.
-2. **Acceleration tranches** triggered by theme drawdowns (e.g. −10% and −20% from entry), gated by a thesis-intact checklist — not by price alone.
+2. **Acceleration tranches** triggered by theme drawdowns (e.g. −10% and −20% from entry), gated by a thesis-intact checklist — not by price alone. A book-level 15% sleeve drawdown that classifies as a **valuation shock** (rule 8) is the same kind of event: diagnose, then deploy per this ladder if the checklist passes. Do not freeze the ladder because starters did what volatile growth starters do.
 3. Cash level is a **decision recorded at review**, not drift. If cash exceeds plan for two consecutive reviews, either deploy per ladder or write down why not.
 
-**Phase 1 (first weeks):** stay well under the invested cap. Starter stubs first; add on thesis-intact weakness or confirmation. Do not treat a weekly dollar target as a quota.
+**Phase 1 (first weeks):** stay well under the invested cap. Starter stubs first; add on thesis-intact weakness or confirmation. Do not treat a weekly dollar target as a quota. Crossing the cap is an explicit Phase-2 review (all four core themes, factor mix, at least one evidence cycle on starters, whether the ladder worked, scenario calibration, and the new size/cash target) — not silent creep.
 
 **Out of scope for this book:** BTC DCA, gold as BTC reserve, and any capital not explicitly moved into PowerFund cash.
 
@@ -112,7 +127,7 @@ We do not define edge as:
 
 **Label trades honestly.** A datapoint that appears in an IEA flagship report, a NATO communiqué, or hyperscaler guidance is consensus by definition — citing it is not evidence of earliness. When a position does not clear the earliness bar, call it what it is: **momentum with fundamental support**. That label is allowed, but it changes the exit posture from buy-and-hold to trend-following with theme-level exit indicators (see [themes.md](./themes.md)) and makes the crowded filter (rule 6) mandatory, not advisory.
 
-**Stretch targets never override risk rules.** Return scenarios (e.g. doubling over N years) are scenarios, not objectives. If a target implies volatility that makes the kill-switch a near-certain trigger, revise the target — not the kill-switch. (See [2026-08-13 strategy second opinion](./reviews/2026-08-13-strategy-second-opinion.md), finding 3.)
+**Stretch targets never override risk rules.** Return scenarios (e.g. doubling over N years) are scenarios, not objectives. Keep measuring the 15% deployed diagnostic even if a growth book is likely to touch it; do not disable the sensor. What Phase 1 changes is the **response** (diagnose, maybe deploy) — not the measurement, and not per-name invalidation. (See [2026-08-13 strategy second opinion](./reviews/2026-08-13-strategy-second-opinion.md), finding 3.)
 
 ## Instruments & leverage
 
@@ -125,8 +140,8 @@ We do not define edge as:
 | Cadence | Activity |
 |---------|----------|
 | Weekly | Book review, open theses, risk flags, signal quality |
-| Monthly | Mandate compliance, theme mix, lesson write-ups |
-| Quarterly | Strategy fit vs opportunity set; update defaults if needed |
+| Monthly | Mandate compliance, theme mix, where the next dollar goes, lesson write-ups |
+| Quarterly | Strategy fit; theme and factor weights; NAV and deployed performance vs S&P 500 and QQQ; decision calibration; update defaults if needed |
 
 ## Compliance note (future scale)
 

@@ -269,7 +269,11 @@ export default async function BriefingPage({
                   ? undefined
                   : "is-up"
             }
-            title={`Kill-switch at ${RISK_DEFAULTS.drawdownKillSwitchPct}% of deployed capital from peak`}
+            title={
+              drawdown.killSwitchBlocksNewRisk
+                ? `${RISK_DEFAULTS.drawdownKillSwitchPct}% deployed-sleeve diagnostic after Phase 1 — new buys halt until review`
+                : `${RISK_DEFAULTS.drawdownKillSwitchPct}% deployed-sleeve diagnostic; Phase 1 does not halt new buys`
+            }
           >
             {drawdown.deployedDrawdownPp == null
               ? "—"

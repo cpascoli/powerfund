@@ -2,6 +2,7 @@ import {
   RISK_DEFAULTS,
   accumulateLedgerFlows,
   drawdownFromPeakPct,
+  shouldHaltNewRiskForKillSwitch,
   unitizedDeployedIndex,
   utcDay,
   type DailyFlows,
@@ -67,7 +68,11 @@ export type DrawdownSummary = {
    * at cost cannot manufacture a drawdown.
    */
   deployedDrawdownPp: number | null;
+  /** True when deployed drawdown is at or above the 15% diagnostic. */
   killSwitchBreached: boolean;
+  /** True only after Phase 1 — the buy gate uses this, not the diagnostic alone. */
+  killSwitchBlocksNewRisk: boolean;
+  investedCostUsd: number;
 };
 
 export async function listLedgerFlows(
@@ -128,6 +133,8 @@ export function computeDrawdown(
       navDrawdownPct: null,
       deployedDrawdownPp: null,
       killSwitchBreached: false,
+      killSwitchBlocksNewRisk: false,
+      investedCostUsd: current.invested,
     };
   }
 
@@ -162,22 +169,28 @@ export function computeDrawdown(
   const deployedDrawdownPp = drawdownFromPeakPct(
     unitizedDeployedIndex(points),
   );
+  const killSwitchBreached =
+    deployedDrawdownPp != null &&
+    deployedDrawdownPp >= RISK_DEFAULTS.drawdownKillSwitchPct;
 
   return {
     snapshots: history.length,
     peakNav,
     navDrawdownPct,
     deployedDrawdownPp,
-    killSwitchBreached:
-      deployedDrawdownPp != null &&
-      deployedDrawdownPp >= RISK_DEFAULTS.drawdownKillSwitchPct,
+    killSwitchBreached,
+    killSwitchBlocksNewRisk: shouldHaltNewRiskForKillSwitch(
+      killSwitchBreached,
+      current.invested,
+    ),
+    investedCostUsd: current.invested,
   };
 }
 
 /**
- * Snapshot-derived mandate flags: the rule-8 kill-switch and a freshness
- * check on the nightly job. Rendered alongside the book flags on both the
- * Briefing and the Portfolio mandate tab.
+ * Snapshot-derived mandate flags: the rule-8 drawdown diagnostic and a
+ * freshness check on the nightly job. Rendered alongside the book flags
+ * on both the Briefing and the Portfolio mandate tab.
  */
 export function snapshotFlags(
   history: SnapshotRow[],
@@ -212,13 +225,15 @@ export function snapshotFlags(
     flags.push({
       code: "drawdown_kill_switch",
       severity: "warn",
-      label: `Unitized deployed drawdown ${drawdown.deployedDrawdownPp?.toFixed(1)}% breaches the ${RISK_DEFAULTS.drawdownKillSwitchPct}% kill-switch — halt new risk and review the book`,
+      label: drawdown.killSwitchBlocksNewRisk
+        ? `Unitized deployed drawdown ${drawdown.deployedDrawdownPp?.toFixed(1)}% breaches the ${RISK_DEFAULTS.drawdownKillSwitchPct}% diagnostic after Phase 1 — halt new risk and review the book`
+        : `Unitized deployed drawdown ${drawdown.deployedDrawdownPp?.toFixed(1)}% — mandatory diagnostic (Phase 1: does not halt new buys)`,
     });
   } else if (drawdown.deployedDrawdownPp != null) {
     flags.push({
       code: "drawdown_kill_switch",
       severity: "ok",
-      label: `Unitized deployed drawdown ${drawdown.deployedDrawdownPp.toFixed(1)}% vs ${RISK_DEFAULTS.drawdownKillSwitchPct}% kill-switch`,
+      label: `Unitized deployed drawdown ${drawdown.deployedDrawdownPp.toFixed(1)}% vs ${RISK_DEFAULTS.drawdownKillSwitchPct}% diagnostic`,
     });
   }
 

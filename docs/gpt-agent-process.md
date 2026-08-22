@@ -9,6 +9,7 @@ Hard rules:
 - There is no `updateDecision`, `reviewed_at` endpoint, or `completeWeeklyReview`. Completing a weekly hold is a **new** `createDecision`.
 - Do not `createReviewTask` for a weekly hold. Do not `createPlannedAction` for an earnings print.
 - User approval before `updateDossier`, `createDecision`, `createPlannedAction`, `createReviewTask`, and `addWatchlistCompany`.
+- A Phase-1 15% deployed-sleeve drawdown is a **diagnostic**, not an automatic trim or buy halt. Per-name invalidation still forces reduce/exit.
 
 Machine contract: `GET /api/v1/agent/openapi.json`. Playbook (mandate, cash, size caps): [mandate.md](./mandate.md).
 
@@ -20,7 +21,13 @@ Machine contract: `GET /api/v1/agent/openapi.json`. Playbook (mandate, cash, siz
 | Weekly | Holding review — every open name |
 | Rolling | Calendar fill — known events 2–3 months out |
 | Ad hoc | New-name research; watchlist hygiene |
+| Before any `buy` / `add` planned action | Dossier / data-integrity gate |
 | Monthly | Book / mandate pass — cash, caps, deployment ladder |
+| Monthly / before a material tranche | Opportunity ranking — where the next dollar goes |
+| Quarterly | Theme and factor review |
+| Quarterly | Performance attribution and decision calibration |
+| On −15% deployed sleeve / major factor shock | Stress incident review |
+| At $75k invested cost | Phase-1 → Phase-2 transition review |
 | After a fill or exit | Pin the journal to the dossier version you believed; outcome notes on exit |
 
 ## Object taxonomy
@@ -51,7 +58,7 @@ Review-task triggers:
 | `thesis_review` | Latest `enter` / `add` / `hold` without `reviewed_at` or an outcome is older than **7 days** | This **is** the weekly holding process. Do not create a review task. A new `createDecision` resets the clock. Marking the old row reviewed in the UI does not. |
 | `diligence` | Live dossier `next_diligence` stale **14 days** | Research, then `updateDossier`. |
 | `missing_invalidation` | Open position with no kill criteria | Mandate rule 4. Write invalidation before any add. |
-| `flag` | Mandate or queue vs NAV (cash, position size, theme, AI-capex, kill-switch) | Explain. Queue a trim, defer/cancel a planned trade, or write why size/cash stays. |
+| `flag` | Mandate or queue vs NAV (cash, position size, theme, AI-capex, deployed-drawdown diagnostic) | Explain. Caps still constrain size. A Phase-1 15% sleeve flag is ritual 11 (diagnose), not an automatic `reduce`. |
 | `review_due` | A **review task** whose trigger has fired | Same as queued review task above. |
 | `due_today` / `overdue` | A **planned action** whose `due_by` is today or past | Same as queued planned action above. |
 
@@ -95,7 +102,7 @@ For each open holding:
 4. Decide: **hold** (stay), **add** / **reduce** (size), or **exit**.
 5. If the written thesis changed, `updateDossier` first (new version only if assembled JSON changed).
 6. `createDecision` today with that conclusion. This completes the weekly review.
-7. If size changes, `createPlannedAction` as well (`add` / `reduce` / `sell`). The human still books the fill.
+7. If size changes, pass the data-integrity gate (ritual 8) then `createPlannedAction` (`add` / `reduce` / `sell`). The human still books the fill.
 
 Then the next name. Do not batch several holdings into one journal row.
 
@@ -149,7 +156,7 @@ Purpose: a ticker is not research until it has a dossier and kill criteria.
 2. `updateDossier` version 1: summary, thesis, invalidation, next diligence, sources. Bars ingest on the next worker run (or a local backfill).
 3. Optional: `createDecision` `watch` to record “on the list, not in the book.”
 4. Optional: `createReviewTask` for the first dated catalyst.
-5. `createPlannedAction` `buy` only after user approval. Still not a fill.
+5. `createPlannedAction` `buy` only after user approval **and** the data-integrity gate (ritual 8). Still not a fill.
 
 | Step | Tool |
 |------|------|
@@ -171,13 +178,14 @@ The agent **cannot** archive or delete a name. Propose drops in chat; the operat
 
 ## 6. Monthly book / mandate pass
 
-Purpose: cash and concentration are decisions, not drift. Numbers live in [mandate.md](./mandate.md) (10% max position, 40% max theme, 10% min cash, 15% deployed-drawdown kill-switch, ~$10k/month baseline tranche, $75k phase-1 invested cap).
+Purpose: cash and concentration are decisions, not drift. Numbers live in [mandate.md](./mandate.md) (10% max position, 40% max theme, 10% min cash, 15% deployed-drawdown **diagnostic**, ~$10k/month baseline tranche, $75k phase-1 invested cap).
 
-1. `getFundState` + `getPortfolio` — flags, cash % NAV, largest weight, AI-capex factor, open planned dollars.
+1. `getFundState` + `getPortfolio` — flags, cash % NAV, largest weight, AI-capex factor, open planned dollars, `performance` windows vs SPY/QQQ.
 2. If cash is above plan for a second consecutive monthly pass: either queue deployment per the ladder or write why not (journal or chat, then a `hold` / mandate note as appropriate).
-3. If a cap or kill-switch flag is on: queue `reduce` / `sell` planned actions, or halt new `buy`s. Do not edit the mandate file via the API.
-4. Check the baseline tranche vs phase-1 cap. Continuing past $75k cost is an explicit Phase 2 decision, not creep.
-5. Output: written conclusions plus any `createPlannedAction` / `updatePlannedAction`. Human still fills.
+3. If a **size / theme / cash / AI-capex cap** flag is on: queue `reduce` / `sell` or halt new `buy`s. If the flag is the **15% deployed diagnostic**, run ritual 11 — do not treat it as a cap during Phase 1. Do not edit the mandate file via the API.
+4. Check the baseline tranche vs phase-1 cap. Continuing past $75k cost is ritual 13, not creep.
+5. Run ritual 9 (opportunity ranking) before queuing the month’s tranche.
+6. Output: written conclusions plus any `createPlannedAction` / `updatePlannedAction`. Human still fills.
 
 | Step | Tool |
 |------|------|
@@ -201,3 +209,136 @@ The human confirms the fill in the UI. Then:
 | What we believed | `getJournal?symbol=`, `getDossierVersion` |
 | Outcome | `createDecision` (or UI outcome fields on an existing row) |
 | Clean the queue | `updatePlannedAction` `cancelled` |
+
+---
+
+## 8. Dossier / data-integrity gate
+
+Purpose: a stale or internally inconsistent dossier cannot authorize a planned `buy` or `add`. This is QA, not a second research opinion.
+
+Run before `createPlannedAction` `buy` / `add` (and before asking the human to confirm that fill):
+
+1. `getCompanyDossier` — ticker and name match the instrument; share class is the one you meant (ADR vs ordinary, dual listing).
+2. `getPortfolio` (if already held) or last close on the dossier vs the **scenario anchor** in the write-up. If the reference price in the valuation section is stale or from the wrong listing, refresh scenarios with `updateDossier` before sizing.
+3. `verified_at` is recent enough for a capital decision (if missing or weeks old, re-verify).
+4. Primary `source` links resolve; major results since `verified_at` are in the thesis.
+5. Scenario math is internally consistent with the reference price you just checked (probability-weighted 24/60m returns still use that price).
+6. Kill criteria are written (mandate rule 4).
+
+If any of those fail: do **not** `createPlannedAction`. Fix the dossier first, or say the name is not decision-grade.
+
+There is no separate integrity API. The agent compares dossier text to `getPortfolio` / live marks. Contribution math and split-adjusted history are not machine-checked yet.
+
+| Step | Tool |
+|------|------|
+| Live thesis | `getCompanyDossier` |
+| Mark / last close | `getPortfolio` |
+| Refresh if the anchor moved | `updateDossier` |
+
+---
+
+## 9. Opportunity ranking (monthly / before a material tranche)
+
+Purpose: the fund succeeds by answering “given everything else we could own, is this the best use of the next $1 of risk?” — not “is this company good?”
+
+1. `getFundState?include_watchlist=true` — holdings, watchlist with `has_dossier`, cash, open planned dollars, factor flags.
+2. For each decision-grade name (live dossier + kill criteria): `getCompanyDossier`. Refresh price vs the scenario anchor (ritual 8). Note probability-weighted 24/60m return, downside case, thesis quality, factor overlap, evidence status.
+3. Rank into **Buy now / Buy on condition / Hold / Too expensive / Thesis weak**. Do not queue CEG because the last chat was about CEG if VST or BWXT rank higher.
+4. Check factor overlap: several “different” themes can still be one AI-capex trade. Prefer the next dollar in an independent sleeve when the ranking is close.
+5. Only then `createPlannedAction` for the names that won the rank, after user approval and ritual 8.
+
+No ranking endpoint. Write the table in chat (or a journal `watch` / `hold` if the conclusion is durable). `getPortfolio.performance` is book-level TWR vs SPY/QQQ, not name-level relative value.
+
+| Step | Tool |
+|------|------|
+| Universe | `getFundState?include_watchlist=true` |
+| Each name | `getCompanyDossier`, `getJournal?symbol=` |
+| Book context | `getPortfolio` |
+| Queue the winner | `createPlannedAction` `buy` / `add` |
+
+---
+
+## 10. Quarterly theme and factor review
+
+Purpose: theme labels are not diversification. Mandate and [themes.md](./themes.md) already require a quarterly pass; this is that pass.
+
+1. `getFundState` + `getPortfolio` — weight by theme, AI-capex and memory flags, largest names.
+2. Operator opens **Workbench → Risk** (pairwise correlation, standing hyperscaler-capex −20% stress). The agent API cannot read that surface yet; paste or describe the stress result in chat.
+3. Rank each core theme (AI infrastructure, energy, robotics/AI, defence, other) by thesis health, valuation, evidence trend, portfolio weight, and shared-factor exposure.
+4. Identify hidden correlation (e.g. cooling + power + EMS as one AI-capex trade).
+5. Conclude **more / same / less capital** for each theme next quarter. Update dossiers and, if the map changed, say so — factor weights live in code (`FACTOR_EXPOSURES`), not the agent API.
+6. Optional: `createReviewTask` on a theme scope for the next dated catalyst; `createPlannedAction` only for size changes that survived rituals 8–9.
+
+| Step | Tool |
+|------|------|
+| Weights and flags | `getFundState`, `getPortfolio` |
+| Correlation / −20% stress | Workbench → Risk (human) |
+| Theme thesis | `getCompanyDossier` on the sleeve’s names |
+
+---
+
+## 11. Stress / kill-switch incident
+
+Purpose: when the 15% deployed-sleeve diagnostic fires (or a major factor shock hits), stop and classify. Do not improvise a de-risk.
+
+1. `getFundState` + `getPortfolio` — sleeve drawdown flag, NAV, cash %, holdings, `performance` vs QQQ/SPY.
+2. Freeze **new correlated buys** until the classification is written. During Phase 1 do **not** freeze the whole ladder and do **not** raise cash just to “do something.”
+3. For each open name: `getCompanyDossier` + `getJournal?symbol=`. Has invalidation triggered? Have estimates/backlog/guidance changed, or only the multiple?
+4. Classify the book move as **valuation / factor / earnings / thesis failure** ([mandate.md](./mandate.md) rule 8).
+5. Act:
+   - Valuation shock, theses intact → hold; consider acceleration per the ladder (ritual 9 still applies).
+   - Factor shock → pause more capital into that factor; keep independent themes in play.
+   - Earnings shock or thesis failure → `createPlannedAction` `reduce` / `sell` on **those** names; `createDecision` with the conclusion.
+6. After Phase 1, a 15% flag still blocks new buys in software until a written override. That is not an order to sell.
+
+| Step | Tool |
+|------|------|
+| Snapshot | `getFundState`, `getPortfolio` |
+| Per name | `getCompanyDossier`, `getJournal?symbol=` |
+| Record the diagnosis | `createDecision` |
+| Size change only if the class requires it | `createPlannedAction` |
+
+---
+
+## 12. Quarterly performance and decision calibration
+
+Purpose: improve the process, not accumulate dossiers.
+
+Qualitative (works today):
+
+1. `getJournal` (filter by date or symbol). For each material `enter` / `add` / `reduce` / `exit`, `getDossierVersion` on the pin — not the live dossier.
+2. Ask: did stock selection add value? Did cash timing help or hurt? Which themes contributed? Were we right for the right reason? Did we add only on new evidence? Were scenario estimates systematically optimistic?
+3. Write lessons in chat and/or a new `createDecision` (`hold` / `watch`) if the process itself changed. Do not PATCH old journal rows to grade them — that is not an agent API, and `reviewed_at` / `outcome_grade` on the old enter is not this week’s review.
+
+Quantitative (partial today):
+
+- `getPortfolio.performance` — NAV TWR and deployed TWR vs SPY and QQQ for inception and “since review” windows. That is the mandate scoreboard.
+- There is **no** contribution-by-ticker/theme API yet and **no** `recordDecisionOutcome`. Do not invent numbers the tools did not return.
+
+| Step | Tool |
+|------|------|
+| Scoreboard | `getPortfolio` (`performance`) |
+| What we believed | `getJournal`, `getDossierVersion` |
+
+---
+
+## 13. Phase-1 → Phase-2 transition ($75k invested cost)
+
+Purpose: the cap is a checkpoint, not a numerical gate you tiptoe past.
+
+Before queuing any buy that would take invested cost through $75k, answer in writing:
+
+1. Are all four core themes represented (or is a hole explicit and accepted)?
+2. Is factor concentration (especially AI-capex) acceptable vs the −20% stress?
+3. Have Phase-1 starters passed at least one evidence cycle (print, backlog, or guidance — not just price)?
+4. Did the deployment ladder work, or did we skip acceleration/baseline without a written reason?
+5. Is scenario calibration credible (ritual 12), not systematically too optimistic?
+6. What is the new Phase-2 sizing and cash target?
+
+Then `createPlannedAction` only if the user accepts that review. The buy gate will also refuse fills above the cap without a mandate override.
+
+| Step | Tool |
+|------|------|
+| Current cost vs cap | `getPortfolio` (`invested_cost_usd`) |
+| Factor / theme mix | `getFundState` |
+| Evidence on starters | `getJournal`, `getCompanyDossier` |

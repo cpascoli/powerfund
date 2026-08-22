@@ -3,6 +3,7 @@ export const RISK_DEFAULTS = {
   maxPositionPctNav: 10,
   maxThemePctNav: 40,
   minCashPctNav: 10,
+  /** 15% unitized deployed-sleeve drawdown. Diagnostic always; buy-halt only after Phase 1. */
   drawdownKillSwitchPct: 15,
   /** Soft guide: pure AI memory/storage names inside the AI infra theme. */
   maxAiMemorySleevePctNav: 15,

@@ -43,6 +43,20 @@ export type ProposedBuy = {
   costUsd: number;
 };
 
+/**
+ * Mandate rule 8: −15% deployed sleeve is always a diagnostic.
+ * New buys are blocked on that flag only after invested cost exceeds the
+ * Phase-1 cap. Per-name invalidation is a separate rule.
+ */
+export function shouldHaltNewRiskForKillSwitch(
+  killSwitchBreached: boolean,
+  investedCostUsd: number,
+): boolean {
+  return (
+    killSwitchBreached && investedCostUsd > RISK_DEFAULTS.phase1InvestedCapUsd
+  );
+}
+
 function pct(part: number, whole: number): number {
   return whole > 0 ? (part / whole) * 100 : 0;
 }
@@ -164,10 +178,13 @@ export function evaluateMandate(book: MandateBook): MandateViolation[] {
     });
   }
 
-  if (book.killSwitchBreached) {
+  if (
+    shouldHaltNewRiskForKillSwitch(book.killSwitchBreached, book.invested)
+  ) {
     violations.push({
       code: "drawdown_kill_switch",
-      label: `Kill-switch is already breached — halt new risk until the book is reviewed`,
+      label:
+        "Deployed-sleeve drawdown diagnostic is on after Phase 1 — halt new risk until the book is reviewed",
     });
   }
 

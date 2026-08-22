@@ -86,7 +86,7 @@ export function PlannedActionForm({ instruments }: Props) {
         <textarea
           name="mandate_override_reason"
           rows={2}
-          placeholder="Required only if this planned buy would breach a cap, the cash floor, the phase-1 cap, the kill-switch, or the 40% NAV AI-capex factor"
+          placeholder="Required only if this planned buy would breach a cap, the cash floor, the phase-1 cap, the Phase-2 drawdown halt, or the 40% NAV AI-capex factor"
         />
       </label>
 
