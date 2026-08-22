@@ -1,7 +1,5 @@
 "use client";
 
-import { useRouter } from "next/navigation";
-
 export type JournalCompanyOption = {
   symbol: string;
   name: string;
@@ -10,24 +8,19 @@ export type JournalCompanyOption = {
 export function JournalCompanyFilter({
   companies,
   value,
+  onChange,
 }: {
   companies: JournalCompanyOption[];
   value: string;
+  onChange: (symbol: string) => void;
 }) {
-  const router = useRouter();
-
   return (
     <label>
       Company
       <select
         aria-label="Filter journal by company"
         value={value}
-        onChange={(event) => {
-          const next = event.target.value;
-          router.push(
-            next ? `/decisions?symbol=${encodeURIComponent(next)}` : "/decisions",
-          );
-        }}
+        onChange={(event) => onChange(event.target.value)}
       >
         <option value="">All companies</option>
         {companies.map((company) => (
