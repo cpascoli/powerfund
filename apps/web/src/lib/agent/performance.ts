@@ -122,7 +122,7 @@ export function toAgentPerformance(
     notes: [
       ...report.notes,
       ...contribution.notes,
-      "Return *_pct fields are percent (1.2 means 1.2%). Contribution pnl_usd is dollars, not TWR. Per-decision 30/90/180d returns are not in this payload.",
+      "Return *_pct fields are percent (1.2 means 1.2%). Contribution pnl_usd is dollars, not TWR. Per-decision 30/90/180d vs SPY is on getJournal, not this payload.",
     ],
   };
 }

@@ -238,6 +238,32 @@ const addWatchlistCompanyOk = jsonOkBody({
   },
 });
 
+const decisionOutcomeSchema = {
+  type: "object",
+  properties: {
+    id: { type: "string", format: "uuid" },
+    decision_id: { type: "string", format: "uuid" },
+    recorded_at: { type: "string", format: "date-time" },
+    thesis_grade: {
+      type: "string",
+      enum: ["correct", "partly_correct", "wrong"],
+    },
+    timing_grade: { type: "string", enum: ["good", "mixed", "poor"] },
+    sizing_grade: { type: "string", enum: ["good", "mixed", "poor"] },
+    risk_management_grade: { type: "string", enum: ["good", "mixed", "poor"] },
+    lessons: { type: "string" },
+    actor_name: { type: "string" },
+  },
+};
+
+const recordDecisionOutcomeOk = jsonOkBody({
+  type: "object",
+  properties: {
+    recorded: { type: "boolean" },
+    outcome: decisionOutcomeSchema,
+  },
+});
+
 const dossierChangesSchema = {
   type: "object",
   description: "Fields to change on the live dossier. Omit unchanged fields.",
@@ -403,7 +429,7 @@ export function agentOpenApiDocument(origin: string) {
           operationId: "getJournal",
           summary: "Investment journal",
           description:
-            "Read decisions. Each row includes the pinned dossier_version when one exists. Use getDossierVersion to load that snapshot.",
+            "Read decisions with pinned dossier_version, fill-based 30/90/180d vs SPY, and append-only outcomes. Use getDossierVersion for the pin. Outcomes do not set reviewed_at.",
           scope: "powerfund:journal:read",
           mutating: false,
           parameters: [
@@ -635,6 +661,65 @@ export function agentOpenApiDocument(origin: string) {
                 },
               },
             },
+          },
+        }),
+      },
+      "/api/v1/agent/decisions/{id}/outcome": {
+        post: op({
+          operationId: "recordDecisionOutcome",
+          summary: "Record a decision outcome",
+          description:
+            "Append a structured grade to a journal row. Does not mutate thesis, reviewed_at, or outcome_grade. Weekly holds still need a new createDecision.",
+          scope: "powerfund:journal:append",
+          mutating: true,
+          parameters: [
+            uuidParam("id", "decisions row UUID from getJournal."),
+          ],
+          requestBody: {
+            required: true,
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  required: ["thesis_grade", "lessons"],
+                  properties: {
+                    thesis_grade: {
+                      type: "string",
+                      enum: ["correct", "partly_correct", "wrong"],
+                    },
+                    timing_grade: {
+                      type: "string",
+                      enum: ["good", "mixed", "poor"],
+                    },
+                    sizing_grade: {
+                      type: "string",
+                      enum: ["good", "mixed", "poor"],
+                    },
+                    risk_management_grade: {
+                      type: "string",
+                      enum: ["good", "mixed", "poor"],
+                    },
+                    lessons: {
+                      type: "string",
+                      description: "What to repeat or change. Not a P&L dump.",
+                    },
+                    actor_name: { type: "string" },
+                  },
+                },
+                example: {
+                  thesis_grade: "correct",
+                  timing_grade: "poor",
+                  sizing_grade: "good",
+                  risk_management_grade: "good",
+                  lessons: "Right company, chased the first print.",
+                },
+              },
+            },
+          },
+          responses: {
+            "200": recordDecisionOutcomeOk,
+            "404": errorResponse,
+            "422": errorResponse,
           },
         }),
       },

@@ -7,8 +7,9 @@ Hard rules:
 - There is no agent path to `transactions`, `bookFill`, or cash movement.
 - `review_tasks` are the event calendar. Weekly holding reviews are **journal + dossier**, not a review task.
 - There is no `updateDecision`, `reviewed_at` endpoint, or `completeWeeklyReview`. Completing a weekly hold is a **new** `createDecision`.
+- `recordDecisionOutcome` appends a child row. It does **not** set `reviewed_at` and does **not** complete a weekly hold.
 - Do not `createReviewTask` for a weekly hold. Do not `createPlannedAction` for an earnings print.
-- User approval before `updateDossier`, `createDecision`, `createPlannedAction`, `createReviewTask`, and `addWatchlistCompany`.
+- User approval before `updateDossier`, `createDecision`, `recordDecisionOutcome`, `createPlannedAction`, `createReviewTask`, and `addWatchlistCompany`.
 - A Phase-1 15% deployed-sleeve drawdown is a **diagnostic**, not an automatic trim or buy halt. Per-name invalidation still forces reduce/exit.
 
 Machine contract: `GET /api/v1/agent/openapi.json`. Playbook (mandate, cash, size caps): [mandate.md](./mandate.md).
@@ -55,7 +56,7 @@ Review-task triggers:
 
 | Kind | Meaning | Agent action |
 |------|---------|--------------|
-| `thesis_review` | Latest `enter` / `add` / `hold` without `reviewed_at` or an outcome is older than **7 days** | This **is** the weekly holding process. Do not create a review task. A new `createDecision` resets the clock. Marking the old row reviewed in the UI does not. |
+| `thesis_review` | Latest `enter` / `add` / `hold` without `reviewed_at` or `outcome_grade` on **that row** is older than **7 days** | This **is** the weekly holding process. Do not create a review task. A new `createDecision` resets the clock. `recordDecisionOutcome` and UI grades on the old enter do not. |
 | `diligence` | Live dossier `next_diligence` stale **14 days** | Research, then `updateDossier`. |
 | `missing_invalidation` | Open position with no kill criteria | Mandate rule 4. Write invalidation before any add. |
 | `flag` | Mandate or queue vs NAV (cash, position size, theme, AI-capex, deployed-drawdown diagnostic) | Explain. Caps still constrain size. A Phase-1 15% sleeve flag is ritual 11 (diagnose), not an automatic `reduce`. |
@@ -92,7 +93,7 @@ Purpose: action what is due; leave the rest of the calendar alone.
 
 Purpose: one written conclusion per open name, every week. This is **not** a `review_task`.
 
-Attention shows `thesis_review` when the latest `enter` / `add` / `hold` without `reviewed_at` or an outcome is older than seven days. A **new** `createDecision` (`hold`, or `add` / `reduce` / `exit`) resets that clock. Grading the old enter in the UI only closes the old row and does **not** record this week’s conclusion. The agent has no `updateDecision` / `reviewed_at` path.
+Attention shows `thesis_review` when the latest `enter` / `add` / `hold` without `reviewed_at` or an outcome is older than seven days. A **new** `createDecision` (`hold`, or `add` / `reduce` / `exit`) resets that clock. Grading the old enter in the UI or via `recordDecisionOutcome` only records a post-mortem on that row and does **not** complete this week’s review. The agent has no `updateDecision` / `reviewed_at` path.
 
 For each open holding:
 
@@ -200,14 +201,14 @@ Purpose: cash and concentration are decisions, not drift. Numbers live in [manda
 The human confirms the fill in the UI. Then:
 
 1. `getJournal?symbol=` — the new row should pin a `dossier_version`. If the live thesis had changed, that version should already exist from `updateDossier` **before** the fill when possible.
-2. On **exit**, record outcome notes (process grade, not just P&L). Prefer a new journal row rather than treating the old enter as the post-mortem.
+2. On **exit**, record outcome notes (process grade, not just P&L). Prefer `recordDecisionOutcome` on the exit (or enter) row for structured grades, plus a new journal row if the conclusion is a hold/watch going forward. Do not PATCH `reviewed_at` on the old enter.
 3. Cancel leftover planned actions for that name if the thesis is done (`updatePlannedAction` `cancelled`).
 4. Do not use the live dossier as a proxy for “what we believed when we bought it” — use `getDossierVersion` on the pin.
 
 | Step | Tool |
 |------|------|
 | What we believed | `getJournal?symbol=`, `getDossierVersion` |
-| Outcome | `createDecision` (or UI outcome fields on an existing row) |
+| Outcome | `recordDecisionOutcome` (structured grade) and/or `createDecision` |
 | Clean the queue | `updatePlannedAction` `cancelled` |
 
 ---
@@ -313,11 +314,12 @@ Qualitative (works today):
 Quantitative (partial today):
 
 - `getPerformance` — NAV TWR and deployed TWR vs SPY and QQQ, plus **current and max** unitized drawdowns, plus **dollar contribution** by ticker, theme, and factor. Optional `from` / `to`. Returns are percent; `pnl_usd` is dollars. That is the mandate scoreboard.
-- There is **no** per-decision 30/90/180d return yet and **no** `recordDecisionOutcome`. Do not invent numbers the tools did not return.
+- `getJournal` — per-decision **30/90/180d vs SPY** (`relative_returns`, close-to-close from the **fill session**, not `action_at`). Horizons that have not elapsed still report so far. `recordDecisionOutcome` for structured thesis/timing/sizing/risk grades. That does not complete a weekly hold.
 
 | Step | Tool |
 |------|------|
 | Scoreboard | `getPerformance` |
+| Decision returns + grades | `getJournal`, `recordDecisionOutcome` |
 | What we believed | `getJournal`, `getDossierVersion` |
 
 ---

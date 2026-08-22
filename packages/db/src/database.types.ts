@@ -119,6 +119,71 @@ export type Database = {
           },
         ]
       }
+      decision_outcomes: {
+        Row: {
+          actor_name: string | null
+          created_at: string
+          decision_id: string
+          id: string
+          lessons: string
+          recorded_at: string
+          risk_management_grade:
+            | Database["public"]["Enums"]["decision_quality_grade"]
+            | null
+          sizing_grade:
+            | Database["public"]["Enums"]["decision_quality_grade"]
+            | null
+          thesis_grade: Database["public"]["Enums"]["decision_thesis_grade"]
+          timing_grade:
+            | Database["public"]["Enums"]["decision_quality_grade"]
+            | null
+        }
+        Insert: {
+          actor_name?: string | null
+          created_at?: string
+          decision_id: string
+          id?: string
+          lessons: string
+          recorded_at?: string
+          risk_management_grade?:
+            | Database["public"]["Enums"]["decision_quality_grade"]
+            | null
+          sizing_grade?:
+            | Database["public"]["Enums"]["decision_quality_grade"]
+            | null
+          thesis_grade: Database["public"]["Enums"]["decision_thesis_grade"]
+          timing_grade?:
+            | Database["public"]["Enums"]["decision_quality_grade"]
+            | null
+        }
+        Update: {
+          actor_name?: string | null
+          created_at?: string
+          decision_id?: string
+          id?: string
+          lessons?: string
+          recorded_at?: string
+          risk_management_grade?:
+            | Database["public"]["Enums"]["decision_quality_grade"]
+            | null
+          sizing_grade?:
+            | Database["public"]["Enums"]["decision_quality_grade"]
+            | null
+          thesis_grade?: Database["public"]["Enums"]["decision_thesis_grade"]
+          timing_grade?:
+            | Database["public"]["Enums"]["decision_quality_grade"]
+            | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "decision_outcomes_decision_id_fkey"
+            columns: ["decision_id"]
+            isOneToOne: false
+            referencedRelation: "decisions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       decisions: {
         Row: {
           action_at: string
@@ -1108,6 +1173,8 @@ export type Database = {
       app_role: "operator" | "viewer"
       asset_class: "equity" | "etf" | "commodity_proxy" | "other"
       benchmark_role: "success" | "style"
+      decision_quality_grade: "good" | "mixed" | "poor"
+      decision_thesis_grade: "correct" | "partly_correct" | "wrong"
       decision_type: "enter" | "add" | "reduce" | "exit" | "hold" | "watch"
       document_type:
         | "10-k"
@@ -1282,6 +1349,8 @@ export const Constants = {
       app_role: ["operator", "viewer"],
       asset_class: ["equity", "etf", "commodity_proxy", "other"],
       benchmark_role: ["success", "style"],
+      decision_quality_grade: ["good", "mixed", "poor"],
+      decision_thesis_grade: ["correct", "partly_correct", "wrong"],
       decision_type: ["enter", "add", "reduce", "exit", "hold", "watch"],
       document_type: [
         "10-k",

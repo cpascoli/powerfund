@@ -82,6 +82,11 @@ export async function GET(request: Request) {
             },
             { operationId: "createDecision", method: "POST", path: "/api/v1/agent/decisions" },
             {
+              operationId: "recordDecisionOutcome",
+              method: "POST",
+              path: "/api/v1/agent/decisions/{id}/outcome",
+            },
+            {
               operationId: "createPlannedAction",
               method: "POST",
               path: "/api/v1/agent/planned-actions",

@@ -13,11 +13,12 @@ Private agent API: `/api/v1/agent/*` — Bearer token, scoped permissions, dolla
 | `getFundState` | no | Compact current investment state |
 | `getPortfolio` | no | Private book from the ledger |
 | `getPerformance` | no | NAV and deployed TWR vs SPY/QQQ, unitized drawdowns, and dollar contribution by ticker / theme / factor. Optional `from`/`to`. Not a ledger dump |
-| `getJournal` | no | Decisions + pinned `dossier_version` |
+| `getJournal` | no | Decisions + pinned `dossier_version`, fill-based 30/90/180d vs SPY, append-only outcomes |
 | `getCompanyDossier` | no | Live research object |
 | `getDossierVersions` / `getDossierVersion` | no | Immutable snapshots. No diff endpoint — fetch two versions and compare |
 | `updateDossier` | live dossier | New version **only if** assembled JSON changed |
 | `createDecision` | journal insert | Auto-pins current dossier version |
+| `recordDecisionOutcome` | child row | Structured grade. Does **not** set `reviewed_at` or complete a weekly hold |
 | `getPlannedActions` | no | Open deployment queue |
 | `createPlannedAction` / `updatePlannedAction` | queue only | Never books a fill |
 | `getReviewQueue` | may mark due | Evaluates triggers; never writes the ledger |
@@ -71,7 +72,7 @@ On mutating `POST` and `PATCH` agent routes send:
 Idempotency-Key: <uuid>
 ```
 
-That includes `POST` decisions, planned-actions, review-tasks, review-tasks complete, and watchlist, plus `PATCH` planned-actions, review-tasks, and dossiers. A retry with the same key and body returns the original result. A reused key with a different body returns `409 IDEMPOTENCY_KEY_REUSED`.
+That includes `POST` decisions, decisions/{id}/outcome, planned-actions, review-tasks, review-tasks complete, and watchlist, plus `PATCH` planned-actions, review-tasks, and dossiers. A retry with the same key and body returns the original result. A reused key with a different body returns `409 IDEMPOTENCY_KEY_REUSED`.
 
 ## Example curl
 
@@ -140,6 +141,19 @@ curl -sS -X POST -H "Authorization: Bearer $TOKEN" \
     "thesis": "Thesis intact after the print."
   }' \
   "$ORIGIN/api/v1/agent/decisions"
+
+# Structured outcome on an existing journal row (does not set reviewed_at)
+curl -sS -X POST -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -H "Idempotency-Key: 66666666-6666-6666-6666-666666666666" \
+  -d '{
+    "thesis_grade": "correct",
+    "timing_grade": "poor",
+    "sizing_grade": "good",
+    "risk_management_grade": "good",
+    "lessons": "Right company, chased the first print."
+  }' \
+  "$ORIGIN/api/v1/agent/decisions/DECISION_UUID/outcome"
 
 # Propose a second tranche (does not trade)
 curl -sS -X POST -H "Authorization: Bearer $TOKEN" \
@@ -266,7 +280,7 @@ v1 auto-evaluates `price` and `price_return_pct` against `market_bars`. Other me
 |------|------|
 | 401 | `UNAUTHENTICATED` |
 | 403 | `PERMISSION_DENIED` |
-| 404 | `UNKNOWN_SYMBOL` / `UNKNOWN_THEME` / `UNKNOWN_VERSION` / `UNKNOWN_PLANNED_ACTION` / `UNKNOWN_REVIEW_TASK` |
+| 404 | `UNKNOWN_SYMBOL` / `UNKNOWN_THEME` / `UNKNOWN_VERSION` / `UNKNOWN_PLANNED_ACTION` / `UNKNOWN_REVIEW_TASK` / `UNKNOWN_DECISION` |
 | 409 | `DOSSIER_VERSION_CONFLICT` / `IDEMPOTENCY_KEY_REUSED` / `SYMBOL_EXISTS` |
 | 422 | `VALIDATION_ERROR` |
 | 429 | `RATE_LIMITED` |
@@ -289,6 +303,7 @@ These `operationId`s are stable tool names. A later MCP server can wrap each HTT
 | `getDossierVersion` | `GET /api/v1/agent/companies/{symbol}/versions/{version}` |
 | `updateDossier` | `PATCH /api/v1/agent/companies/{symbol}/dossier` |
 | `createDecision` | `POST /api/v1/agent/decisions` |
+| `recordDecisionOutcome` | `POST /api/v1/agent/decisions/{id}/outcome` |
 | `createPlannedAction` | `POST /api/v1/agent/planned-actions` |
 | `updatePlannedAction` | `PATCH /api/v1/agent/planned-actions/{id}` |
 | `createReviewTask` | `POST /api/v1/agent/review-tasks` |
@@ -317,13 +332,14 @@ Typical workflows:
 2. Read `drawdown.nav_max_pct` and `drawdown.deployed_max_pct` (unitized; percent)
 3. Compare window `nav_return_pct` and `deployed_return_pct` to `spy_return_pct` / `qqq_return_pct`
 4. Read `contribution.tickers` / `themes` / `factors` (`pnl_usd` is dollars, not TWR)
-5. There is no per-decision 30/90/180d return yet
+5. Per-decision 30/90/180d vs SPY is on `getJournal` (`relative_returns`, keyed off the linked fill session)
 
 **What we believed when we bought it**
 
 1. `getJournal?symbol=MRCY`
 2. `getDossierVersion` with the pinned `dossier_version` id or number on that row
-3. Do not use the live dossier as a proxy for that date
+3. Read `relative_returns` (fill session, not `action_at`) and any `outcomes`
+4. Do not use the live dossier as a proxy for that date
 
 **Tighten a review already on Upcoming**
 

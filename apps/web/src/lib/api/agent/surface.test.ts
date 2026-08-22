@@ -74,6 +74,9 @@ describe("API surfaces", () => {
     expect(agentDoc.paths["/api/v1/agent/watchlist"].post.operationId).toBe(
       "addWatchlistCompany",
     );
+    expect(
+      agentDoc.paths["/api/v1/agent/decisions/{id}/outcome"].post.operationId,
+    ).toBe("recordDecisionOutcome");
     expect(agentDoc.paths["/api/v1/agent/companies/{symbol}/dossier"].patch.operationId).toBe(
       "updateDossier",
     );
@@ -170,12 +173,14 @@ describe("API surfaces", () => {
       "name",
       "theme",
     ]);
-    const addWatchlistResponses = agentDoc.paths["/api/v1/agent/watchlist"].post
-      .responses as Record<string, any>;
+    const recordOutcomeResponses = agentDoc.paths[
+      "/api/v1/agent/decisions/{id}/outcome"
+    ].post.responses as Record<string, any>;
     expect(
       Object.keys(
-        addWatchlistResponses["200"].content["application/json"].schema.properties,
+        recordOutcomeResponses["200"].content["application/json"].schema
+          .properties,
       ),
-    ).toEqual(["created", "company"]);
+    ).toEqual(["recorded", "outcome"]);
   });
 });
