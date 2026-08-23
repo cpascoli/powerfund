@@ -240,13 +240,23 @@ There is no separate integrity API. The agent compares dossier text to `getPortf
 
 ## 9. Opportunity ranking (monthly / before a material tranche)
 
-Purpose: the fund succeeds by answering “given everything else we could own, is this the best use of the next $1 of risk?” — not “is this company good?”
+Purpose: the fund succeeds by answering “given everything else we could own, is this the best use of the next $1 of risk?” — not “is this company good?” Corrections are an expected source of return only when price fell more than intrinsic value.
 
 1. `getFundState?include_watchlist=true` — holdings, watchlist with `has_dossier`, cash, open planned dollars, factor flags.
 2. For each decision-grade name (live dossier + kill criteria): `getCompanyDossier`. Refresh price vs the scenario anchor (ritual 8). Note probability-weighted 24/60m return, downside case, thesis quality, factor overlap, evidence status.
-3. Rank into **Buy now / Buy on condition / Hold / Too expensive / Thesis weak**. Do not queue CEG because the last chat was about CEG if VST or BWXT rank higher.
-4. Check factor overlap: several “different” themes can still be one AI-capex trade. Prefer the next dollar in an independent sleeve when the ranking is close.
-5. Only then `createPlannedAction` for the names that won the rank, after user approval and ritual 8.
+3. Classify each name into a **correction-readiness** state. Scenario values drive the state, not a raw % drawdown:
+
+| State | Meaning | Posture |
+|-------|---------|---------|
+| Fair / full | Ordinary prospective return | Wait / starter only |
+| Attractive | Base-case expected return compelling | Normal deployment |
+| Dislocation | Price fell more than intrinsic value | Accelerate (ladder + thesis-intact) |
+| Panic | Forced/factor selling, thesis intact, exceptional asymmetry | Aggressive within caps |
+| Thesis impairment | Intrinsic value fell with the price | Not an opportunity |
+
+4. Rank into **Buy now / Buy on condition / Hold / Too expensive / Thesis weak**. Prefer dislocation/panic in names we already understand over a new story that merely fell. Do not queue CEG because the last chat was about CEG if VST or BWXT rank higher.
+5. Check factor overlap: several “different” themes can still be one AI-capex trade. Prefer the next dollar in an independent sleeve when the ranking is close. Crowding raises the required dislocation; it is not an automatic skip.
+6. Only then `createPlannedAction` for the names that won the rank, after user approval and ritual 8.
 
 No ranking endpoint. Write the table in chat (or a journal `watch` / `hold` if the conclusion is durable). `getPerformance` is book-level TWR vs SPY/QQQ plus dollar contribution — not probability-weighted relative value.
 
@@ -265,7 +275,7 @@ Purpose: theme labels are not diversification. Mandate and [themes.md](./themes.
 
 1. `getFundState` + `getPortfolio` — weight by theme, AI-capex and memory flags, largest names.
 2. Operator opens **Workbench → Risk** (pairwise correlation, standing hyperscaler-capex −20% stress). The agent API cannot read that surface yet; paste or describe the stress result in chat.
-3. Rank each core theme (AI infrastructure, energy, robotics/AI, defence, other) by thesis health, valuation, evidence trend, portfolio weight, and shared-factor exposure.
+3. Rank each core theme (AI infrastructure, energy, robotics/AI, defence, other) by thesis health, valuation, evidence trend, portfolio weight, and shared-factor exposure. Name the **next under-obsessed bottleneck** ([themes.md](./themes.md)).
 4. Identify hidden correlation (e.g. cooling + power + EMS as one AI-capex trade).
 5. Conclude **more / same / less capital** for each theme next quarter. Update dossiers and, if the map changed, say so — factor weights live in code (`FACTOR_EXPOSURES`), not the agent API.
 6. Optional: `createReviewTask` on a theme scope for the next dated catalyst; `createPlannedAction` only for size changes that survived rituals 8–9.

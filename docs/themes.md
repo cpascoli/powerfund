@@ -2,6 +2,29 @@
 
 Priority sectors for research and capital. Themes organize watchlists and risk concentration — they are not automatic buy lists.
 
+The four core themes are not four independent bets. They are linked by a massive increase in the economic value of **computation, electricity, and autonomous machines**:
+
+AI requires compute → compute requires power → AI + sensors + cheap compute enables robotics → robotics + AI transform defence → defence, reshoring, and data centers require more industrial capacity and electricity → electricity constraints drive grid, nuclear, gas, and power-equipment investment.
+
+That is a capital-investment supercycle, not merely an “AI bull market.” Leadership migrates down the supply chain. A 10-year structural runway does not mean a 10-year bull market in today’s winners. Theme caps still do not diversify the shared AI-capex factor (mandate rule 10).
+
+The standing research question: **where is the next bottleneck forming that the market is not yet obsessing over?**
+
+## Clocks (working map)
+
+Revisit with the quarterly theme pass. These are duration maps, not entry signals — IEA, NATO, and hyperscaler capex headlines are consensus inputs (see mandate: citing them is not evidence of earliness).
+
+| Theme | Where we are | Structural runway | Equity-market character |
+|-------|----------------|-------------------|-------------------------|
+| AI infrastructure | Mid-early buildout | ~2026–2032+, possibly longer | Strongest now; increasingly volatile and selective |
+| Energy / grid / power | Early | ~2026–2035+ | Among the longest-lived bottlenecks |
+| Robotics / Physical AI | Very early | ~2027–2037+ | Potential next major leg; many of today’s OEMs will fail |
+| Defence / rearmament | Early-middle | ~2025–2035+ | Multi-year spending cycle with program-specific winners |
+
+Overlapping waves rather than a relay: compute scarcity (now) → physical infrastructure bottlenecks (power, transformers, cooling, optics, grid) → inference and monetization → physical AI → defence rebuild and electricity buildout through the mid-2030s.
+
+Expect 10–15% corrections often, several 20–30% thematic drawdowns, 30–50% hits in quality growth names, and 50–80% collapses in speculative ones. Those episodes are part of the strategy if research is done in advance; some will be real fundamental deterioration. The dossier’s warning / reduce / invalidation framework is how we tell the difference.
+
 ## Core themes
 
 ### 1. AI infrastructure
@@ -42,6 +65,14 @@ Priority sectors for research and capital. Themes organize watchlists and risk c
 
 **Avoid as default:** Ignoring political/program cancellation risk; illiquid names that cannot be exited if narratives reverse. **Budgets are not revenue:** NATO/EU headline commitments increasingly route to European suppliers (Rheinmetall, Thales, Saab, BAE) via procurement nationalism — do not book European budget headlines as tailwinds for US small-caps. Underwrite US names on their own bookings, backlog conversion, and margin trajectory.
 
+## Bottleneck search
+
+Do not hunt small caps because they are small. Hunt companies that control a bottleneck whose economics are changing faster than investor perception.
+
+The pattern that can produce a 3× (rather than a market-like 25%) looks like: obscure ~$2–10B company → critical component in a rapidly scaling system → customer qualification creates switching costs → orders inflect → fixed-cost leverage → estimates rise repeatedly → coverage expands → the multiple rerates.
+
+The search is not limited to names labeled “AI.” Hunting grounds include power conversion and grid hardware, advanced cooling, connectors and cabling, optical components and test, specialty semiconductor IP, packaging and testing, precision motion, sensors, robotics components, drone propulsion, defence electronics, industrial automation, and specialty materials. Liquidity (mandate rule 7) still binds; illiquid microcaps need an explicit size cap.
+
 ## Adjacent watch (not core allocation by default)
 
 Promote to core only with repeated evidence and mandate fit:
@@ -66,4 +97,5 @@ Other sectors are allowed when:
 - Revisit theme definitions quarterly.
 - Tag every instrument and signal with a primary theme (and optional secondary).
 - Track performance and error patterns *by theme* in reviews — some themes will deserve more or less capital over time.
-- **Themes are labels, not diversification.** Most of the core universe loads on one factor — hyperscaler capex sentiment — so theme caps alone do not control risk. Measure cross-holding correlation and treat the combined AI-capex complex as one risk (mandate rule 10).
+- Each quarterly pass should name the **next under-obsessed bottleneck**, not only “which AI stock to buy.”
+- **Themes are labels, not diversification.** Most of the core universe loads on one factor — hyperscaler capex sentiment — so theme caps alone do not control risk. Measure cross-holding correlation and treat the combined AI-capex complex as one risk (mandate rule 10). The shared industrial transformation above explains the correlation; it does not excuse ignoring it.

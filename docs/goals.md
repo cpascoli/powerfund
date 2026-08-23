@@ -25,7 +25,7 @@ Engineering should not block on fund legal structure. Product and data design sh
 
 ## Primary opportunity set
 
-Thematic concentration where capital and policy are reshaping markets:
+Thematic concentration where capital and policy are reshaping markets. The four core themes are not four unrelated sectors; they are one industrial transformation — a massive increase in the economic value of **computation, electricity, and autonomous machines**:
 
 - AI infrastructure
 - Energy (especially as a bottleneck to AI and electrification)
@@ -33,6 +33,8 @@ Thematic concentration where capital and policy are reshaping markets:
 - Defence
 
 Other sectors are in scope when they feed the same stack or clear a high bar for asymmetry. See [themes.md](./themes.md).
+
+A retrospective “this watchlist would have doubled from 2024” is contaminated by survivorship: names are here partly because they already worked. The job is to find 2028 winners in 2026.
 
 ## Success criteria
 
@@ -43,6 +45,7 @@ Other sectors are in scope when they feed the same stack or clear a high bar for
 - At least one automated scoring path beyond price technicals (e.g. fundamentals / CapEx / filings-driven).
 - Measurable process quality: fewer late chase entries; documented invalidations; post-mortems.
 - Honest trade labeling: "early" claims backed by evidence that price has not discounted them; otherwise labeled momentum-with-fundamentals with matching exit discipline (see mandate).
+- Decision-grade dossiers that state not only “would we own this?” but **at what price we become unusually eager** (normal / attractive / dislocation / panic vs thesis impairment).
 - Performance judged against the S&P 500 (success) and QQQ (style), on both NAV and the deployed sleeve. See [mandate.md](./mandate.md).
 
 ### Medium term (intelligence edge)
@@ -65,8 +68,9 @@ Other sectors are in scope when they feed the same stack or clear a high bar for
 
 ## Guiding principles
 
-1. **Early ≠ obscure** — early means evidence accumulating before consensus pricing, not microcap lottery tickets by default.
+1. **Early ≠ obscure** — early means evidence accumulating before consensus pricing, not microcap lottery tickets by default. Search for companies that control a bottleneck whose economics are changing faster than perception; do not search for “small” as a strategy.
 2. **Preservation enables growth** — survive wrong theses; size for asymmetry. Stretch return targets are scenarios, never objectives that override risk rules.
 3. **Explainability** — every actionable signal should be inspectable.
 4. **Breadth of data, focus of action** — ingest widely; concentrate decisions on the mandate.
 5. **Process over prediction** — journal, review, and risk rules compound; vibes do not.
+6. **Dislocations are a return source** — prepare before the scare (ranked watchlist, scenario values, pre-agreed size). Buy when price fell more than intrinsic value, not because something is down 25%. Cash and fully valued names that can be recycled are the option on that volatility.

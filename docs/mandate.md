@@ -94,7 +94,7 @@ PowerFund **NAV** is the equity book only: **cash + marked stocks**. Starting al
 
 New risk is planned in the **deployment queue** (dollars + window + why) and only hits the book when a fill is confirmed. Do not treat a weekly dollar target as a quota.
 
-**Deployment ladder (pre-committed, not mood-based):** "keeping ammunition for volatility" without pre-commitment is market timing, and the −25% day will not get bought on discretion. Deploy via:
+**Deployment ladder (pre-committed, not mood-based):** "keeping ammunition for volatility" without pre-commitment is market timing, and the −25% day will not get bought on discretion. Cash is not merely defensive — it is a call option on future dislocations — but maximizing cash because a crash is expected will hurt CAGR if markets keep compounding. The book should rarely reach a 20–30% scare and have no capital to deploy. That can mean cash, or fully valued positions that can be recycled into better opportunities. Deploy via:
 
 1. A **baseline tranche** per month up to the phase invested cap. Current: **~$10k/month** (set 2026-08-13), which reaches the $75k Phase-1 cap around January 2027; continuing past the cap is an explicit review decision that opens Phase 2.
 2. **Acceleration tranches** triggered by theme drawdowns (e.g. −10% and −20% from entry), gated by a thesis-intact checklist — not by price alone. A book-level 15% sleeve drawdown that classifies as a **valuation shock** (rule 8) is the same kind of event: diagnose, then deploy per this ladder if the checklist passes. Do not freeze the ladder because starters did what volatile growth starters do.
@@ -115,19 +115,39 @@ Every material idea is logged before or at action time:
 5. **Sizing** — why this weight given volatility, liquidity, conviction
 6. **Outcome review** — after exit or major change: process grade, not just P&L
 
+Every high-quality dossier should answer not only “would we own this?” but **at what price we become unusually eager**. States are driven by scenario values vs price, not by a raw percentage drawdown:
+
+| State | Interpretation | Capital posture |
+|-------|----------------|-----------------|
+| Fair / full | Good company, ordinary prospective return | Wait / starter only |
+| Attractive | Base-case expected return compelling | Normal deployment |
+| Dislocation | Price fell materially more than intrinsic value | Accelerate (ladder + thesis-intact checklist) |
+| Panic | Forced or factor selling, thesis intact, exceptional asymmetry | Deploy aggressively within mandate limits |
+| Thesis impairment | Price decline reflects lower intrinsic value | Not an opportunity |
+
+A name falling from $200 to $150 is not automatically more attractive if base value fell from $220 to $140. A name whose base value rose while the stock fell has become the situation cash is for. Rank these states on the monthly opportunity pass ([gpt-agent-process.md](./gpt-agent-process.md) ritual 9).
+
 ## Edge definition
 
 We seek situations where **fundamentals, CapEx, contracts, policy, or supply-chain evidence** are improving (or about to) while **price and narrative have not fully discounted** that path.
+
+That edge has two complementary expressions:
+
+1. **Volatility alpha** — own and research high-quality structural winners; concentrate deployment when fear creates a valuation dislocation while the thesis, and our estimate of intrinsic value, is intact. We do not buy because something fell 25%. We buy more aggressively when something we already understand fell and intrinsic value did not.
+2. **Bottleneck discovery** — continuously search further down the supply chain for less-followed companies whose earnings power is being transformed before valuations fully reflect it. Prefer control of a bottleneck, switching costs, and inflecting orders over “it is small.” The ideal discovery is an obscure mid-cap in a rapidly scaling system whose qualification creates switching costs, orders inflect, estimates rise repeatedly, and the multiple rerates.
 
 We do not define edge as:
 
 - trading every headline in a hot sector
 - buying solely because a story is fashionable
 - assuming “AI” or “defence” in the name is sufficient
+- a permanent exclusion list of popular names
+
+**Crowding is a penalty to required margin of safety, not an absolute ban.** A heavily owned consensus winner (NVIDIA, a hyperscaler, a future OpenAI listing) can still be owned after a large dislocation. An underfollowed name can earn capital earlier because expectations are lower. Crowding still creates higher overlap, violent unwind risk, and less asymmetry — measure it (rule 6); do not pretend it is a virtue.
 
 **Label trades honestly.** A datapoint that appears in an IEA flagship report, a NATO communiqué, or hyperscaler guidance is consensus by definition — citing it is not evidence of earliness. When a position does not clear the earliness bar, call it what it is: **momentum with fundamental support**. That label is allowed, but it changes the exit posture from buy-and-hold to trend-following with theme-level exit indicators (see [themes.md](./themes.md)) and makes the crowded filter (rule 6) mandatory, not advisory.
 
-**Stretch targets never override risk rules.** Return scenarios (e.g. doubling over N years) are scenarios, not objectives. Keep measuring the 15% deployed diagnostic even if a growth book is likely to touch it; do not disable the sensor. What Phase 1 changes is the **response** (diagnose, maybe deploy) — not the measurement, and not per-name invalidation. (See [2026-08-13 strategy second opinion](./reviews/2026-08-13-strategy-second-opinion.md), finding 3.)
+**Stretch targets never override risk rules.** Return scenarios (e.g. doubling over N years) are scenarios, not objectives. Recurring 20–40% thematic corrections are part of the return engine if we have already done the research; they are not a reason to disable the 15% deployed diagnostic. Keep measuring it even if a growth book is likely to touch it. What Phase 1 changes is the **response** (diagnose, maybe deploy) — not the measurement, and not per-name invalidation. (See [2026-08-13 strategy second opinion](./reviews/2026-08-13-strategy-second-opinion.md), finding 3.)
 
 ## Instruments & leverage
 

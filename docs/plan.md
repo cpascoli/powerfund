@@ -103,6 +103,7 @@ Exit criteria: deliberate go/no-go; no premature multi-tenant complexity before 
 8. [x] Backfill written invalidation criteria for all open positions missing them (mandate rule 4 — flagged in the [strategy second opinion](./reviews/2026-08-13-strategy-second-opinion.md)). Written to the book 2026-08-13; visible per position on the Portfolio page.
 9. [x] Set the deployment-ladder baseline tranche: **~$10k/month** (decided 2026-08-13), reaching the $75k Phase-1 cap ~January 2027. Acceleration-tranche sizes for the −10%/−20% triggers still to be set at a monthly review.
 10. [x] Minimum viable risk view (correlation matrix + AI-capex stress scenario) before deployed cost crosses ~$40–50k (Phase 3 pull-forward). Workbench → Risk, 2026-08-14.
+11. [ ] Decision-grade dossiers state **normal / attractive / dislocation / panic** valuation zones (scenario vs price, not a raw % drawdown) so the next correction can be used rather than survived. Process: [mandate.md](./mandate.md) decision process and [gpt-agent-process.md](./gpt-agent-process.md) ritual 9.
 
 ## Sequencing principles
 

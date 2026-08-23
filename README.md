@@ -1,6 +1,6 @@
 # Power Fund
 
-Investment intelligence for managing and growing capital — thematic focus on AI infrastructure, energy, robotics/AI, and defence, with risk management and capital preservation as hard constraints.
+Investment intelligence for managing and growing capital in AI infrastructure, energy, robotics/AI, and defence. Those four themes are one industrial transformation: a massive increase in the economic value of computation, electricity, and autonomous machines. Risk management and capital preservation are hard constraints.
 
 ## Docs
 

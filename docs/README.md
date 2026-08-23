@@ -9,7 +9,7 @@ Intelligence for managing and growing capital in the markets — starting with p
 | [goals.md](./goals.md) | Why Power Fund exists and what success looks like |
 | [mandate.md](./mandate.md) | Investment mandate, risk rules, and operating discipline |
 | [plan.md](./plan.md) | Phased build plan (Phase 0 → scale) |
-| [themes.md](./themes.md) | Priority sectors and adjacent watch areas |
+| [themes.md](./themes.md) | Priority sectors, why they are one transformation, adjacent watch |
 | [ux.md](./ux.md) | Research UI information architecture and viz principles |
 | [deploy.md](./deploy.md) | GitHub → Netlify CI and remote Supabase |
 | [agent-api.md](./agent-api.md) | Private authenticated API for AI agents (ChatGPT / MCP) |
@@ -28,7 +28,7 @@ Intelligence for managing and growing capital in the markets — starting with p
 
 ## How to use these docs
 
-- Update **mandate** and **themes** when the investment process changes.
+- Update **mandate** and **themes** when the investment process changes. `themes.md` is the supercycle map: why the four themes are one transformation, and where bottlenecks migrate.
 - Update **plan** when scope or sequencing changes.
 - The four operator docs (mandate, goals, themes, plan) also render in the app under **Playbook**.
 - Put system design, data models, and pipeline decisions under `architecture/` — not here.

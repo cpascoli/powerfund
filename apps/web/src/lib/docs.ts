@@ -28,7 +28,7 @@ export const PLAYBOOK_DOCS: readonly PlaybookDoc[] = [
     file: "themes.md",
     title: "Themes",
     description:
-      "Priority sectors, exit signals, and how theme labels relate to real diversification.",
+      "The supercycle map — why the four themes are one transformation, exit signals, and why labels are not diversification.",
   },
   {
     slug: "plan",
