@@ -1,5 +1,6 @@
 import {
   inflectionSetupRank,
+  type Completeness,
   type DossierStatus,
   type InflectionSetup,
 } from "@powerfund/domain";
@@ -53,6 +54,7 @@ export type ExploreName = {
   nextReviewAt: string | null;
   return1m: number | null;
   setup: InflectionSetup | null;
+  setupCompleteness: Completeness | null;
   setupStale: boolean;
 };
 
@@ -110,6 +112,17 @@ export function exploreDossierLabel(row: ExploreName): string {
 
 export function exploreBookLabel(held: boolean): string {
   return held ? "held" : "watch";
+}
+
+export function exploreSetupTags(
+  row: ExploreName,
+): Array<"partial" | "stale"> {
+  const tags: Array<"partial" | "stale"> = [];
+  if (row.setup != null && row.setupCompleteness === "partial") {
+    tags.push("partial");
+  }
+  if (row.setupStale) tags.push("stale");
+  return tags;
 }
 
 function matchesQuery(row: ExploreName, query: string): boolean {

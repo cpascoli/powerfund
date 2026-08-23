@@ -5,6 +5,7 @@ import {
   exploreDossierLabel,
   exploreEmptyCopy,
   exploreHref,
+  exploreSetupTags,
   exploreThemeCounts,
   filterExploreNames,
   isStaleReview,
@@ -25,6 +26,7 @@ function name(overrides: Partial<ExploreName> & Pick<ExploreName, "symbol">): Ex
     nextReviewAt: null,
     return1m: 0,
     setup: null,
+    setupCompleteness: null,
     setupStale: false,
     ...overrides,
   };
@@ -162,6 +164,29 @@ describe("explore catalog sort and labels", () => {
     expect(
       sortExploreNames(rows, "return_1m", "desc").map((row) => row.symbol),
     ).toEqual(["CLS", "VRT", "APH", "FIX"]);
+  });
+
+  it("tags partial completeness separately from stale", () => {
+    expect(
+      exploreSetupTags(
+        name({
+          symbol: "VRT",
+          setup: "correction_candidate",
+          setupCompleteness: "partial",
+          setupStale: false,
+        }),
+      ),
+    ).toEqual(["partial"]);
+    expect(
+      exploreSetupTags(
+        name({
+          symbol: "VRT",
+          setup: "correction_candidate",
+          setupCompleteness: "partial",
+          setupStale: true,
+        }),
+      ),
+    ).toEqual(["partial", "stale"]);
   });
 
   it("sorts setup by research priority with missing last", () => {

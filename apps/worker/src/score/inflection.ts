@@ -219,6 +219,26 @@ async function loadPrevious(
   };
 }
 
+async function loadCalendarThrough(db: AdminDb): Promise<string | null> {
+  const { data: bench, error: benchError } = await db
+    .from("benchmarks")
+    .select("instrument_id")
+    .eq("role", "success")
+    .maybeSingle();
+  if (benchError) throw new Error(benchError.message);
+  const spyId = (bench as { instrument_id: string } | null)?.instrument_id;
+  if (spyId == null) return null;
+  const { data: bar, error: barError } = await db
+    .from("market_bars")
+    .select("bar_date")
+    .eq("instrument_id", spyId)
+    .order("bar_date", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (barError) throw new Error(barError.message);
+  return (bar as { bar_date: string } | null)?.bar_date ?? null;
+}
+
 export async function scoreInflectionUniverse(): Promise<ScoreInflectionResult> {
   const db = createAdminDb();
   const instruments = await listWatchInstruments(db, { researchOnly: true });
@@ -226,6 +246,7 @@ export async function scoreInflectionUniverse(): Promise<ScoreInflectionResult> 
   let scored = 0;
   let transitions = 0;
   const calculatedAt = new Date().toISOString();
+  const calendarThrough = await loadCalendarThrough(db);
 
   console.log(
     `[score:inflection] ${instruments.length} research names (${INFLECTION_SCORER_KEY})`,
@@ -246,6 +267,8 @@ export async function scoreInflectionUniverse(): Promise<ScoreInflectionResult> 
         marketCap,
         asOf,
         calculatedAt,
+        priceThrough: price.lastBarDate,
+        calendarThrough,
         previous:
           previous.hysteresis ??
           (previous.snapshot

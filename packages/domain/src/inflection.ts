@@ -1,4 +1,6 @@
 import { computeCrowding, type CrowdingBand } from "./crowding";
+import { priceDataStale } from "./dates";
+import { utcDay } from "./performance";
 
 export const INFLECTION_SCORER_KEY = "fundamental_inflection_v1";
 export const INFLECTION_SCORER_VERSION = 1;
@@ -91,6 +93,10 @@ export type InflectionInput = {
   marketCap: number | null;
   asOf: string;
   calculatedAt: string;
+  /** Last bar date for this name. Omit to treat `asOf` as the last session. */
+  priceThrough?: string | null;
+  /** Last bar date on the success-benchmark calendar (SPY). */
+  calendarThrough?: string | null;
   previous?: InflectionHysteresis | null;
   thresholds?: InflectionThresholds;
 };
@@ -103,6 +109,9 @@ export type InflectionSnapshot = {
   periodEnd: string | null;
   ingestedAt: string | null;
   completeness: Completeness;
+  fundamentalsStale: boolean;
+  priceDataThrough: string | null;
+  priceDataStale: boolean;
   stale: boolean;
   daysSincePeriodEnd: number | null;
   missing: string[];
@@ -189,6 +198,28 @@ function utcDaysBetween(laterIso: string, earlierIso: string): number | null {
   const earlier = Date.parse(`${earlierIso.slice(0, 10)}T00:00:00Z`);
   if (Number.isNaN(later) || Number.isNaN(earlier)) return null;
   return Math.round((later - earlier) / 86_400_000);
+}
+
+function resolvePriceFreshness(input: InflectionInput): {
+  priceDataThrough: string | null;
+  priceDataStale: boolean;
+} {
+  const priceDataThrough =
+    input.priceThrough !== undefined ? input.priceThrough : input.asOf;
+  const behindClock = priceDataStale(
+    priceDataThrough,
+    utcDay(input.calculatedAt),
+  );
+  const calendarThrough = input.calendarThrough ?? null;
+  const behindCalendar =
+    calendarThrough != null &&
+    (priceDataThrough == null ||
+      priceDataThrough === "" ||
+      priceDataThrough < calendarThrough);
+  return {
+    priceDataThrough,
+    priceDataStale: behindClock || behindCalendar,
+  };
 }
 
 function hysteresisOn(
@@ -565,10 +596,13 @@ export function scoreInflection(input: InflectionInput): InflectionSnapshot {
 
   const daysSincePeriodEnd =
     latest == null ? null : utcDaysBetween(input.asOf, latest.periodEnd);
-  const stale =
+  const fundamentalsStale =
     daysSincePeriodEnd != null && daysSincePeriodEnd > t.staleAfterDays;
+  const priceFreshness = resolvePriceFreshness(input);
+  const stale = fundamentalsStale || priceFreshness.priceDataStale;
   if (latest == null) missing.push("fundamentals");
-  if (stale) missing.push("freshness");
+  if (fundamentalsStale) missing.push("freshness");
+  if (priceFreshness.priceDataStale) missing.push("price_data");
 
   const completeness: Completeness =
     growth.flag === "unknown" && crowding.band === "unknown"
@@ -592,9 +626,14 @@ export function scoreInflection(input: InflectionInput): InflectionSnapshot {
       `Share count is up ${dilution.changePct?.toFixed(1) ?? "?"} % vs a year ago while investment or leverage is elevated — observation, not automatically a sell.`,
     );
   }
-  if (stale && latest) {
+  if (fundamentalsStale && latest) {
     bits.push(
       `Latest quarter ended ${latest.periodEnd} (${daysSincePeriodEnd}d ago) — completeness is stale, not a failed flag.`,
+    );
+  }
+  if (priceFreshness.priceDataStale) {
+    bits.push(
+      `Price data through ${priceFreshness.priceDataThrough ?? "none"} is behind the session calendar — completeness is stale, not a failed flag.`,
     );
   }
   if (completeness === "insufficient") {
@@ -609,6 +648,9 @@ export function scoreInflection(input: InflectionInput): InflectionSnapshot {
     periodEnd: latest?.periodEnd ?? null,
     ingestedAt: latest?.ingestedAt ?? null,
     completeness,
+    fundamentalsStale,
+    priceDataThrough: priceFreshness.priceDataThrough,
+    priceDataStale: priceFreshness.priceDataStale,
     stale,
     daysSincePeriodEnd,
     missing,
@@ -700,10 +742,15 @@ function freshnessEqual(
 ): boolean {
   return (
     expected.stale === actual.stale &&
+    expected.fundamentalsStale === actual.fundamentalsStale &&
+    expected.priceDataStale === actual.priceDataStale &&
+    expected.priceDataThrough === actual.priceDataThrough &&
     expected.daysSincePeriodEnd === actual.daysSincePeriodEnd &&
     expected.ingestedAt === actual.ingestedAt &&
     expected.missing.includes("freshness") ===
-      actual.missing.includes("freshness")
+      actual.missing.includes("freshness") &&
+    expected.missing.includes("price_data") ===
+      actual.missing.includes("price_data")
   );
 }
 

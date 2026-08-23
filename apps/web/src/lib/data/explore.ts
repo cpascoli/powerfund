@@ -1,4 +1,10 @@
-import { DOSSIER_STATUSES, INFLECTION_SCORER_KEY, type DossierStatus, type InflectionSetup } from "@powerfund/domain";
+import {
+  DOSSIER_STATUSES,
+  INFLECTION_SCORER_KEY,
+  type Completeness,
+  type DossierStatus,
+  type InflectionSetup,
+} from "@powerfund/domain";
 
 import {
   type ExploreName,
@@ -43,6 +49,7 @@ type DossierRow = {
 type SetupRow = {
   instrument_id: string;
   setup: string;
+  completeness: string;
   stale: boolean;
 };
 
@@ -67,6 +74,14 @@ const INFLECTION_SETUPS: InflectionSetup[] = [
 function asInflectionSetup(value: string): InflectionSetup | null {
   return (INFLECTION_SETUPS as readonly string[]).includes(value)
     ? (value as InflectionSetup)
+    : null;
+}
+
+const COMPLETENESS: Completeness[] = ["complete", "partial", "insufficient"];
+
+function asCompleteness(value: string): Completeness | null {
+  return (COMPLETENESS as readonly string[]).includes(value)
+    ? (value as Completeness)
     : null;
 }
 
@@ -108,7 +123,7 @@ export async function getExploreCatalog(
     supabase.from("positions").select("instrument_id").eq("status", "open"),
     supabase
       .from("instrument_setups")
-      .select("instrument_id, setup, stale")
+      .select("instrument_id, setup, completeness, stale")
       .eq("scorer_key", INFLECTION_SCORER_KEY),
   ]);
 
@@ -214,6 +229,7 @@ export async function getExploreCatalog(
           "1m",
         ),
         setup: setup ? asInflectionSetup(setup.setup) : null,
+        setupCompleteness: setup ? asCompleteness(setup.completeness) : null,
         setupStale: setup?.stale ?? false,
       } satisfies ExploreName;
     })

@@ -10,6 +10,7 @@ import {
   exploreBookLabel,
   exploreDossierLabel,
   exploreEmptyCopy,
+  exploreSetupTags,
   exploreThemeCounts,
   filterExploreNames,
   isStaleReview,
@@ -313,7 +314,11 @@ export function ExploreCatalog({
                     ) : (
                       <span className="tag">{inflectionSetupLabel(row.setup)}</span>
                     )}
-                    {row.setupStale ? <span className="tag warn">stale</span> : null}
+                    {exploreSetupTags(row).map((tag) => (
+                      <span key={tag} className="tag warn">
+                        {tag}
+                      </span>
+                    ))}
                   </td>
                   <td>
                     {dossier === "none" ? (

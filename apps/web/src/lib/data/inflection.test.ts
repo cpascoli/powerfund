@@ -82,6 +82,9 @@ function score(args: {
   closes: number[];
   marketCap?: number | null;
   asOf?: string;
+  calculatedAt?: string;
+  priceThrough?: string | null;
+  calendarThrough?: string | null;
   previous?: InflectionInput["previous"];
 }): InflectionSnapshot {
   return scoreInflection({
@@ -95,7 +98,9 @@ function score(args: {
     closes: args.closes,
     marketCap: args.marketCap === undefined ? 5_000_000_000 : args.marketCap,
     asOf: args.asOf ?? "2025-04-15",
-    calculatedAt: "2025-04-15T18:00:00Z",
+    calculatedAt: args.calculatedAt ?? "2025-04-15T18:00:00Z",
+    priceThrough: args.priceThrough,
+    calendarThrough: args.calendarThrough,
     previous: args.previous,
   });
 }
@@ -232,9 +237,50 @@ describe("fundamental_inflection_v1 frozen fixtures", () => {
       asOf: "2025-09-15",
     });
     expect(snapshot.stale).toBe(true);
+    expect(snapshot.fundamentalsStale).toBe(true);
+    expect(snapshot.priceDataStale).toBe(false);
     expect(snapshot.missing).toContain("freshness");
     expect(snapshot.completeness).toBe("partial");
     expect(snapshot.rationale.toLowerCase()).toMatch(/stale/);
+  });
+
+  it("marks price data stale when last bar misses the last weekday before calculatedAt", () => {
+    const snapshot = score({
+      closes: calmCloses(),
+      asOf: "2025-04-15",
+      calculatedAt: "2026-08-22T15:00:00Z",
+      priceThrough: "2026-08-19",
+    });
+    expect(snapshot.fundamentalsStale).toBe(false);
+    expect(snapshot.priceDataStale).toBe(true);
+    expect(snapshot.stale).toBe(true);
+    expect(snapshot.missing).toContain("price_data");
+    expect(snapshot.completeness).toBe("partial");
+    expect(snapshot.rationale.toLowerCase()).toMatch(/price data/);
+  });
+
+  it("does not mark Friday bars stale on Saturday", () => {
+    const snapshot = score({
+      closes: calmCloses(),
+      asOf: "2025-04-15",
+      calculatedAt: "2026-08-22T15:00:00Z",
+      priceThrough: "2026-08-21",
+    });
+    expect(snapshot.priceDataStale).toBe(false);
+    expect(snapshot.fundamentalsStale).toBe(false);
+    expect(snapshot.stale).toBe(false);
+  });
+
+  it("marks a name stale when it lags the benchmark calendar", () => {
+    const snapshot = score({
+      closes: calmCloses(),
+      asOf: "2025-04-15",
+      calculatedAt: "2026-08-21T21:00:00Z",
+      priceThrough: "2026-08-19",
+      calendarThrough: "2026-08-21",
+    });
+    expect(snapshot.priceDataStale).toBe(true);
+    expect(snapshot.missing).toContain("price_data");
   });
 
   it("returns insufficient data when the core series is too short", () => {
