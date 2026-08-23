@@ -11,3 +11,4 @@ export * from "./holdings";
 export * from "./decision-outcomes";
 export * from "./decision-returns";
 export * from "./review-tasks";
+export * from "./inflection";

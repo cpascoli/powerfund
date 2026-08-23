@@ -1,6 +1,7 @@
 import type { Handler } from "@netlify/functions";
 
 import { ingestBars } from "../../apps/worker/src/ingest/bars";
+import { scoreInflectionBestEffort } from "../../apps/worker/src/score/inflection";
 import { snapshotPortfolio } from "../../apps/worker/src/snapshot/portfolio";
 import { authorizeCron } from "./lib/cron-auth";
 
@@ -44,6 +45,8 @@ export const handler: Handler = async (event) => {
   } catch (error) {
     console.error("[ingest-bars-background] snapshot", error);
   }
+
+  await scoreInflectionBestEffort();
 
   return { statusCode: 202, body: "" };
 };

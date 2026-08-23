@@ -24,6 +24,8 @@ function name(overrides: Partial<ExploreName> & Pick<ExploreName, "symbol">): Ex
     dossierStatus: "watch",
     nextReviewAt: null,
     return1m: 0,
+    setup: null,
+    setupStale: false,
     ...overrides,
   };
 }
@@ -160,6 +162,18 @@ describe("explore catalog sort and labels", () => {
     expect(
       sortExploreNames(rows, "return_1m", "desc").map((row) => row.symbol),
     ).toEqual(["CLS", "VRT", "APH", "FIX"]);
+  });
+
+  it("sorts setup by research priority with missing last", () => {
+    const rows = [
+      name({ symbol: "FIX", setup: null }),
+      name({ symbol: "APH", setup: "watch" }),
+      name({ symbol: "VRT", setup: "correction_candidate" }),
+      name({ symbol: "CLS", setup: "improving_research" }),
+    ];
+    expect(
+      sortExploreNames(rows, "setup", "asc").map((row) => row.symbol),
+    ).toEqual(["VRT", "CLS", "APH", "FIX"]);
   });
 
   it("labels dossier status and empty states", () => {

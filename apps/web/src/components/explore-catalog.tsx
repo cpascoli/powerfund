@@ -1,5 +1,6 @@
 "use client";
 
+import { inflectionSetupLabel } from "@powerfund/domain";
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -48,6 +49,7 @@ function defaultDir(sort: ExploreSort): ExploreSortDir {
     case "symbol":
     case "name":
     case "theme":
+    case "setup":
     case "dossier":
       return "asc";
     default: {
@@ -260,6 +262,11 @@ export function ExploreCatalog({
                   1M{sortMark(sort === "return_1m", dir)}
                 </button>
               </th>
+              <th scope="col" aria-sort={ariaSort("setup", sort, dir)}>
+                <button type="button" onClick={() => selectSort("setup")}>
+                  Setup{sortMark(sort === "setup", dir)}
+                </button>
+              </th>
               <th scope="col" aria-sort={ariaSort("dossier", sort, dir)}>
                 <button type="button" onClick={() => selectSort("dossier")}>
                   Dossier{sortMark(sort === "dossier", dir)}
@@ -300,6 +307,14 @@ export function ExploreCatalog({
                     <td className="catalog-hide-narrow muted">{row.themeName}</td>
                   ) : null}
                   <td className={toneClass(row.return1m)}>{formatPct(row.return1m)}</td>
+                  <td>
+                    {row.setup == null ? (
+                      <span className="muted">—</span>
+                    ) : (
+                      <span className="tag">{inflectionSetupLabel(row.setup)}</span>
+                    )}
+                    {row.setupStale ? <span className="tag warn">stale</span> : null}
+                  </td>
                   <td>
                     {dossier === "none" ? (
                       <span className="muted">none</span>

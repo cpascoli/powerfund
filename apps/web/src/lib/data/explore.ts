@@ -1,4 +1,4 @@
-import { DOSSIER_STATUSES, type DossierStatus } from "@powerfund/domain";
+import { DOSSIER_STATUSES, INFLECTION_SCORER_KEY, type DossierStatus, type InflectionSetup } from "@powerfund/domain";
 
 import {
   type ExploreName,
@@ -40,12 +40,35 @@ type DossierRow = {
   next_review_at: string | null;
 };
 
+type SetupRow = {
+  instrument_id: string;
+  setup: string;
+  stale: boolean;
+};
+
 type BarRow = {
   instrument_id: string;
   bar_date: string;
   close: number | null;
   adj_close: number | null;
 };
+
+const INFLECTION_SETUPS: InflectionSetup[] = [
+  "improving_research",
+  "improving_extended",
+  "correction_candidate",
+  "thesis_check",
+  "watch",
+  "falling_fundamentals",
+  "avoid_late",
+  "insufficient_data",
+];
+
+function asInflectionSetup(value: string): InflectionSetup | null {
+  return (INFLECTION_SETUPS as readonly string[]).includes(value)
+    ? (value as InflectionSetup)
+    : null;
+}
 
 function asDossierStatus(value: string): DossierStatus | null {
   if ((DOSSIER_STATUSES as readonly string[]).includes(value)) {
@@ -65,6 +88,7 @@ export async function getExploreCatalog(
     linksResult,
     dossiersResult,
     positionsResult,
+    setupsResult,
   ] = await Promise.all([
     supabase
       .from("instruments")
@@ -82,6 +106,10 @@ export async function getExploreCatalog(
       .eq("is_primary", true),
     supabase.from("dossiers").select("instrument_id, status, next_review_at"),
     supabase.from("positions").select("instrument_id").eq("status", "open"),
+    supabase
+      .from("instrument_setups")
+      .select("instrument_id, setup, stale")
+      .eq("scorer_key", INFLECTION_SCORER_KEY),
   ]);
 
   if (instrumentsResult.error) {
@@ -105,11 +133,17 @@ export async function getExploreCatalog(
       `Failed to load positions: ${positionsResult.error.message}`,
     );
   }
+  if (setupsResult.error) {
+    throw new Error(
+      `Failed to load instrument setups: ${setupsResult.error.message}`,
+    );
+  }
 
   const instruments = (instrumentsResult.data as InstrumentRow[] | null) ?? [];
   const themeRows = (themesResult.data as ThemeRow[] | null) ?? [];
   const links = (linksResult.data as ThemeLink[] | null) ?? [];
   const dossiers = (dossiersResult.data as DossierRow[] | null) ?? [];
+  const setups = (setupsResult.data as SetupRow[] | null) ?? [];
   const heldIds = new Set(
     ((positionsResult.data as { instrument_id: string }[] | null) ?? []).map(
       (row) => row.instrument_id,
@@ -122,6 +156,9 @@ export async function getExploreCatalog(
   );
   const dossierByInstrument = new Map(
     dossiers.map((row) => [row.instrument_id, row]),
+  );
+  const setupByInstrument = new Map(
+    setups.map((row) => [row.instrument_id, row]),
   );
 
   const barsByInstrument = new Map<string, PricePoint[]>();
@@ -161,6 +198,7 @@ export async function getExploreCatalog(
       const theme = themeId ? themesById.get(themeId) : undefined;
       if (!theme) return null;
       const dossier = dossierByInstrument.get(instrument.id);
+      const setup = setupByInstrument.get(instrument.id);
       return {
         id: instrument.id,
         symbol: instrument.symbol,
@@ -175,6 +213,8 @@ export async function getExploreCatalog(
           barsByInstrument.get(instrument.id) ?? [],
           "1m",
         ),
+        setup: setup ? asInflectionSetup(setup.setup) : null,
+        setupStale: setup?.stale ?? false,
       } satisfies ExploreName;
     })
     .filter((row): row is ExploreName => row !== null);

@@ -1,5 +1,6 @@
 import { ingestBars } from "./ingest/bars";
 import { ingestFundamentals } from "./ingest/fundamentals";
+import { scoreInflectionUniverse } from "./score/inflection";
 import { snapshotPortfolio } from "./snapshot/portfolio";
 import "./env";
 
@@ -10,6 +11,7 @@ Usage:
   pnpm --filter @powerfund/worker ingest:bars [-- --days=365 --symbols=SPY,QQQ]
   pnpm --filter @powerfund/worker ingest:fundamentals
   pnpm --filter @powerfund/worker ingest:all
+  pnpm --filter @powerfund/worker score:inflection
   pnpm --filter @powerfund/worker snapshot:portfolio
 
 Env:
@@ -40,13 +42,18 @@ async function main() {
     .filter((symbol) => symbol.length > 0);
 
   switch (command) {
-    case "bars":
+    case "bars": {
       await ingestBars({ days, pauseMs, symbols });
+      const score = await scoreInflectionUniverse();
+      if (score.failed.length > 0) process.exitCode = 1;
       break;
+    }
     case "fundamentals": {
       const result = await ingestFundamentals({ pauseMs });
       console.log("[ingest:fundamentals]", JSON.stringify(result));
       if (result.failed.length > 0) process.exitCode = 1;
+      const score = await scoreInflectionUniverse();
+      if (score.failed.length > 0) process.exitCode = 1;
       break;
     }
     case "all": {
@@ -55,6 +62,13 @@ async function main() {
       const fundamentals = await ingestFundamentals({ pauseMs });
       console.log("[ingest:fundamentals]", JSON.stringify(fundamentals));
       if (fundamentals.failed.length > 0) process.exitCode = 1;
+      const score = await scoreInflectionUniverse();
+      if (score.failed.length > 0) process.exitCode = 1;
+      break;
+    }
+    case "score": {
+      const score = await scoreInflectionUniverse();
+      if (score.failed.length > 0) process.exitCode = 1;
       break;
     }
     case "snapshot":

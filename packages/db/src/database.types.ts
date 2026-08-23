@@ -473,6 +473,74 @@ export type Database = {
           },
         ]
       }
+      instrument_setups: {
+        Row: {
+          as_of: string
+          calculated_at: string
+          closes_count: number
+          completeness: string
+          days_since_period_end: number | null
+          fundamental_state: string
+          hysteresis: Json
+          ingested_at: string | null
+          instrument_id: string
+          last_close: number | null
+          period_end: string | null
+          rationale: string
+          scorer_key: string
+          scorer_version: number
+          setup: string
+          snapshot: Json
+          stale: boolean
+        }
+        Insert: {
+          as_of: string
+          calculated_at: string
+          closes_count?: number
+          completeness: string
+          days_since_period_end?: number | null
+          fundamental_state: string
+          hysteresis: Json
+          ingested_at?: string | null
+          instrument_id: string
+          last_close?: number | null
+          period_end?: string | null
+          rationale: string
+          scorer_key: string
+          scorer_version: number
+          setup: string
+          snapshot: Json
+          stale?: boolean
+        }
+        Update: {
+          as_of?: string
+          calculated_at?: string
+          closes_count?: number
+          completeness?: string
+          days_since_period_end?: number | null
+          fundamental_state?: string
+          hysteresis?: Json
+          ingested_at?: string | null
+          instrument_id?: string
+          last_close?: number | null
+          period_end?: string | null
+          rationale?: string
+          scorer_key?: string
+          scorer_version?: number
+          setup?: string
+          snapshot?: Json
+          stale?: boolean
+        }
+        Relationships: [
+          {
+            foreignKeyName: "instrument_setups_instrument_id_fkey"
+            columns: ["instrument_id"]
+            isOneToOne: false
+            referencedRelation: "instruments"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       instrument_themes: {
         Row: {
           instrument_id: string

@@ -23,6 +23,7 @@
     "ingest:bars": "pnpm --filter @powerfund/worker ingest:bars",
     "ingest:fundamentals": "pnpm --filter @powerfund/worker ingest:fundamentals",
     "ingest:all": "pnpm --filter @powerfund/worker ingest:all",
+    "score:inflection": "pnpm --filter @powerfund/worker score:inflection",
     "smoke:market": "pnpm --filter @powerfund/worker smoke:market"
   },
   "dependencies": {

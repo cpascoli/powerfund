@@ -98,7 +98,7 @@ Exit criteria: deliberate go/no-go; no premature multi-tenant complexity before 
 3. [x] Scaffold monorepo + DB schema.
 4. [x] Connect UI to Supabase (auth + CRUD).
 5. [x] Manual research workflow for a starter universe (~15–30 names across core themes).
-6. [ ] Ship one automated scorer (e.g. growth/CapEx inflection + anti-parabolic filter).
+6. [x] Ship one automated scorer (e.g. growth/CapEx inflection + anti-parabolic filter). Shadow `fundamental_inflection_v1` on Explore + Signals; not wired to Briefing or the buy gate.
 7. [ ] Establish weekly review ritual (queue + book; later, review writes into the queue).
 8. [x] Backfill written invalidation criteria for all open positions missing them (mandate rule 4 — flagged in the [strategy second opinion](./reviews/2026-08-13-strategy-second-opinion.md)). Written to the book 2026-08-13; visible per position on the Portfolio page.
 9. [x] Set the deployment-ladder baseline tranche: **~$10k/month** (decided 2026-08-13), reaching the $75k Phase-1 cap ~January 2027. Acceleration-tranche sizes for the −10%/−20% triggers still to be set at a monthly review.

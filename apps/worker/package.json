@@ -8,6 +8,7 @@
     "ingest:bars": "tsx src/index.ts bars",
     "ingest:fundamentals": "tsx src/index.ts fundamentals",
     "ingest:all": "tsx src/index.ts all",
+    "score:inflection": "tsx src/index.ts score",
     "snapshot:portfolio": "tsx src/index.ts snapshot",
     "smoke:market": "tsx src/smoke-market.ts",
     "build": "tsc -p tsconfig.json",

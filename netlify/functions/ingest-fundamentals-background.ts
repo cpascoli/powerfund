@@ -1,6 +1,7 @@
 import type { Handler } from "@netlify/functions";
 
 import { ingestFundamentals } from "../../apps/worker/src/ingest/fundamentals";
+import { scoreInflectionBestEffort } from "../../apps/worker/src/score/inflection";
 import { authorizeCron } from "./lib/cron-auth";
 
 /**
@@ -28,6 +29,8 @@ export const handler: Handler = async (event) => {
   } catch (error) {
     console.error("[ingest-fundamentals-background]", error);
   }
+
+  await scoreInflectionBestEffort();
 
   return { statusCode: 202, body: "" };
 };

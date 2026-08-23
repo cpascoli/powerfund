@@ -1,4 +1,8 @@
-import type { DossierStatus } from "@powerfund/domain";
+import {
+  inflectionSetupRank,
+  type DossierStatus,
+  type InflectionSetup,
+} from "@powerfund/domain";
 
 export const EXPLORE_FOCUSES = [
   "all",
@@ -21,6 +25,7 @@ export const EXPLORE_SORTS = [
   "name",
   "theme",
   "return_1m",
+  "setup",
   "dossier",
   "book",
 ] as const;
@@ -47,6 +52,8 @@ export type ExploreName = {
   dossierStatus: DossierStatus | null;
   nextReviewAt: string | null;
   return1m: number | null;
+  setup: InflectionSetup | null;
+  setupStale: boolean;
 };
 
 export function parseExploreFocus(value: string | undefined): ExploreFocus {
@@ -186,6 +193,14 @@ export function sortExploreNames(
         break;
       case "return_1m":
         cmp = compareNullableNumber(a.return1m, b.return1m, dir);
+        if (cmp !== 0) return cmp;
+        return a.symbol.localeCompare(b.symbol);
+      case "setup":
+        cmp = compareNullableNumber(
+          inflectionSetupRank(a.setup),
+          inflectionSetupRank(b.setup),
+          dir,
+        );
         if (cmp !== 0) return cmp;
         return a.symbol.localeCompare(b.symbol);
       case "dossier":
