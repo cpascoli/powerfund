@@ -12,6 +12,10 @@ export const config: Config = {
 };
 
 export default async (): Promise<Response> => {
+  console.log(
+    "[scheduled-ingest-bars] entered",
+    new Date().toISOString(),
+  );
   try {
     const res = await kickBackground("ingest-bars-background", {
       trigger: "scheduled",
