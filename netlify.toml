@@ -16,11 +16,19 @@
 
 [functions]
   directory = "netlify/functions"
+  # Do not set node_bundler = esbuild here. That forces v1 bundling and
+  # scheduled functions (v2 default + config.schedule, same as PowerWallet)
+  # never run — including UI "Run now". Background jobs that import the
+  # worker still need esbuild.
+
+[functions."ingest-bars-background"]
   node_bundler = "esbuild"
 
-# Cron lives in netlify.toml so Next.js/OpenNext deploys cannot drop the
-# inline `export const config.schedule`. Scheduled functions are 26s;
-# heavy work is ingest-*-background (15-minute budget).
+[functions."ingest-fundamentals-background"]
+  node_bundler = "esbuild"
+
+# Cron also lives here so OpenNext cannot drop inline config.schedule.
+# Timeout 26s; heavy work is ingest-*-background (15-minute budget).
 [functions."scheduled-ingest-bars"]
   schedule = "0 22 * * 1-5"
   timeout = 26
