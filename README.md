@@ -72,7 +72,7 @@ pnpm ingest:all               # both
 pnpm score:inflection         # shadow fundamental-inflection scorer
 ```
 
-Production EOD: Netlify scheduled function (weekdays 22:00 UTC) kicks a **background** function that ingests the last 7 days and then snapshots NAV. Weekly fundamentals (Sunday 08:00 UTC) uses the same kick pattern. Set `SUPABASE_SERVICE_ROLE_KEY`, `CRON_SECRET`, and optionally `TIINGO_API_KEY` on the Netlify site, scoped to Builds **and** Functions (never `NEXT_PUBLIC_*`).
+Production EOD is GitHub Actions (weekdays 22:00 UTC bars + snapshot; Sunday 08:00 UTC fundamentals). Netlify scheduled functions on this OpenNext site never invoke — logs are on the Actions run. Set repository secrets `SUPABASE_URL` (or `NEXT_PUBLIC_SUPABASE_URL`), `SUPABASE_SERVICE_ROLE_KEY`, and optionally `TIINGO_API_KEY`. Details: [docs/deploy.md](./docs/deploy.md).
 
 ## Git + Netlify CI
 

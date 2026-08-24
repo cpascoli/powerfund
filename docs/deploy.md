@@ -22,8 +22,8 @@ Build config lives in root [`netlify.toml`](../netlify.toml).
 5. Ensure Production env vars exist (Site configuration → Environment variables), scoped to **Builds and Functions** (not Builds-only):
    - `NEXT_PUBLIC_SUPABASE_URL` — Project URL (Settings → API Keys / Data API)
    - `NEXT_PUBLIC_SUPABASE_ANON_KEY` — **anon** / **publishable** key only
-   - `SUPABASE_SERVICE_ROLE_KEY` — **private** (scheduled ingest only; never `NEXT_PUBLIC_*`)
-   - `CRON_SECRET` — **private** shared secret for the background ingest trigger
+   - `SUPABASE_SERVICE_ROLE_KEY` — **private** (optional HTTP kick of `ingest-*-background`; never `NEXT_PUBLIC_*`)
+   - `CRON_SECRET` — **private** shared secret for that optional HTTP kick
    - `POWERFUND_AGENT_API_KEYS` — **private** JSON array of agent API keys (see [agent-api.md](./agent-api.md))
    - `TIINGO_API_KEY` — optional, **private**; preferred for daily bars
 6. **Do not** expose `SUPABASE_SERVICE_ROLE_KEY`, `CRON_SECRET`, `POWERFUND_AGENT_API_KEYS`, or `TIINGO_API_KEY` as `NEXT_PUBLIC_*`.
@@ -31,15 +31,25 @@ Build config lives in root [`netlify.toml`](../netlify.toml).
 
 After linking, every push to `main` that touches the web app, shared packages, worker ingest, or `netlify/functions` deploys Production. The `ignore` rule in `netlify.toml` skips builds when only docs/supabase change.
 
+### GitHub Actions secrets (production cron)
+
+Same values as the worker CLI, as **repository** secrets (Settings → Secrets and variables → Actions):
+
+- `SUPABASE_URL` — hosted project URL (or set `NEXT_PUBLIC_SUPABASE_URL` instead)
+- `SUPABASE_SERVICE_ROLE_KEY` — **private** service role
+- `TIINGO_API_KEY` — optional, **private**; preferred for daily bars
+
 ### Nightly EOD bars
 
-Weekdays at **22:00 UTC**, `scheduled-ingest-bars` kicks `ingest-bars-background` (15-minute budget) to upsert the last 7 days of daily bars, then write tonight's NAV snapshot. `scheduled-snapshot-portfolio` at **22:30 UTC** is the backup mark. Cron is in `netlify.toml` so OpenNext deploys keep the schedule. See [ADR 0006](../architecture/decisions/0006-netlify-scheduled-ingest.md).
+GitHub Actions (not Netlify cron). Weekdays at **22:00 UTC**, [scheduled-ingest.yml](../.github/workflows/scheduled-ingest.yml) runs `ingest:bars --days=7` then `snapshot:portfolio`. OpenNext on this site registers Netlify scheduled functions but never invokes them — do not look for logs on the Functions page. See [ADR 0006](../architecture/decisions/0006-netlify-scheduled-ingest.md).
+
+Repository secrets: `SUPABASE_URL` (or `NEXT_PUBLIC_SUPABASE_URL`), `SUPABASE_SERVICE_ROLE_KEY`, optional `TIINGO_API_KEY`. To run immediately: **Actions → Scheduled ingest → Run workflow → bars**.
 
 Historical backfill stays local: `pnpm ingest:bars`.
 
 ### Weekly fundamentals
 
-Sundays at **08:00 UTC**, `scheduled-ingest-fundamentals` kicks `ingest-fundamentals-background` to refresh `fundamentals_quarterly` (SEC companyfacts, Yahoo fills sparse FCF/capex/net-debt and newer quarters). Local: `pnpm ingest:fundamentals`.
+Sundays at **08:00 UTC**, the same workflow runs `ingest:fundamentals` (SEC companyfacts, Yahoo fills sparse FCF/capex/net-debt and newer quarters). Manual: **Run workflow → fundamentals**. Local: `pnpm ingest:fundamentals`.
 
 ### Manual CLI deploy (fallback)
 

@@ -1,0 +1,92 @@
+# Production EOD ingest. Netlify scheduled functions on this OpenNext
+# site register a badge and accept "Run now" but never invoke the handler
+# (no logs, no DB writes). This workflow is the scheduler. See ADR 0006.
+name: Scheduled ingest
+
+on:
+  schedule:
+    - cron: "0 22 * * 1-5" # weekdays after the US cash close
+    - cron: "0 8 * * 0" # Sunday fundamentals
+  workflow_dispatch:
+    inputs:
+      job:
+        description: Which ingest to run
+        required: true
+        type: choice
+        options:
+          - bars
+          - fundamentals
+        default: bars
+
+concurrency:
+  group: scheduled-ingest
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+env:
+  SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+  NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+  SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+  TIINGO_API_KEY: ${{ secrets.TIINGO_API_KEY }}
+
+jobs:
+  bars:
+    name: Bars + snapshot
+    if: >-
+      (github.event_name == 'workflow_dispatch' && inputs.job == 'bars') ||
+      (github.event_name == 'schedule' && github.event.schedule == '0 22 * * 1-5')
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9.1.1
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - name: Check secrets
+        run: |
+          if [ -z "$SUPABASE_SERVICE_ROLE_KEY" ]; then
+            echo "Set repository secret SUPABASE_SERVICE_ROLE_KEY."
+            exit 1
+          fi
+          if [ -z "$SUPABASE_URL" ] && [ -z "$NEXT_PUBLIC_SUPABASE_URL" ]; then
+            echo "Set repository secret SUPABASE_URL or NEXT_PUBLIC_SUPABASE_URL."
+            exit 1
+          fi
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter @powerfund/worker ingest:bars -- --days=7 --pauseMs=400
+      - run: pnpm --filter @powerfund/worker snapshot:portfolio
+
+  fundamentals:
+    name: Fundamentals
+    if: >-
+      (github.event_name == 'workflow_dispatch' && inputs.job == 'fundamentals') ||
+      (github.event_name == 'schedule' && github.event.schedule == '0 8 * * 0')
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9.1.1
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - name: Check secrets
+        run: |
+          if [ -z "$SUPABASE_SERVICE_ROLE_KEY" ]; then
+            echo "Set repository secret SUPABASE_SERVICE_ROLE_KEY."
+            exit 1
+          fi
+          if [ -z "$SUPABASE_URL" ] && [ -z "$NEXT_PUBLIC_SUPABASE_URL" ]; then
+            echo "Set repository secret SUPABASE_URL or NEXT_PUBLIC_SUPABASE_URL."
+            exit 1
+          fi
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter @powerfund/worker ingest:fundamentals -- --pauseMs=800

@@ -6,8 +6,8 @@
   command = "pnpm install --frozen-lockfile && pnpm --filter @powerfund/web build"
   publish = "apps/web/.next"
   functions = "netlify/functions"
-  # Skip deploys that do not touch the web app, shared packages, scheduled
-  # ingest, or docs (the Mandate page is rendered from docs/mandate.md at build).
+  # Skip deploys that do not touch the web app, shared packages, optional
+  # HTTP ingest functions, or docs (Mandate is rendered from docs/mandate.md).
   ignore = "git diff --quiet $CACHED_COMMIT_REF $COMMIT_REF -- apps/web apps/worker packages/domain packages/db packages/data-clients netlify docs package.json pnpm-lock.yaml pnpm-workspace.yaml netlify.toml"
 
 [build.environment]
@@ -16,37 +16,15 @@
 
 [functions]
   directory = "netlify/functions"
-  # Do not set node_bundler = esbuild here. That forces v1 bundling and
-  # scheduled functions (v2 default + config.schedule, same as PowerWallet)
-  # never run — including UI "Run now". Background jobs that import the
-  # worker still need esbuild.
+  # Production cron is GitHub Actions (ADR 0006). OpenNext on this site
+  # registers scheduled functions but never invokes them. Background
+  # jobs that import the worker still need esbuild for optional HTTP kicks.
 
 [functions."ingest-bars-background"]
   node_bundler = "esbuild"
 
 [functions."ingest-fundamentals-background"]
   node_bundler = "esbuild"
-
-# Cron also lives here so OpenNext cannot drop inline config.schedule.
-# Timeout 26s; heavy work is ingest-*-background (15-minute budget).
-[functions."scheduled-ingest-bars"]
-  schedule = "0 22 * * 1-5"
-  timeout = 26
-
-[functions."scheduled-ingest-fundamentals"]
-  schedule = "0 8 * * 0"
-  timeout = 26
-
-# Backup NAV mark if the bars background job dies before snapshotting.
-# The 22:00 bars background also writes tonight's snapshot after ingest.
-[functions."scheduled-snapshot-portfolio"]
-  schedule = "30 22 * * 1-5"
-  timeout = 26
-
-# Temporary probe that Netlify actually invokes scheduled functions.
-[functions."scheduled-heartbeat"]
-  schedule = "0 * * * *"
-  timeout = 26
 
 [dev]
   command = "pnpm --filter @powerfund/web dev"
@@ -57,7 +35,8 @@
 # Set in the Netlify UI (or CLI) for the site:
 #   NEXT_PUBLIC_SUPABASE_URL
 #   NEXT_PUBLIC_SUPABASE_ANON_KEY
-# Private (never NEXT_PUBLIC_*) for scheduled ingest:
+# Private (never NEXT_PUBLIC_*) if you HTTP-kick ingest-*-background:
 #   SUPABASE_SERVICE_ROLE_KEY
 #   CRON_SECRET
 #   TIINGO_API_KEY (optional)
+# Production cron secrets live on GitHub Actions, not here.

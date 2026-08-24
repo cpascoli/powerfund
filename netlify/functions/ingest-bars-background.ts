@@ -7,8 +7,8 @@ import { authorizeCron } from "./lib/cron-auth";
 
 /**
  * Background function (15-minute limit via `-background` suffix).
- * Recent daily bars + market caps, then tonight's NAV snapshot so a missed
- * 22:30 cron cannot leave the book on last week's closes.
+ * Recent daily bars + market caps, then tonight's NAV snapshot.
+ * Optional HTTP trigger; production cron is GitHub Actions (ADR 0006).
  * Auth: Bearer CRON_SECRET.
  */
 export const handler: Handler = async (event) => {

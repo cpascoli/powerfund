@@ -27,7 +27,7 @@ Build:
 - [x] Research UI shell + IA (Briefing, Explore, Signals, Workbench, Portfolio, Journal)
 - [x] Netlify deploy config for the frontend
 - [x] Worker ingest (daily bars + quarterly fundamentals via free APIs)
-- [x] Netlify scheduled + background EOD bar ingest
+- [x] GitHub Actions EOD bar ingest (OpenNext does not invoke Netlify scheduled functions)
 - [x] Auth + Supabase client wiring (local)
 - [x] Watchlists organized by theme (live data + starter universe seed)
 - [x] Company dossiers (stub fields + CLS/VRT/NBIS research notes)

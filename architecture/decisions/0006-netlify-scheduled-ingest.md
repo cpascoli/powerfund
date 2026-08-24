@@ -1,4 +1,4 @@
-# ADR 0006: EOD ingest via Netlify scheduled + background functions
+# ADR 0006: EOD ingest via GitHub Actions
 
 ## Status
 
@@ -6,25 +6,26 @@ Accepted
 
 ## Context
 
-Daily closes must land in `market_bars` after the NYSE/NASDAQ cash session without a laptop job. CoinStrat already uses the same host: a short **scheduled** function kicks a **background** function (`-background` suffix, 15-minute limit) because scheduled functions are capped at ~30s.
+Daily closes must land in `market_bars` after the NYSE/NASDAQ cash session without a laptop job. CoinStrat / PowerWallet use Netlify **scheduled** functions that kick **background** functions (`-background` suffix, 15-minute limit) because scheduled functions are capped at ~30s.
 
-ADR 0004 kept workers off Netlify. That still holds for long historical backfills and anything that belongs in `apps/worker` locally. Nightly *recent* bars are small enough for a background function.
+Power Fund is Next.js on Netlify’s OpenNext adapter. On this site, scheduled functions show a **Scheduled** badge and accept **Run now**, but the handler never runs: no Function logs, no Function Metrics row, no DB writes. That held for v2 `export default`, v1 `handler`, global esbuild on and off, toml + inline cron, and an hourly heartbeat probe. PowerWallet’s Vite SPA does not have this failure.
+
+ADR 0004 already keeps heavy work in `apps/worker`. The worker CLI is the path that has actually written production bars.
 
 ## Decision
 
-- Cron expressions are declared in `netlify.toml` (`[functions."<name>"].schedule`) *and* inline `export const config`. Toml is the source of truth — Next.js/OpenNext deploys have dropped inline-only schedules.
-- `scheduled-ingest-bars` — `0 22 * * 1-5` (22:00 UTC weekdays ≈ 18:00 ET). Kicks `ingest-bars-background` with `Authorization: Bearer CRON_SECRET`. Returns 500 if the kick is not 2xx.
-- Background handler runs `ingestBars({ days: 7, pauseMs: 400 })`, then `snapshotPortfolio()`, so a missed 22:30 cron cannot leave NAV on last week's closes.
-- `scheduled-snapshot-portfolio` — `30 22 * * 1-5`. Backup mark after the bars job; upserts on `snapshot_date`.
-- `scheduled-ingest-fundamentals` — `0 8 * * 0` (Sunday 08:00 UTC). Kicks `ingest-fundamentals-background`. Filings are quarterly; daily would mostly re-upsert the same rows.
-- Background handler runs `ingestFundamentals({ pauseMs: 800 })` (SEC companyfacts, Yahoo fills FCF/capex/net-debt holes and newer quarters SEC has not tagged yet)
-- Unauthorized background invocations return 401 (not a silent 202)
-- Private Netlify env, scoped to **Builds and Functions** (never `NEXT_PUBLIC_*`): `SUPABASE_SERVICE_ROLE_KEY`, `CRON_SECRET`, optional `TIINGO_API_KEY`
-- Local `pnpm ingest:bars` / `pnpm ingest:fundamentals` remain for backfill and one-off runs
+- **GitHub Actions** is the production scheduler (`.github/workflows/scheduled-ingest.yml`).
+- Bars: `0 22 * * 1-5` (22:00 UTC weekdays ≈ 18:00 ET). Runs `ingest:bars --days=7` then `snapshot:portfolio`. `ingest:bars` also scores `fundamental_inflection_v1`.
+- Fundamentals: `0 8 * * 0` (Sunday 08:00 UTC). Runs `ingest:fundamentals` (SEC companyfacts, Yahoo hole-fill), which also scores.
+- `workflow_dispatch` runs either job immediately (Actions → Scheduled ingest → Run workflow).
+- Repository secrets (never `NEXT_PUBLIC_*` for the service role): `SUPABASE_URL` or `NEXT_PUBLIC_SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, optional `TIINGO_API_KEY`.
+- Local `pnpm ingest:bars` / `pnpm ingest:fundamentals` remain for backfill and one-off runs.
+- Netlify `ingest-*-background` functions stay as an optional HTTP trigger (`Authorization: Bearer CRON_SECRET`). They are not the scheduler.
 
 ## Consequences
 
 - Book of record stays EOD bars in Postgres; page-load Yahoo quotes are a display overlay only
-- Service role lives on the Netlify site as a **server-only** secret (same pattern as CoinStrat)
-- Deploy ignore list includes `netlify/` and `apps/worker` so ingest changes ship
+- Ingest logs live on the GitHub Actions run, not the Netlify Functions page
+- Service role lives as a GitHub Actions secret (and may still exist on Netlify for the unused background HTTP path)
 - Full 2-year ingest stays on the worker CLI, not the cron
+- Do not treat a Netlify Scheduled badge or “Functions invoked successfully” toast as evidence the job ran
