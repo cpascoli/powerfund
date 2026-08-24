@@ -35,6 +35,11 @@
   schedule = "30 22 * * 1-5"
   timeout = 26
 
+# Temporary probe that Netlify actually invokes scheduled functions.
+[functions."scheduled-heartbeat"]
+  schedule = "0 * * * *"
+  timeout = 26
+
 [dev]
   command = "pnpm --filter @powerfund/web dev"
   targetPort = 3000

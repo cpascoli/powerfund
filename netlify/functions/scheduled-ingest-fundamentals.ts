@@ -1,4 +1,4 @@
-import type { Config } from "@netlify/functions";
+import type { Handler } from "@netlify/functions";
 
 import { kickBackground } from "./lib/kick-background";
 
@@ -6,12 +6,15 @@ import { kickBackground } from "./lib/kick-background";
  * Weekly fundamentals refresh. Filings are quarterly; daily would mostly
  * re-upsert the same rows. Scheduled functions are capped at ~30s, so this
  * only kicks the background ingest (15-minute limit).
+ *
+ * v1 `handler` — this directory uses esbuild, which does not invoke a
+ * v2 default export. Schedule stays in netlify.toml.
  */
-export const config: Config = {
-  schedule: "0 8 * * 0",
-};
-
-export default async (): Promise<Response> => {
+export const handler: Handler = async () => {
+  console.log(
+    "[scheduled-ingest-fundamentals] entered",
+    new Date().toISOString(),
+  );
   try {
     const res = await kickBackground("ingest-fundamentals-background", {
       trigger: "scheduled",
@@ -22,28 +25,18 @@ export default async (): Promise<Response> => {
       res.status,
     );
 
-    if (!res.ok) {
-      return new Response(
-        JSON.stringify({
-          ok: false,
-          triggered: true,
-          status: res.status,
-        }),
-        { status: 500, headers: { "content-type": "application/json" } },
-      );
-    }
-
-    return new Response(
-      JSON.stringify({ ok: true, triggered: true, status: res.status }),
-      { status: 200, headers: { "content-type": "application/json" } },
-    );
+    const body = JSON.stringify({
+      ok: res.ok,
+      triggered: true,
+      status: res.status,
+    });
+    return { statusCode: res.ok ? 200 : 500, body };
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     console.error("[scheduled-ingest-fundamentals]", error);
-
-    return new Response(JSON.stringify({ ok: false, error: message }), {
-      status: 500,
-      headers: { "content-type": "application/json" },
-    });
+    return {
+      statusCode: 500,
+      body: JSON.stringify({ ok: false, error: message }),
+    };
   }
 };
