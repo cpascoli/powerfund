@@ -94,8 +94,8 @@ export function Landing() {
         <EssayBlock
           kicker="01"
           title="What it is"
-          src="/landing/research.jpg"
-          alt="A researcher at a desk reviewing printed dossiers and notes, with a journal beside a laptop"
+          src="/landing/paper-loop.jpg"
+          alt="A hand closing a loop of overlapping paper sheets"
           width={1280}
           height={853}
           media="start"
@@ -110,8 +110,8 @@ export function Landing() {
         <EssayBlock
           kicker="02"
           title="Why it exists"
-          src="/landing/early.jpg"
-          alt="Dawn over an almost empty industrial construction site, still years before the place is crowded"
+          src="/landing/ahead.jpg"
+          alt="One sharp point of light standing ahead of a field of faint lights"
           width={1280}
           height={853}
           media="end"
@@ -127,8 +127,8 @@ export function Landing() {
         <EssayBlock
           kicker="03"
           title="Goals"
-          src="/landing/mandate.jpg"
-          alt="An open notebook of handwritten rules with a pen, used as a working mandate"
+          src="/landing/thread.jpg"
+          alt="A taut thread running straight through stacked paper and a steel ruler"
           width={1280}
           height={853}
           media="start"
@@ -146,8 +146,8 @@ export function Landing() {
         <EssayBlock
           kicker="04"
           title="How we go about it"
-          src="/landing/process.jpg"
-          alt="A long table laid out as a process: filings and maps leading to a thesis page and an open journal"
+          src="/landing/four-stages.jpg"
+          alt="Four overlapping glass sheets in sequence, joined by a single line"
           width={1280}
           height={853}
           media="end"
@@ -164,8 +164,8 @@ export function Landing() {
         <EssayBlock
           kicker="05"
           title="How we think about investing"
-          src="/landing/bottleneck.jpg"
-          alt="A ship canal lock funnelling a vessel through a narrow concrete gap"
+          src="/landing/concentrate.jpg"
+          alt="Sand concentrating through the narrow waist of a glass hourglass"
           width={853}
           height={1280}
           media="start"
