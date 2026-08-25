@@ -493,18 +493,66 @@ a {
   line-height: 1.45;
 }
 
-.landing-section {
-  max-width: 42rem;
-  padding: 1.75rem 0 0;
-  border-top: 1px solid var(--line);
-  margin-top: 1.75rem;
+.landing-sections {
+  max-width: 46rem;
+  margin-top: 2.15rem;
 }
 
-.theme-strip + .landing-section {
+.landing-section {
+  display: grid;
+  grid-template-columns: 3.5rem minmax(0, 1fr);
+  grid-template-areas:
+    "mark title"
+    ". copy";
+  column-gap: 1.2rem;
+  row-gap: 0.45rem;
+  align-items: center;
+}
+
+.landing-section + .landing-section {
+  margin-top: 1.45rem;
+  padding-top: 1.45rem;
+  border-top: 1px solid var(--line);
+}
+
+.theme-strip + .landing-sections {
   margin-top: 2rem;
 }
 
-.landing-section h2,
+.landing-mark {
+  grid-area: mark;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 3.5rem;
+  height: 3.5rem;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background:
+    linear-gradient(180deg, var(--accent-soft), var(--bg-elevated) 64%);
+  color: var(--accent);
+}
+
+.landing-mark svg {
+  width: 1.85rem;
+  height: 1.85rem;
+  display: block;
+}
+
+.landing-section h2 {
+  grid-area: title;
+  align-self: center;
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 1.15rem;
+  letter-spacing: -0.02em;
+}
+
+.landing-copy {
+  grid-area: copy;
+  min-width: 0;
+}
+
 .landing-browse h2 {
   margin: 0 0 0.4rem;
   font-family: var(--font-display);
@@ -1379,6 +1427,21 @@ a {
   .theme-strip,
   .browse-grid {
     grid-template-columns: 1fr 1fr;
+  }
+
+  .landing-section {
+    grid-template-columns: 3rem minmax(0, 1fr);
+    column-gap: 0.95rem;
+  }
+
+  .landing-mark {
+    width: 3rem;
+    height: 3rem;
+  }
+
+  .landing-mark svg {
+    width: 1.6rem;
+    height: 1.6rem;
   }
 
   .panel.half,
