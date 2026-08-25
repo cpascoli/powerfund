@@ -3,7 +3,11 @@ import { NextResponse, type NextRequest } from "next/server";
 
 import type { Database } from "@powerfund/db";
 
-import { isAgentApiPath, isPublicCatalogPath } from "@/lib/api/paths";
+import {
+  isAgentApiPath,
+  isPublicCatalogPath,
+  isPublicSitePath,
+} from "@/lib/api/paths";
 
 import { getSupabaseEnv } from "./env";
 
@@ -13,8 +17,17 @@ type CookieToSet = {
   options: CookieOptions;
 };
 
+function hasLegacyBriefingQuery(searchParams: URLSearchParams): boolean {
+  return (
+    searchParams.has("tab") ||
+    searchParams.has("kind") ||
+    searchParams.has("when")
+  );
+}
+
 export async function updateSession(request: NextRequest) {
   const pathname = request.nextUrl.pathname;
+  const searchParams = request.nextUrl.searchParams;
   // Public catalog is anonymous. Agent routes authenticate with Bearer tokens
   // inside the route handlers — do not bounce them to /login.
   if (isPublicCatalogPath(pathname) || isAgentApiPath(pathname)) {
@@ -55,16 +68,24 @@ export async function updateSession(request: NextRequest) {
   } = await supabase.auth.getUser();
 
   const isLogin = pathname === "/login";
+  const isPublicPage = isPublicSitePath(pathname, searchParams);
 
-  if (!user && !isLogin) {
+  if (user && pathname === "/" && hasLegacyBriefingQuery(searchParams)) {
+    const url = request.nextUrl.clone();
+    url.pathname = "/briefing";
+    return NextResponse.redirect(url);
+  }
+
+  if (!user && !isPublicPage) {
     const url = request.nextUrl.clone();
     url.pathname = "/login";
+    url.search = "";
     return NextResponse.redirect(url);
   }
 
   if (user && isLogin) {
     const url = request.nextUrl.clone();
-    url.pathname = "/docs/goals";
+    url.pathname = "/briefing";
     return NextResponse.redirect(url);
   }
 

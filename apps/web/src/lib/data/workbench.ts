@@ -1,4 +1,4 @@
-import { createClient } from "@/lib/supabase/server";
+import { resolveDb } from "@/lib/supabase/db";
 import {
   computeReturnPct,
   RETURN_WINDOWS,
@@ -23,7 +23,7 @@ export type WorkbenchUniverse = {
 const RETURN_KEYS: ReturnWindow[] = RETURN_WINDOWS.map((window) => window.key);
 
 export async function getWorkbenchUniverse(): Promise<WorkbenchUniverse> {
-  const supabase = await createClient();
+  const supabase = await resolveDb();
 
   const [
     { data: instrumentData, error: instrumentError },

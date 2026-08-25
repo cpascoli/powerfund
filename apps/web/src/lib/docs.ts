@@ -38,6 +38,11 @@ export const PLAYBOOK_DOCS: readonly PlaybookDoc[] = [
   },
 ] as const;
 
+/** Investing constitution. The build plan stays operator-only. */
+export const PUBLIC_PLAYBOOK_DOCS: readonly PlaybookDoc[] = PLAYBOOK_DOCS.filter(
+  (doc) => doc.slug !== "plan",
+);
+
 const SLUGS = new Set(PLAYBOOK_DOCS.map((doc) => doc.slug));
 
 export function getPlaybookDoc(slug: string): PlaybookDoc | null {

@@ -6,10 +6,12 @@ import {
   getPlaybookDoc,
   loadPlaybookMarkdown,
   PLAYBOOK_DOCS,
+  PUBLIC_PLAYBOOK_DOCS,
 } from "@/lib/docs";
 import { renderMarkdown } from "@/lib/markdown";
+import { getSessionUser } from "@/lib/supabase/server";
 
-export const dynamic = "force-static";
+export const dynamic = "force-dynamic";
 export const dynamicParams = false;
 
 type Params = { slug: string };
@@ -37,11 +39,13 @@ export default async function PlaybookDocPage({
   params: Promise<Params>;
 }) {
   const { slug } = await params;
+  const signedIn = (await getSessionUser()) != null;
   const doc = getPlaybookDoc(slug);
   if (!doc) {
     notFound();
   }
 
+  const playbookDocs = signedIn ? PLAYBOOK_DOCS : PUBLIC_PLAYBOOK_DOCS;
   const markdown = await loadPlaybookMarkdown(doc.file);
 
   return (
@@ -50,8 +54,8 @@ export default async function PlaybookDocPage({
         <div>
           <h1>{doc.title}</h1>
           <p>
-            {doc.description} Rendered from <code>docs/{doc.file}</code>.
-            {slug === "mandate" ? (
+            {doc.description}
+            {signedIn && slug === "mandate" ? (
               <>
                 {" "}
                 Live compliance is on the{" "}
@@ -64,7 +68,7 @@ export default async function PlaybookDocPage({
       </header>
 
       <nav className="doc-switch" aria-label="Playbook">
-        {PLAYBOOK_DOCS.map((entry) => (
+        {playbookDocs.map((entry) => (
           <Link
             key={entry.slug}
             href={`/docs/${entry.slug}`}

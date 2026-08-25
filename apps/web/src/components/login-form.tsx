@@ -9,7 +9,6 @@ export function LoginForm() {
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [mode, setMode] = useState<"signin" | "signup">("signin");
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
 
@@ -19,10 +18,7 @@ export function LoginForm() {
     setError(null);
 
     const supabase = createClient();
-    const result =
-      mode === "signin"
-        ? await supabase.auth.signInWithPassword({ email, password })
-        : await supabase.auth.signUp({ email, password });
+    const result = await supabase.auth.signInWithPassword({ email, password });
 
     if (result.error) {
       setPending(false);
@@ -30,7 +26,7 @@ export function LoginForm() {
       return;
     }
 
-    router.replace("/docs/goals");
+    router.replace("/briefing");
     router.refresh();
   }
 
@@ -51,7 +47,7 @@ export function LoginForm() {
         Password
         <input
           type="password"
-          autoComplete={mode === "signin" ? "current-password" : "new-password"}
+          autoComplete="current-password"
           required
           minLength={6}
           disabled={pending}
@@ -66,27 +62,11 @@ export function LoginForm() {
         {pending ? (
           <>
             <span className="auth-spinner" aria-hidden="true" />
-            {mode === "signin" ? "Signing in…" : "Creating account…"}
+            Signing in…
           </>
-        ) : mode === "signin" ? (
-          "Sign in"
         ) : (
-          "Create account"
+          "Sign in"
         )}
-      </button>
-
-      <button
-        type="button"
-        className="linkish"
-        disabled={pending}
-        onClick={() => {
-          setMode((current) => (current === "signin" ? "signup" : "signin"));
-          setError(null);
-        }}
-      >
-        {mode === "signin"
-          ? "Need an account? Sign up"
-          : "Already have an account? Sign in"}
       </button>
     </form>
   );

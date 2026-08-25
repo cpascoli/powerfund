@@ -3,13 +3,22 @@ import { cookies } from "next/headers";
 
 import type { Database } from "@powerfund/db";
 
-import { requireSupabaseEnv } from "./env";
+import { getSupabaseEnv, requireSupabaseEnv } from "./env";
 
 type CookieToSet = {
   name: string;
   value: string;
   options: CookieOptions;
 };
+
+export async function getSessionUser() {
+  if (!getSupabaseEnv()) return null;
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  return user;
+}
 
 export async function createClient() {
   const cookieStore = await cookies();

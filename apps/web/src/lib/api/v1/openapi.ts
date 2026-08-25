@@ -109,6 +109,18 @@ export function openApiDocument(origin: string) {
           },
         },
       },
+      "/api/v1/calendar": {
+        get: {
+          summary: "Catalyst calendar",
+          operationId: "getCalendar",
+          responses: {
+            "200": {
+              description:
+                "Dated earnings and event windows. No instructions or planned trades.",
+            },
+          },
+        },
+      },
     },
     "x-powerfund-public": PUBLIC_RESOURCES,
     "x-powerfund-held": HELD_RESOURCES,

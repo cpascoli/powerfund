@@ -14,6 +14,7 @@ import {
 } from "@/lib/data/research";
 import { getLiveQuote, overlayLiveQuote, quoteCaption } from "@/lib/market/quotes";
 import { computePriceReturns } from "@/lib/market/returns";
+import { getSessionUser } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
 
@@ -49,6 +50,7 @@ export default async function InstrumentDossierPage({
 }: PageProps) {
   const { symbol } = await params;
   const { edit } = await searchParams;
+  const signedIn = (await getSessionUser()) != null;
   const result = await getInstrumentDossier(symbol);
   if (!result) {
     notFound();
@@ -62,7 +64,7 @@ export default async function InstrumentDossierPage({
   ]);
   const { points, live } = overlayLiveQuote(priceHistory, liveQuote);
   const returns = computePriceReturns(points);
-  const editing = edit === "1" || !dossier;
+  const editing = signedIn && (edit === "1" || !dossier);
   const displayPrice = liveQuote?.price ?? market.lastClose;
   const priceCaption = liveQuote ? quoteCaption(liveQuote) : "Close";
 
@@ -93,24 +95,26 @@ export default async function InstrumentDossierPage({
             {instrument.notes ? ` · ${instrument.notes}` : ""}
           </p>
         </div>
-        <div className="header-actions">
-          {dossier && !editing ? (
-            <Link className="buttonish" href={`/explore/${instrument.symbol}?edit=1`}>
-              Edit dossier
+        {signedIn ? (
+          <div className="header-actions">
+            {dossier && !editing ? (
+              <Link className="buttonish" href={`/explore/${instrument.symbol}?edit=1`}>
+                Edit dossier
+              </Link>
+            ) : null}
+            {editing && dossier ? (
+              <Link className="buttonish subtle" href={`/explore/${instrument.symbol}`}>
+                Cancel
+              </Link>
+            ) : null}
+            <Link
+              className="buttonish subtle"
+              href={`/decisions/new?instrument=${instrument.id}`}
+            >
+              Log decision
             </Link>
-          ) : null}
-          {editing && dossier ? (
-            <Link className="buttonish subtle" href={`/explore/${instrument.symbol}`}>
-              Cancel
-            </Link>
-          ) : null}
-          <Link
-            className="buttonish subtle"
-            href={`/decisions/new?instrument=${instrument.id}`}
-          >
-            Log decision
-          </Link>
-        </div>
+          </div>
+        ) : null}
       </header>
 
       <PriceHistoryChart
@@ -189,7 +193,11 @@ export default async function InstrumentDossierPage({
         <>
           <section className="panel">
             <h2>Summary</h2>
-            <article className="doc">{renderMarkdown(dossier?.summary ?? "")}</article>
+            {dossier?.summary ? (
+              <article className="doc">{renderMarkdown(dossier.summary)}</article>
+            ) : (
+              <p className="empty">No dossier published yet.</p>
+            )}
             {dossier?.source ? (
               <article className="doc muted">
                 {renderMarkdown(dossier.source)}

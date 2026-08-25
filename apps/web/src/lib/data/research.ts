@@ -1,6 +1,5 @@
 import type { DossierResearchLevel, DossierStatus } from "@powerfund/domain";
 
-import { createClient } from "@/lib/supabase/server";
 import { resolveDb, type DbClient } from "@/lib/supabase/db";
 
 export type ThemeRow = {
@@ -184,7 +183,7 @@ const BAR_PAGE_SIZE = 1000;
 export async function getInstrumentPriceHistory(
   instrumentId: string,
 ): Promise<PriceBar[]> {
-  const supabase = await createClient();
+  const supabase = await resolveDb();
 
   // PostgREST caps responses at 1,000 rows; five years of daily bars is ~1,260,
   // so page through the history instead of issuing one unbounded query.
@@ -257,7 +256,7 @@ export type DossierReviewRow = {
 };
 
 export async function listDossierReviews(): Promise<DossierReviewRow[]> {
-  const supabase = await createClient();
+  const supabase = await resolveDb();
   const { data, error } = await supabase
     .from("dossiers")
     .select("instrument_id, status, next_diligence, updated_at");
@@ -284,7 +283,7 @@ export async function listDossierReviews(): Promise<DossierReviewRow[]> {
 export async function getInstrumentMarketSnapshot(
   instrumentId: string,
 ): Promise<InstrumentMarketSnapshot> {
-  const supabase = await createClient();
+  const supabase = await resolveDb();
 
   const [barResult, capResult, fundResult] = await Promise.all([
     supabase

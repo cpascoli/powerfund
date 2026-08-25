@@ -33,12 +33,13 @@ const NAV_GROUPS: readonly NavGroup[] = [
     items: [
       { href: "/explore", label: "Explore" },
       { href: "/workbench", label: "Workbench" },
+      { href: "/calendar", label: "Calendar" },
     ],
   },
   {
     label: "Operate",
     items: [
-      { href: "/", label: "Briefing", match: "exact" },
+      { href: "/briefing", label: "Briefing", match: "exact" },
       { href: "/signals", label: "Signals" },
       { href: "/portfolio", label: "Portfolio" },
       { href: "/decisions", label: "Journal" },
@@ -64,8 +65,10 @@ export function AppShell({ children }: { children: ReactNode }) {
     <div className="app-shell">
       <aside className="sidebar">
         <div className="brand">
-          <strong>Power Fund</strong>
-          <span>Investment intelligence</span>
+          <Link href="/briefing">
+            <strong>Power Fund</strong>
+            <span>Investment intelligence</span>
+          </Link>
         </div>
         <nav className="nav" aria-label="Primary">
           {NAV_GROUPS.map((group) => (
@@ -89,7 +92,8 @@ export function AppShell({ children }: { children: ReactNode }) {
         <div className="sidebar-footer">
           <p className="sidebar-footnote">
             Themes → names → evidence. Charts live in Workbench; capital lives in
-            Portfolio.
+            Portfolio.{" "}
+            <Link href="/">Public site</Link>
           </p>
           <SignOutButton />
         </div>

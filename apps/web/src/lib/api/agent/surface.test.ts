@@ -48,6 +48,9 @@ describe("API surfaces", () => {
     expect(HELD_RESOURCES.some((row) => row.path === "/api/v1/reviews")).toBe(
       true,
     );
+    expect(PUBLIC_RESOURCES.some((row) => row.path === "/api/v1/calendar")).toBe(
+      true,
+    );
   });
 
   it("keeps public OpenAPI operationIds distinct from agent tools", () => {
@@ -55,6 +58,12 @@ describe("API surfaces", () => {
     const agentDoc = agentOpenApiDocument("https://example.test");
     expect(publicDoc.paths["/api/v1/portfolio"].get.operationId).toBe(
       "getPortfolio",
+    );
+    expect(publicDoc.paths["/api/v1/journal"].get.operationId).toBe(
+      "getJournal",
+    );
+    expect(publicDoc.paths["/api/v1/calendar"].get.operationId).toBe(
+      "getCalendar",
     );
     expect(agentDoc.paths["/api/v1/agent/portfolio"].get.operationId).toBe(
       "getPortfolio",

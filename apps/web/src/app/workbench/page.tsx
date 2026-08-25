@@ -8,6 +8,7 @@ import {
   isReturnWindow,
   type ReturnWindow,
 } from "@/lib/market/returns";
+import { getSessionUser } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
 
@@ -17,7 +18,8 @@ type PageProps = {
 
 export default async function WorkbenchPage({ searchParams }: PageProps) {
   const params = await searchParams;
-  const view = params.view === "risk" ? "risk" : "map";
+  const signedIn = (await getSessionUser()) != null;
+  const view = params.view === "risk" && signedIn ? "risk" : "map";
   const universe = await getWorkbenchUniverse();
   const initialTheme =
     params.theme &&
@@ -38,28 +40,32 @@ export default async function WorkbenchPage({ searchParams }: PageProps) {
           <h1>Workbench</h1>
           <p>
             Comparative views over the research universe. The map sizes by
-            market cap; Risk is the pulled-forward Phase 3 slice — factor
-            exposure, crowding, correlation, and the capex-pause stress.
+            market cap
+            {signedIn
+              ? "; Risk is the pulled-forward Phase 3 slice — factor exposure, crowding, correlation, and the capex-pause stress."
+              : "."}
           </p>
         </div>
       </header>
 
-      <nav className="tab-nav" aria-label="Workbench views">
-        <Link
-          href="/workbench"
-          className={view === "map" ? "is-active" : undefined}
-          aria-current={view === "map" ? "page" : undefined}
-        >
-          Map
-        </Link>
-        <Link
-          href="/workbench?view=risk"
-          className={view === "risk" ? "is-active" : undefined}
-          aria-current={view === "risk" ? "page" : undefined}
-        >
-          Risk
-        </Link>
-      </nav>
+      {signedIn ? (
+        <nav className="tab-nav" aria-label="Workbench views">
+          <Link
+            href="/workbench"
+            className={view === "map" ? "is-active" : undefined}
+            aria-current={view === "map" ? "page" : undefined}
+          >
+            Map
+          </Link>
+          <Link
+            href="/workbench?view=risk"
+            className={view === "risk" ? "is-active" : undefined}
+            aria-current={view === "risk" ? "page" : undefined}
+          >
+            Risk
+          </Link>
+        </nav>
+      ) : null}
 
       {view === "map" ? (
         <>
@@ -75,10 +81,6 @@ export default async function WorkbenchPage({ searchParams }: PageProps) {
             <div className="stat">
               <span>Default window</span>
               <strong>3M</strong>
-            </div>
-            <div className="stat">
-              <span>Saved views</span>
-              <strong>Soon</strong>
             </div>
           </section>
 

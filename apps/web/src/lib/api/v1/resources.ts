@@ -55,6 +55,12 @@ export const PUBLIC_RESOURCES = [
     description:
       "Decision log: type, date, symbol, thesis, risks, invalidation, outcomes. No sizing dollars.",
   },
+  {
+    path: "/api/v1/calendar",
+    title: "Calendar",
+    description:
+      "Dated catalysts: earnings and event windows. No instructions or planned trades.",
+  },
 ] as const;
 
 export const HELD_RESOURCES = [

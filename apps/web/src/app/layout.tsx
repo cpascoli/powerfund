@@ -2,7 +2,8 @@ import type { CSSProperties, ReactNode } from "react";
 import type { Metadata } from "next";
 import { DM_Sans, Space_Grotesk } from "next/font/google";
 
-import { AppShell } from "@/components/app-shell";
+import { SiteChrome } from "@/components/site-chrome";
+import { getSessionUser } from "@/lib/supabase/server";
 
 import "./globals.css";
 
@@ -22,14 +23,16 @@ export const metadata: Metadata = {
     template: "%s · Power Fund",
   },
   description:
-    "Investment intelligence — research, signals, portfolio, and visualization workbench.",
+    "Investment intelligence for managing and growing capital in AI infrastructure, energy, robotics/AI, and defence.",
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: ReactNode;
 }>) {
+  const user = await getSessionUser();
+
   return (
     <html lang="en" className={`${dmSans.variable} ${spaceGrotesk.variable}`}>
       <body
@@ -40,7 +43,7 @@ export default function RootLayout({
           } as CSSProperties
         }
       >
-        <AppShell>{children}</AppShell>
+        <SiteChrome signedIn={user != null}>{children}</SiteChrome>
       </body>
     </html>
   );
