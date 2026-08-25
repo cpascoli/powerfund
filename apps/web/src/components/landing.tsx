@@ -10,14 +10,11 @@ export function Landing() {
       <section className="hero">
         <div className="hero-copy">
           <p className="hero-eyebrow">Power Fund</p>
-          <h1>
-            Investment intelligence for managing and growing capital in AI
-            infrastructure, energy, robotics/AI, and defence.
-          </h1>
+          <h1>Investment intelligence for AI, energy, robotics, and defence.</h1>
           <p className="hero-lede">
-            Those four themes are one industrial transformation: a massive
-            increase in the economic value of computation, electricity, and
-            autonomous machines.
+            We manage and grow capital across those four themes as one
+            industrial transformation: a massive increase in the economic value
+            of computation, electricity, and autonomous machines.
           </p>
           <div className="hero-actions">
             <Link className="buttonish" href="/explore">
@@ -31,7 +28,7 @@ export function Landing() {
         <div className="hero-media">
           <Image
             src="/hero.jpg"
-            alt="Compute, power infrastructure, robotics, and defence as one industrial system"
+            alt="A sunlit research campus beside water and clean energy, suggesting considered technology and calm"
             width={1536}
             height={1024}
             priority

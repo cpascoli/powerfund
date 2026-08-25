@@ -23,7 +23,7 @@ export const metadata: Metadata = {
     template: "%s · Power Fund",
   },
   description:
-    "Investment intelligence for managing and growing capital in AI infrastructure, energy, robotics/AI, and defence.",
+    "Investment intelligence for AI, energy, robotics, and defence.",
 };
 
 export default async function RootLayout({
