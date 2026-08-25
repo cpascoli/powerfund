@@ -3,30 +3,45 @@ import Image from "next/image";
 import type { ReactNode } from "react";
 import { CORE_THEMES } from "@powerfund/domain";
 
-import {
-  MarkGoals,
-  MarkHow,
-  MarkThink,
-  MarkWhat,
-  MarkWhy,
-} from "@/components/landing-marks";
-
 const CORE_ONLY = CORE_THEMES.filter((theme) => theme.isCore);
 
-function LandingSection({
-  mark,
+function EssayBlock({
+  kicker,
   title,
+  src,
+  alt,
+  width,
+  height,
+  media,
+  shape = "landscape",
   children,
 }: {
-  mark: ReactNode;
+  kicker: string;
   title: string;
+  src: string;
+  alt: string;
+  width: number;
+  height: number;
+  media: "start" | "end";
+  shape?: "landscape" | "compact" | "wide" | "portrait";
   children: ReactNode;
 }) {
   return (
-    <section className="landing-section">
-      {mark}
-      <h2>{title}</h2>
-      <div className="landing-copy">{children}</div>
+    <section className={`landing-section media-${media} shape-${shape}`}>
+      <div className="landing-plate">
+        <Image
+          src={src}
+          alt={alt}
+          width={width}
+          height={height}
+          sizes="(max-width: 900px) 92vw, 28vw"
+        />
+      </div>
+      <div className="landing-copy">
+        <p className="landing-kicker">{kicker}</p>
+        <h2>{title}</h2>
+        {children}
+      </div>
     </section>
   );
 }
@@ -76,24 +91,49 @@ export function Landing() {
       </ul>
 
       <div className="landing-sections">
-        <LandingSection mark={<MarkWhat />} title="What it is">
+        <EssayBlock
+          kicker="01"
+          title="What it is"
+          src="/landing/research.jpg"
+          alt="A researcher at a desk reviewing printed dossiers and notes, with a journal beside a laptop"
+          width={1280}
+          height={853}
+          media="start"
+        >
           <p>
             Not a black-box trading bot. A research, decision, and risk platform
             that records theses, actions, and outcomes so the process can improve
             — with a human in the loop for live capital.
           </p>
-        </LandingSection>
+        </EssayBlock>
 
-        <LandingSection mark={<MarkWhy />} title="Why it exists">
+        <EssayBlock
+          kicker="02"
+          title="Why it exists"
+          src="/landing/early.jpg"
+          alt="Dawn over an almost empty industrial construction site, still years before the place is crowded"
+          width={1280}
+          height={853}
+          media="end"
+        >
           <p>
             Find, evaluate, size, and manage opportunities before they become
             consensus trades. Capital preservation is a hard constraint. High
             growth is the objective when the opportunity set justifies it. The job
             is to find 2028 winners in 2026.
           </p>
-        </LandingSection>
+        </EssayBlock>
 
-        <LandingSection mark={<MarkGoals />} title="Goals">
+        <EssayBlock
+          kicker="03"
+          title="Goals"
+          src="/landing/mandate.jpg"
+          alt="An open notebook of handwritten rules with a pen, used as a working mandate"
+          width={1280}
+          height={853}
+          media="start"
+          shape="compact"
+        >
           <p>
             Prove a repeatable process on personal capital: a written mandate that
             is actually followed, decision-grade dossiers, and honest labels —
@@ -101,18 +141,36 @@ export function Landing() {
             Performance is judged against the S&amp;P 500 and QQQ. Outside capital
             comes later, if ever, after the track record exists.
           </p>
-        </LandingSection>
+        </EssayBlock>
 
-        <LandingSection mark={<MarkHow />} title="How we go about it">
+        <EssayBlock
+          kicker="04"
+          title="How we go about it"
+          src="/landing/process.jpg"
+          alt="A long table laid out as a process: filings and maps leading to a thesis page and an open journal"
+          width={1280}
+          height={853}
+          media="end"
+          shape="wide"
+        >
           <p>
             Ingest prices, filings, and thematic signals. Organize the universe by
             the four linked themes. Write a thesis with invalidation before sizing.
             Journal the decision, then review the outcome. Charts live in the
             market map; capital decisions stay in the operator book.
           </p>
-        </LandingSection>
+        </EssayBlock>
 
-        <LandingSection mark={<MarkThink />} title="How we think about investing">
+        <EssayBlock
+          kicker="05"
+          title="How we think about investing"
+          src="/landing/bottleneck.jpg"
+          alt="A ship canal lock funnelling a vessel through a narrow concrete gap"
+          width={853}
+          height={1280}
+          media="start"
+          shape="portrait"
+        >
           <p>
             Early means evidence accumulating before consensus pricing — not
             obscure lottery tickets. Search for companies that control a bottleneck
@@ -121,7 +179,7 @@ export function Landing() {
             inspectable. Ingest widely; concentrate on the mandate. Process, review,
             and risk rules compound; vibes do not.
           </p>
-        </LandingSection>
+        </EssayBlock>
       </div>
 
       <section className="landing-browse" aria-label="Start browsing">

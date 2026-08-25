@@ -494,63 +494,95 @@ a {
 }
 
 .landing-sections {
-  max-width: 46rem;
-  margin-top: 2.15rem;
+  max-width: 62rem;
+  margin-top: 3rem;
+  display: flex;
+  flex-direction: column;
+  gap: 3.4rem;
+}
+
+.theme-strip + .landing-sections {
+  margin-top: 2.75rem;
 }
 
 .landing-section {
   display: grid;
-  grid-template-columns: 3.5rem minmax(0, 1fr);
-  grid-template-areas:
-    "mark title"
-    ". copy";
-  column-gap: 1.2rem;
-  row-gap: 0.45rem;
+  grid-template-columns: minmax(13rem, 0.88fr) minmax(0, 1.18fr);
+  gap: 1.6rem 2.4rem;
   align-items: center;
 }
 
-.landing-section + .landing-section {
-  margin-top: 1.45rem;
-  padding-top: 1.45rem;
-  border-top: 1px solid var(--line);
+.landing-section.media-end {
+  grid-template-columns: minmax(0, 1.18fr) minmax(13rem, 0.88fr);
 }
 
-.theme-strip + .landing-sections {
-  margin-top: 2rem;
+.landing-section.media-end .landing-plate {
+  order: 2;
 }
 
-.landing-mark {
-  grid-area: mark;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 3.5rem;
-  height: 3.5rem;
+.landing-section.shape-compact {
+  grid-template-columns: minmax(11rem, 0.68fr) minmax(0, 1.35fr);
+}
+
+.landing-section.shape-wide.media-end {
+  grid-template-columns: minmax(0, 1.05fr) minmax(14rem, 1.05fr);
+}
+
+.landing-section.shape-portrait {
+  grid-template-columns: minmax(10.5rem, 0.55fr) minmax(0, 1.45fr);
+}
+
+.landing-plate {
+  border-radius: 14px;
+  overflow: hidden;
   border: 1px solid var(--line);
-  border-radius: 12px;
-  background:
-    linear-gradient(180deg, var(--accent-soft), var(--bg-elevated) 64%);
-  color: var(--accent);
+  background: #0b1220;
+  box-shadow: 0 14px 36px rgba(11, 18, 32, 0.1);
 }
 
-.landing-mark svg {
-  width: 1.85rem;
-  height: 1.85rem;
+.landing-section.shape-compact .landing-plate {
+  max-width: 22rem;
+}
+
+.landing-section.shape-portrait .landing-plate {
+  max-width: 18.5rem;
+  justify-self: start;
+}
+
+.landing-plate img {
+  width: 100%;
+  height: auto;
   display: block;
+  object-fit: cover;
+  aspect-ratio: 4 / 3;
 }
 
-.landing-section h2 {
-  grid-area: title;
-  align-self: center;
-  margin: 0;
-  font-family: var(--font-display);
-  font-size: 1.15rem;
-  letter-spacing: -0.02em;
+.landing-section.shape-portrait .landing-plate img {
+  aspect-ratio: 3 / 4;
 }
 
 .landing-copy {
-  grid-area: copy;
   min-width: 0;
+  max-width: 36rem;
+}
+
+.landing-section.media-end .landing-copy {
+  justify-self: end;
+}
+
+.landing-kicker {
+  margin: 0 0 0.45rem;
+  color: var(--accent);
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+}
+
+.landing-section h2 {
+  margin: 0 0 0.7rem;
+  font-family: var(--font-display);
+  font-size: 1.35rem;
+  letter-spacing: -0.03em;
 }
 
 .landing-browse h2 {
@@ -560,10 +592,10 @@ a {
   letter-spacing: -0.02em;
 }
 
-.landing-section p {
+.landing-section .landing-copy > p:not(.landing-kicker) {
   margin: 0;
   color: var(--muted);
-  line-height: 1.55;
+  line-height: 1.6;
   font-size: 1.02rem;
 }
 
@@ -1429,19 +1461,31 @@ a {
     grid-template-columns: 1fr 1fr;
   }
 
-  .landing-section {
-    grid-template-columns: 3rem minmax(0, 1fr);
-    column-gap: 0.95rem;
+  .landing-section,
+  .landing-section.media-end,
+  .landing-section.shape-compact,
+  .landing-section.shape-wide.media-end,
+  .landing-section.shape-portrait {
+    grid-template-columns: 1fr;
+    gap: 1.15rem;
   }
 
-  .landing-mark {
-    width: 3rem;
-    height: 3rem;
+  .landing-plate,
+  .landing-copy,
+  .landing-section.media-end .landing-plate,
+  .landing-section.media-end .landing-copy {
+    order: unset;
+    justify-self: stretch;
+    max-width: none;
   }
 
-  .landing-mark svg {
-    width: 1.6rem;
-    height: 1.6rem;
+  .landing-plate {
+    order: -1;
+  }
+
+  .landing-section.shape-compact .landing-plate,
+  .landing-section.shape-portrait .landing-plate {
+    max-width: 22rem;
   }
 
   .panel.half,
