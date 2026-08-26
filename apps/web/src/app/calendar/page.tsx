@@ -3,16 +3,24 @@ import Link from "next/link";
 
 import {
   calendarDayGroups,
+  calendarPastDayGroups,
   filterCalendarEvents,
+  listCompletedCalendarEvents,
   listPublicCalendarEvents,
   parseCalendarHorizonFilter,
+  parseCalendarPastScope,
+  parseCalendarView,
   type CalendarHorizonFilter,
+  type CalendarPastScope,
+  type CalendarView,
   type PublicCalendarEvent,
 } from "@/lib/data/calendar";
 import type {
   ReviewSubjectLink,
+  UpcomingAgendaRow,
   UpcomingDayGroup,
 } from "@/lib/data/briefing";
+import { getSessionUser } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
 
@@ -22,6 +30,11 @@ export const metadata = {
     "Dated catalysts Power Fund monitors — earnings, policy windows, and known events.",
 };
 
+const VIEW_FILTERS: Array<{ id: CalendarView; label: string }> = [
+  { id: "upcoming", label: "Upcoming" },
+  { id: "past", label: "Past" },
+];
+
 const HORIZON_FILTERS: Array<{ id: CalendarHorizonFilter; label: string }> = [
   { id: "this_week", label: "This week" },
   { id: "this_month", label: "This month" },
@@ -29,9 +42,26 @@ const HORIZON_FILTERS: Array<{ id: CalendarHorizonFilter; label: string }> = [
   { id: "later", label: "Later" },
 ];
 
-function calendarHref(when: CalendarHorizonFilter): string {
-  if (when === "this_month") return "/calendar";
-  return `/calendar?when=${when}`;
+const PAST_SCOPE_FILTERS: Array<{ id: CalendarPastScope; label: string }> = [
+  { id: "public", label: "Public catalysts" },
+  { id: "operator", label: "Operator" },
+];
+
+function calendarHref(args: {
+  view?: CalendarView;
+  when?: CalendarHorizonFilter;
+  scope?: CalendarPastScope;
+}): string {
+  const params = new URLSearchParams();
+  const view = args.view ?? "upcoming";
+  if (view === "past") {
+    params.set("view", "past");
+    if (args.scope === "operator") params.set("scope", "operator");
+  } else if (args.when && args.when !== "this_month") {
+    params.set("when", args.when);
+  }
+  const query = params.toString();
+  return query ? `/calendar?${query}` : "/calendar";
 }
 
 function weekdayCaption(day: UpcomingDayGroup): string {
@@ -40,7 +70,16 @@ function weekdayCaption(day: UpcomingDayGroup): string {
   return day.weekday;
 }
 
-function emptyCopy(horizon: CalendarHorizonFilter): string {
+function emptyCopy(
+  view: CalendarView,
+  horizon: CalendarHorizonFilter,
+  scope: CalendarPastScope,
+): string {
+  if (view === "past") {
+    return scope === "operator"
+      ? "No completed operator reviews."
+      : "No completed catalysts yet.";
+  }
   switch (horizon) {
     case "this_week":
       return "No dated catalysts this week.";
@@ -60,12 +99,26 @@ function emptyCopy(horizon: CalendarHorizonFilter): string {
 export default async function CalendarPage({
   searchParams,
 }: {
-  searchParams: Promise<{ when?: string }>;
+  searchParams: Promise<{ when?: string; view?: string; scope?: string }>;
 }) {
-  const { when: whenRaw } = await searchParams;
+  const { when: whenRaw, view: viewRaw, scope: scopeRaw } = await searchParams;
+  const signedIn = (await getSessionUser()) != null;
+  const view = parseCalendarView(viewRaw);
   const horizon = parseCalendarHorizonFilter(whenRaw);
-  const events = filterCalendarEvents(await listPublicCalendarEvents(), horizon);
-  const showMonths = horizon !== "this_week";
+  const scope = parseCalendarPastScope(scopeRaw, signedIn);
+
+  const upcoming =
+    view === "upcoming"
+      ? filterCalendarEvents(await listPublicCalendarEvents(), horizon)
+      : [];
+  const past =
+    view === "past"
+      ? await listCompletedCalendarEvents(undefined, {
+          operator: scope === "operator",
+        })
+      : [];
+  const rows = view === "past" ? past : upcoming;
+  const showMonths = view === "past" || horizon !== "this_week";
 
   return (
     <>
@@ -73,28 +126,61 @@ export default async function CalendarPage({
         <div>
           <h1>Calendar</h1>
           <p>
-            Dated catalysts we monitor — earnings, policy windows, and known
-            events. Not a trade list.
+            {view === "past"
+              ? "Completed catalysts and what we concluded. Not a trade list."
+              : "Dated catalysts we monitor — earnings, policy windows, and known events. Not a trade list."}
           </p>
         </div>
       </header>
 
       <section className="panel" aria-label="Catalyst calendar">
         <div className="upcoming-filters">
-          <div className="seg" role="group" aria-label="When">
-            {HORIZON_FILTERS.map((option) => (
+          <div className="seg" role="group" aria-label="Calendar view">
+            {VIEW_FILTERS.map((option) => (
               <Link
                 key={option.id}
-                href={calendarHref(option.id)}
-                className={option.id === horizon ? "is-active" : undefined}
-                aria-current={option.id === horizon ? "page" : undefined}
+                href={calendarHref({
+                  view: option.id,
+                  when: horizon,
+                  scope,
+                })}
+                className={option.id === view ? "is-active" : undefined}
+                aria-current={option.id === view ? "page" : undefined}
               >
                 {option.label}
               </Link>
             ))}
           </div>
+          {view === "upcoming" ? (
+            <div className="seg" role="group" aria-label="When">
+              {HORIZON_FILTERS.map((option) => (
+                <Link
+                  key={option.id}
+                  href={calendarHref({ view: "upcoming", when: option.id })}
+                  className={option.id === horizon ? "is-active" : undefined}
+                  aria-current={option.id === horizon ? "page" : undefined}
+                >
+                  {option.label}
+                </Link>
+              ))}
+            </div>
+          ) : null}
+          {view === "past" && signedIn ? (
+            <div className="seg" role="group" aria-label="Review scope">
+              {PAST_SCOPE_FILTERS.map((option) => (
+                <Link
+                  key={option.id}
+                  href={calendarHref({ view: "past", scope: option.id })}
+                  className={option.id === scope ? "is-active" : undefined}
+                  aria-current={option.id === scope ? "page" : undefined}
+                >
+                  {option.label}
+                </Link>
+              ))}
+            </div>
+          ) : null}
         </div>
-        {events.length > 0 ? (
+        {rows.length > 0 ? (
           <table className="agenda">
             <thead>
               <tr>
@@ -105,11 +191,19 @@ export default async function CalendarPage({
               </tr>
             </thead>
             <tbody>
-              <AgendaSection events={events} showMonths={showMonths} />
+              {view === "past" ? (
+                <AgendaRows
+                  days={calendarPastDayGroups(past)}
+                  showMonths={showMonths}
+                  outcomeAsBody
+                />
+              ) : (
+                <AgendaSection events={upcoming} showMonths={showMonths} />
+              )}
             </tbody>
           </table>
         ) : (
-          <p className="empty">{emptyCopy(horizon)}</p>
+          <p className="empty">{emptyCopy(view, horizon, scope)}</p>
         )}
       </section>
     </>
@@ -151,14 +245,15 @@ function SubjectLinks({ subjects }: { subjects: ReviewSubjectLink[] }) {
   );
 }
 
-function AgendaSection({
-  events,
+function AgendaRows({
+  days,
   showMonths,
+  outcomeAsBody,
 }: {
-  events: PublicCalendarEvent[];
+  days: UpcomingDayGroup[];
   showMonths: boolean;
+  outcomeAsBody: boolean;
 }) {
-  const days = calendarDayGroups(events);
   let lastMonth = "";
   return (
     <>
@@ -174,31 +269,69 @@ function AgendaSection({
         }
         day.rows.forEach((row, index) => {
           nodes.push(
-            <tr
+            <AgendaRow
               key={row.key}
-              className={day.isToday ? "is-today" : undefined}
-            >
-              <td className="agenda-date">
-                {index === 0 ? (
-                  <>
-                    <strong>{day.dayMonth}</strong>
-                    <span>{weekdayCaption(day)}</span>
-                  </>
-                ) : null}
-              </td>
-              <td className="agenda-time">{row.time ?? "—"}</td>
-              <td>
-                <EventTitle title={row.title} href={row.href} />
-                <SubjectLinks subjects={row.subjects} />
-              </td>
-              <td className="agenda-kind">
-                <span className="tag">{row.kindLabel}</span>
-              </td>
-            </tr>,
+              row={row}
+              day={day}
+              showDate={index === 0}
+              outcomeAsBody={outcomeAsBody}
+            />,
           );
         });
         return nodes;
       })}
     </>
+  );
+}
+
+function AgendaRow({
+  row,
+  day,
+  showDate,
+  outcomeAsBody,
+}: {
+  row: UpcomingAgendaRow;
+  day: UpcomingDayGroup;
+  showDate: boolean;
+  outcomeAsBody: boolean;
+}) {
+  return (
+    <tr className={day.isToday ? "is-today" : undefined}>
+      <td className="agenda-date">
+        {showDate ? (
+          <>
+            <strong>{day.dayMonth}</strong>
+            <span>{weekdayCaption(day)}</span>
+          </>
+        ) : null}
+      </td>
+      <td className="agenda-time">{row.time ?? "—"}</td>
+      <td>
+        <EventTitle title={row.title} href={row.href} />
+        <SubjectLinks subjects={row.subjects} />
+        {outcomeAsBody && row.instructions ? (
+          <div className="event-outcome">{row.instructions}</div>
+        ) : null}
+      </td>
+      <td className="agenda-kind">
+        <span className="tag">{row.kindLabel}</span>
+      </td>
+    </tr>
+  );
+}
+
+function AgendaSection({
+  events,
+  showMonths,
+}: {
+  events: PublicCalendarEvent[];
+  showMonths: boolean;
+}) {
+  return (
+    <AgendaRows
+      days={calendarDayGroups(events)}
+      showMonths={showMonths}
+      outcomeAsBody={false}
+    />
   );
 }

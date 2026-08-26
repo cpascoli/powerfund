@@ -7,6 +7,7 @@ import { DossierForm } from "@/components/dossier-form";
 import { PriceHistoryChart } from "@/components/price-history-chart";
 import { PriceReturnsRow } from "@/components/price-returns-row";
 import { renderMarkdown } from "@/lib/markdown";
+import { listCompletedPublicReviewsForSymbol } from "@/lib/data/calendar";
 import {
   getInstrumentDossier,
   getInstrumentMarketSnapshot,
@@ -57,10 +58,11 @@ export default async function InstrumentDossierPage({
   }
 
   const { instrument, dossier } = result;
-  const [market, priceHistory, liveQuote] = await Promise.all([
+  const [market, priceHistory, liveQuote, reviews] = await Promise.all([
     getInstrumentMarketSnapshot(instrument.id),
     getInstrumentPriceHistory(instrument.id),
     getLiveQuote(instrument.symbol),
+    listCompletedPublicReviewsForSymbol(instrument.symbol),
   ]);
   const { points, live } = overlayLiveQuote(priceHistory, liveQuote);
   const returns = computePriceReturns(points);
@@ -213,6 +215,28 @@ export default async function InstrumentDossierPage({
             body={dossier?.competitive_notes}
           />
           <Section title="Next diligence" body={dossier?.next_diligence} />
+          {reviews.length > 0 ? (
+            <section className="panel">
+              <h2>Reviews</h2>
+              <p className="muted">
+                Completed catalysts for this name. The full archive is on the{" "}
+                <Link href="/calendar?view=past">Calendar past</Link> list.
+              </p>
+              <ul className="review-log">
+                {reviews.map((event) => (
+                  <li key={event.id}>
+                    <time dateTime={event.completed_at}>
+                      {event.completed_at.slice(0, 10)}
+                    </time>
+                    <strong>{event.title}</strong>
+                    {event.outcome ? (
+                      <span className="event-outcome">{event.outcome}</span>
+                    ) : null}
+                  </li>
+                ))}
+              </ul>
+            </section>
+          ) : null}
         </>
       )}
     </>

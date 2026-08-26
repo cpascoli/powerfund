@@ -24,9 +24,16 @@ export const CALENDAR_HORIZON_FILTERS = [
 ] as const;
 export type CalendarHorizonFilter = (typeof CALENDAR_HORIZON_FILTERS)[number];
 
+export const CALENDAR_VIEWS = ["upcoming", "past"] as const;
+export type CalendarView = (typeof CALENDAR_VIEWS)[number];
+
+export const CALENDAR_PAST_SCOPES = ["public", "operator"] as const;
+export type CalendarPastScope = (typeof CALENDAR_PAST_SCOPES)[number];
+
 export const CALENDAR_STALE_AFTER_DAYS = 7;
 
 export type PublicCalendarKind = "scheduled" | "event_window";
+export type CalendarPastKind = PublicCalendarKind | "condition";
 
 export type PublicCalendarEvent = {
   id: string;
@@ -37,6 +44,20 @@ export type PublicCalendarEvent = {
   symbols: string[];
   themes: Array<{ slug: string; name: string }>;
   window: { not_before: string; due_by: string } | null;
+};
+
+export type CalendarPastEvent = {
+  id: string;
+  title: string;
+  at: string;
+  completed_at: string;
+  kind: CalendarPastKind;
+  scope: ReviewTaskRecord["scope"];
+  symbols: string[];
+  themes: Array<{ slug: string; name: string }>;
+  window: { not_before: string; due_by: string } | null;
+  outcome: string | null;
+  is_public: boolean;
 };
 
 type CatalystTask = Pick<
@@ -51,6 +72,8 @@ type CatalystTask = Pick<
   | "scheduled_for"
   | "not_before"
   | "due_by"
+  | "completed_at"
+  | "outcome"
 >;
 
 export function isPublicCatalyst(task: CatalystTask): boolean {
@@ -133,6 +156,21 @@ export function calendarKindLabel(kind: PublicCalendarKind): string {
   }
 }
 
+export function calendarPastKindLabel(event: CalendarPastEvent): string {
+  switch (event.kind) {
+    case "condition":
+      return "Condition";
+    case "event_window":
+      return "Window";
+    case "scheduled":
+      return event.scope === "portfolio" ? "Book" : "Event";
+    default: {
+      const _exhaustive: never = event.kind;
+      return _exhaustive;
+    }
+  }
+}
+
 export function parseCalendarHorizonFilter(
   value: string | undefined,
 ): CalendarHorizonFilter {
@@ -140,6 +178,89 @@ export function parseCalendarHorizonFilter(
     return value as CalendarHorizonFilter;
   }
   return "this_month";
+}
+
+export function parseCalendarView(value: string | undefined): CalendarView {
+  if (value && (CALENDAR_VIEWS as readonly string[]).includes(value)) {
+    return value as CalendarView;
+  }
+  return "upcoming";
+}
+
+export function parseCalendarPastScope(
+  value: string | undefined,
+  signedIn: boolean,
+): CalendarPastScope {
+  if (
+    signedIn &&
+    value &&
+    (CALENDAR_PAST_SCOPES as readonly string[]).includes(value)
+  ) {
+    return value as CalendarPastScope;
+  }
+  return "public";
+}
+
+function catalystEventAt(task: CatalystTask): string | null {
+  switch (task.trigger.type) {
+    case "scheduled":
+      return task.scheduled_for ?? task.trigger.at;
+    case "event_window":
+      return task.not_before ?? task.trigger.not_before;
+    case "condition":
+      return task.completed_at;
+    default: {
+      const _exhaustive: never = task.trigger;
+      return _exhaustive;
+    }
+  }
+}
+
+export function toPastCalendarEvent(
+  task: CatalystTask,
+  includeOperator = false,
+): CalendarPastEvent | null {
+  if (task.status !== "completed" || task.completed_at == null) return null;
+  const isPublic = isPublicCatalyst(task);
+  if (includeOperator ? isPublic : !isPublic) return null;
+
+  const at = catalystEventAt(task);
+  if (at == null) return null;
+
+  const base = {
+    id: task.id,
+    title: task.title,
+    at,
+    completed_at: task.completed_at,
+    scope: task.scope,
+    symbols: [...task.symbols],
+    themes: task.themes.map((theme) => ({
+      slug: theme.slug,
+      name: theme.name,
+    })),
+    outcome: task.outcome,
+    is_public: isPublic,
+  };
+
+  switch (task.trigger.type) {
+    case "scheduled":
+      return { ...base, kind: "scheduled" as const, window: null };
+    case "event_window": {
+      const not_before = task.not_before ?? task.trigger.not_before;
+      const due_by = task.due_by ?? task.trigger.due_by;
+      return {
+        ...base,
+        kind: "event_window" as const,
+        window: { not_before, due_by },
+      };
+    }
+    case "condition":
+      return { ...base, kind: "condition" as const, window: null };
+    default: {
+      const _exhaustive: never = task.trigger;
+      return _exhaustive;
+    }
+  }
 }
 
 function eventYearMonth(event: PublicCalendarEvent): number | null {
@@ -199,7 +320,17 @@ export function filterCalendarEvents(
   );
 }
 
-function eventHref(event: PublicCalendarEvent): string | null {
+function pastEventHref(event: CalendarPastEvent): string | null {
+  return eventHref({
+    symbols: event.symbols,
+    themes: event.themes,
+  });
+}
+
+function eventHref(event: {
+  symbols: string[];
+  themes: Array<{ slug: string }>;
+}): string | null {
   if (event.symbols.length === 1) {
     return `/explore/${event.symbols[0]}`;
   }
@@ -259,6 +390,56 @@ export function calendarDayGroups(
   return groups;
 }
 
+export function toCalendarPastAgendaRow(
+  event: CalendarPastEvent,
+): UpcomingAgendaRow {
+  return {
+    key: `catalyst-past-${event.id}`,
+    kind: "review",
+    kindLabel: calendarPastKindLabel(event),
+    time: upcomingClockTime(event.completed_at),
+    href: pastEventHref(event),
+    title: event.title,
+    detail: "",
+    subjects: reviewTaskSubjectLinks({
+      id: event.id,
+      title: event.title,
+      instructions: null,
+      status: "completed",
+      scheduled_for: event.at,
+      not_before: event.window?.not_before ?? null,
+      due_by: event.window?.due_by ?? null,
+      symbols: event.symbols,
+      themes: event.themes,
+    }),
+    instructions: event.outcome,
+  };
+}
+
+export function calendarPastDayGroups(
+  events: CalendarPastEvent[],
+  now = new Date(),
+): UpcomingDayGroup[] {
+  const today = startOfUtcDay(now);
+  const groups: UpcomingDayGroup[] = [];
+  for (const event of events) {
+    const date = event.completed_at.slice(0, 10);
+    const row = toCalendarPastAgendaRow(event);
+    const last = groups[groups.length - 1];
+    if (last && last.date === date) {
+      last.rows.push(row);
+      continue;
+    }
+    const formatted = formatAgendaDay(date, today);
+    groups.push({
+      date,
+      ...formatted,
+      rows: [row],
+    });
+  }
+  return groups;
+}
+
 function sortEvents(
   left: PublicCalendarEvent,
   right: PublicCalendarEvent,
@@ -287,6 +468,43 @@ export async function listPublicCalendarEvents(
     .sort(sortEvents);
 }
 
+function sortPastEvents(
+  left: CalendarPastEvent,
+  right: CalendarPastEvent,
+): number {
+  const when = right.completed_at.localeCompare(left.completed_at);
+  if (when !== 0) return when;
+  return left.title.localeCompare(right.title);
+}
+
+/**
+ * Completed public catalysts, with outcomes. Pass `operator: true` for
+ * portfolio and price-condition reviews only (not the public set).
+ */
+export async function listCompletedCalendarEvents(
+  client?: DbClient,
+  options: { operator?: boolean } = {},
+): Promise<CalendarPastEvent[]> {
+  const supabase = await resolveDb(client);
+  const rows = await listReviewTaskRows(supabase, ["completed"]);
+  const tasks = await hydrateReviewTasks(supabase, rows);
+  const includeOperator = options.operator === true;
+  return tasks
+    .map((task) => toPastCalendarEvent(task, includeOperator))
+    .filter((event): event is CalendarPastEvent => event != null)
+    .sort(sortPastEvents);
+}
+
+export async function listCompletedPublicReviewsForSymbol(
+  symbol: string,
+  client?: DbClient,
+): Promise<CalendarPastEvent[]> {
+  const needle = symbol.trim().toUpperCase();
+  if (!needle) return [];
+  const events = await listCompletedCalendarEvents(client, { operator: false });
+  return events.filter((event) => event.symbols.includes(needle)).slice(0, 8);
+}
+
 export function calendarMarkdown(events: PublicCalendarEvent[]): string {
   const lines = [
     "# Catalyst calendar",
@@ -303,6 +521,28 @@ export function calendarMarkdown(events: PublicCalendarEvent[]): string {
         ...event.symbols,
       ].join(", ");
       return `| ${date} | ${time} | ${event.title} | ${names || "—"} | ${calendarKindLabel(event.kind)} |`;
+    }),
+    "",
+  ];
+  return lines.join("\n");
+}
+
+export function calendarPastMarkdown(events: CalendarPastEvent[]): string {
+  const lines = [
+    "# Completed catalysts",
+    "",
+    "Public events that have been reviewed. Outcomes only — no operator instructions.",
+    "",
+    "| Completed | Event | Names | Outcome | Type |",
+    "| --- | --- | --- | --- | --- |",
+    ...events.map((event) => {
+      const date = event.completed_at.slice(0, 10);
+      const names = [
+        ...event.themes.map((theme) => theme.name),
+        ...event.symbols,
+      ].join(", ");
+      const outcome = (event.outcome ?? "").replace(/\s+/g, " ").trim() || "—";
+      return `| ${date} | ${event.title} | ${names || "—"} | ${outcome} | ${calendarPastKindLabel(event)} |`;
     }),
     "",
   ];

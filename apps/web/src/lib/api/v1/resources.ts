@@ -59,7 +59,7 @@ export const PUBLIC_RESOURCES = [
     path: "/api/v1/calendar",
     title: "Calendar",
     description:
-      "Dated catalysts: earnings and event windows. No instructions or planned trades.",
+      "Dated catalysts: earnings and event windows, plus completed public outcomes. No instructions or planned trades.",
   },
 ] as const;
 

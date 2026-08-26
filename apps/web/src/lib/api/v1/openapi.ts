@@ -116,7 +116,7 @@ export function openApiDocument(origin: string) {
           responses: {
             "200": {
               description:
-                "Dated earnings and event windows. No instructions or planned trades.",
+                "Dated earnings and event windows. Pass view=past for completed public outcomes. No instructions or planned trades.",
             },
           },
         },

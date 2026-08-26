@@ -195,7 +195,7 @@ export function Landing() {
           </Link>
           <Link className="browse-card" href="/calendar">
             <strong>Calendar</strong>
-            <span>Earnings and known events we keep on the agenda.</span>
+            <span>Earnings, known events, and what we concluded.</span>
           </Link>
           <Link className="browse-card" href="/docs/mandate">
             <strong>Mandate</strong>

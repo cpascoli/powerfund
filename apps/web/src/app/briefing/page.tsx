@@ -462,7 +462,9 @@ function UpcomingPanel({
       <p className="muted">
         A dated agenda of review obligations and queued trades. Reviews are not
         fills; the deployment list stays on the{" "}
-        <Link href="/portfolio?tab=queue">queue</Link>.
+        <Link href="/portfolio?tab=queue">queue</Link>. Completed reviews stay
+        on the{" "}
+        <Link href="/calendar?view=past">Calendar past</Link> list.
       </p>
       <div className="upcoming-filters">
         <SegmentedControl
@@ -497,7 +499,9 @@ function UpcomingPanel({
           {upcomingEmptyCopy(kind, horizon)}{" "}
           {kind !== "review" ? (
             <Link href="/portfolio?tab=queue">Open the queue</Link>
-          ) : null}
+          ) : (
+            <Link href="/calendar?view=past">Open completed reviews</Link>
+          )}
         </p>
       )}
     </section>

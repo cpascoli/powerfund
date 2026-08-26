@@ -3,10 +3,15 @@ import { describe, expect, it } from "vitest";
 import {
   calendarKindLabel,
   calendarMarkdown,
+  calendarPastKindLabel,
+  calendarPastMarkdown,
   filterCalendarEvents,
   isPublicCatalyst,
   parseCalendarHorizonFilter,
+  parseCalendarPastScope,
+  parseCalendarView,
   toCalendarAgendaRow,
+  toPastCalendarEvent,
   toPublicCalendarEvent,
   type PublicCalendarEvent,
 } from "./calendar";
@@ -86,6 +91,64 @@ describe("public catalyst projection", () => {
     expect(calendarKindLabel("event_window")).toBe("Window");
   });
 
+  it("projects completed public catalysts with the outcome and holds back operator rows", () => {
+    const done = toPastCalendarEvent(
+      task({
+        id: "nvda-print",
+        title: "NVIDIA Q2 FY27 earnings",
+        status: "completed",
+        trigger: { type: "scheduled", at: "2026-08-26T21:00:00.000Z" },
+        scheduled_for: "2026-08-26T21:00:00.000Z",
+        completed_at: "2026-08-27T14:00:00.000Z",
+        outcome: "Thesis unchanged; wait for data-center guidance.",
+      }),
+    );
+    expect(done).toMatchObject({
+      id: "nvda-print",
+      title: "NVIDIA Q2 FY27 earnings",
+      completed_at: "2026-08-27T14:00:00.000Z",
+      outcome: "Thesis unchanged; wait for data-center guidance.",
+      is_public: true,
+      kind: "scheduled",
+    });
+    expect(JSON.stringify(done)).not.toContain("Reassess the thesis");
+    expect(JSON.stringify(done)).not.toContain("Do not add");
+    expect(calendarPastKindLabel(done!)).toBe("Event");
+
+    const kill = task({
+      id: "kill",
+      title: "NVDA price invalidation",
+      status: "completed",
+      completed_at: "2026-08-20T00:00:00.000Z",
+      outcome: "Still above the line.",
+      trigger: {
+        type: "condition",
+        metric: "price",
+        symbol: "NVDA",
+        operator: "lt",
+        value: 120,
+      },
+    });
+    expect(toPastCalendarEvent(kill)).toBeNull();
+    expect(toPastCalendarEvent(kill, true)?.kind).toBe("condition");
+    expect(calendarPastKindLabel(toPastCalendarEvent(kill, true)!)).toBe(
+      "Condition",
+    );
+
+    const book = task({
+      id: "book",
+      title: "Monthly book pass",
+      scope: "portfolio",
+      status: "completed",
+      completed_at: "2026-08-01T00:00:00.000Z",
+      outcome: "Cash and caps still fine.",
+      trigger: { type: "scheduled", at: "2026-08-01T00:00:00.000Z" },
+      scheduled_for: "2026-08-01T00:00:00.000Z",
+    });
+    expect(toPastCalendarEvent(book)).toBeNull();
+    expect(calendarPastKindLabel(toPastCalendarEvent(book, true)!)).toBe("Book");
+  });
+
   it("holds back price conditions, portfolio reviews, and operator checklists", () => {
     expect(
       isPublicCatalyst(
@@ -144,6 +207,10 @@ describe("calendar horizons", () => {
   it("defaults to this month and buckets week / month / later", () => {
     expect(parseCalendarHorizonFilter(undefined)).toBe("this_month");
     expect(parseCalendarHorizonFilter("this_week")).toBe("this_week");
+    expect(parseCalendarView(undefined)).toBe("upcoming");
+    expect(parseCalendarView("past")).toBe("past");
+    expect(parseCalendarPastScope("operator", false)).toBe("public");
+    expect(parseCalendarPastScope("operator", true)).toBe("operator");
     const events = [
       event("today", "2026-08-22T13:30:00.000Z"),
       event("week", "2026-08-26T21:00:00.000Z"),
@@ -172,5 +239,19 @@ describe("calendar horizons", () => {
     expect(md).toContain("NVDA");
     expect(md).not.toContain("invalidation");
     expect(md).not.toContain("planned");
+
+    const pastMd = calendarPastMarkdown([
+      toPastCalendarEvent(
+        task({
+          ...nvidiaEarnings,
+          status: "completed",
+          completed_at: "2026-08-27T14:00:00.000Z",
+          outcome: "Thesis unchanged.",
+        }),
+      )!,
+    ]);
+    expect(pastMd).toContain("Thesis unchanged.");
+    expect(pastMd).not.toContain("Reassess the thesis");
+    expect(pastMd).not.toContain("Do not add");
   });
 });
