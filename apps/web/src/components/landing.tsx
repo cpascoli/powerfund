@@ -127,8 +127,8 @@ export function Landing() {
         <EssayBlock
           kicker="03"
           title="Goals"
-          src="/landing/thread.jpg"
-          alt="A taut thread running straight through stacked paper and a steel ruler"
+          src="/landing/compass.jpg"
+          alt="A compass that has drawn the same circle twice on paper"
           width={1280}
           height={853}
           media="start"
