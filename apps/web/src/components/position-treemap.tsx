@@ -6,16 +6,16 @@ import { ResponsiveContainer, Treemap } from "recharts";
 
 import type { OpenPositionRow } from "@/lib/data/portfolio";
 import { colorForPct } from "@/lib/market/heat";
-
-/**
- * Percentage at which the colour saturates. Fixed rather than fitted to the
- * current book, so a tile's colour means the same thing from one day to the next.
- */
-const PNL_COLOR_SCALE = 20;
+import {
+  MAP_COLOR_ITEMS,
+  replacePortfolioSearchParam,
+  type MapColorMode,
+} from "@/lib/portfolio-href";
 
 type Props = {
   positions: OpenPositionRow[];
   markLabel: string;
+  initialColor: MapColorMode;
 };
 
 type Leaf = {
@@ -23,8 +23,8 @@ type Leaf = {
   symbol: string;
   size: number;
   value: number;
-  pnl: number | null;
-  pnlPct: number | null;
+  heatUsd: number | null;
+  heatPct: number | null;
   weightPctNav: number | null;
   isMarked: boolean;
 };
@@ -36,7 +36,7 @@ type CellProps = {
   height?: number;
   symbol?: string;
   size?: number;
-  pnlPct?: number | null;
+  heatPct?: number | null;
 };
 
 function money(value: number | null): string {
@@ -54,16 +54,102 @@ function pct(value: number | null): string {
   return `${sign}${value.toFixed(1)}%`;
 }
 
+function colorScaleFor(mode: MapColorMode): number {
+  switch (mode) {
+    case "day":
+      return 5;
+    case "week":
+      return 8;
+    case "pnl":
+      return 20;
+    default: {
+      const _exhaustive: never = mode;
+      return _exhaustive;
+    }
+  }
+}
+
+export function heatForMapColor(
+  row: Pick<
+    OpenPositionRow,
+    | "dayPnl"
+    | "dayPnlPct"
+    | "weekPnl"
+    | "weekPnlPct"
+    | "unrealizedPnl"
+    | "unrealizedPnlPct"
+  >,
+  mode: MapColorMode,
+): { usd: number | null; pct: number | null } {
+  switch (mode) {
+    case "day":
+      return { usd: row.dayPnl, pct: row.dayPnlPct };
+    case "week":
+      return { usd: row.weekPnl, pct: row.weekPnlPct };
+    case "pnl":
+      return { usd: row.unrealizedPnl, pct: row.unrealizedPnlPct };
+    default: {
+      const _exhaustive: never = mode;
+      return _exhaustive;
+    }
+  }
+}
+
+function copyFor(
+  mode: MapColorMode,
+  scale: number,
+  markLabel: string,
+): {
+  blurb: string;
+  down: string;
+  up: string;
+} {
+  const size = `Tile size = position value (${markLabel.toLowerCase()})`;
+  switch (mode) {
+    case "day":
+      return {
+        blurb: `${size} · colour = session change vs prior close, saturating at ±${scale}%`,
+        down: "Down",
+        up: "Up",
+      };
+    case "week":
+      return {
+        blurb: `${size} · colour = 7-day change, saturating at ±${scale}%`,
+        down: "Down",
+        up: "Up",
+      };
+    case "pnl":
+      return {
+        blurb: `${size} · colour = unrealised P&L vs cost, saturating at ±${scale}%`,
+        down: "Losing",
+        up: "Winning",
+      };
+    default: {
+      const _exhaustive: never = mode;
+      return _exhaustive;
+    }
+  }
+}
+
 function TreemapCell({
   cell,
+  colorScale,
   onHover,
   onOpen,
 }: {
   cell: CellProps;
+  colorScale: number;
   onHover: (symbol: string | null) => void;
   onOpen: (symbol: string) => void;
 }) {
-  const { x = 0, y = 0, width = 0, height = 0, symbol, pnlPct = null } = cell;
+  const {
+    x = 0,
+    y = 0,
+    width = 0,
+    height = 0,
+    symbol,
+    heatPct = null,
+  } = cell;
 
   if (width <= 1 || height <= 1 || !symbol) return null;
 
@@ -81,7 +167,7 @@ function TreemapCell({
         y={y}
         width={width}
         height={height}
-        fill={colorForPct(pnlPct, PNL_COLOR_SCALE)}
+        fill={colorForPct(heatPct, colorScale)}
         stroke="var(--bg)"
         strokeWidth={2}
         rx={2}
@@ -106,7 +192,7 @@ function TreemapCell({
               fontSize={11}
               style={{ pointerEvents: "none" }}
             >
-              {pct(pnlPct)}
+              {pct(heatPct)}
             </text>
           ) : null}
         </>
@@ -115,30 +201,33 @@ function TreemapCell({
   );
 }
 
-export function PositionTreemap({ positions, markLabel }: Props) {
+export function PositionTreemap({ positions, markLabel, initialColor }: Props) {
   const router = useRouter();
   const [hovered, setHovered] = useState<string | null>(null);
+  const [color, setColor] = useState<MapColorMode>(initialColor);
+  const colorScale = colorScaleFor(color);
+  const copy = copyFor(color, colorScale, markLabel);
 
   const leaves = useMemo<Leaf[]>(
     () =>
       positions
-        // An unmarked position still has to appear, so fall back to cost.
         .map((row) => {
           const value = row.marketValue ?? row.costBasis;
+          const heat = heatForMapColor(row, color);
           return {
             name: row.symbol,
             symbol: row.symbol,
             size: value,
             value,
-            pnl: row.unrealizedPnl,
-            pnlPct: row.unrealizedPnlPct,
+            heatUsd: heat.usd,
+            heatPct: heat.pct,
             weightPctNav: row.weightPctNav,
             isMarked: row.marketValue != null,
           };
         })
         .filter((leaf) => leaf.size > 0)
         .sort((a, b) => b.value - a.value),
-    [positions],
+    [positions, color],
   );
 
   const totalValue = leaves.reduce((sum, leaf) => sum + leaf.value, 0);
@@ -150,10 +239,24 @@ export function PositionTreemap({ positions, markLabel }: Props) {
       <div className="price-panel-head">
         <div>
           <h2>Position map</h2>
-          <p className="muted">
-            Tile size = position value ({markLabel.toLowerCase()}) · colour =
-            unrealised P&amp;L, saturating at ±{PNL_COLOR_SCALE}%
-          </p>
+          <p className="muted">{copy.blurb}</p>
+        </div>
+        <div className="seg" role="tablist" aria-label="Position map colour">
+          {MAP_COLOR_ITEMS.map((entry) => (
+            <button
+              key={entry.id}
+              type="button"
+              role="tab"
+              aria-selected={entry.id === color}
+              className={entry.id === color ? "is-active" : undefined}
+              onClick={() => {
+                setColor(entry.id);
+                replacePortfolioSearchParam("map", entry.id, "day");
+              }}
+            >
+              {entry.label}
+            </button>
+          ))}
         </div>
       </div>
 
@@ -164,9 +267,9 @@ export function PositionTreemap({ positions, markLabel }: Props) {
           {unmarked > 0 ? ` · ${unmarked} shown at cost (no mark)` : ""}
         </span>
         <span className="treemap-legend" aria-hidden="true">
-          <span className="legend-down">Losing</span>
+          <span className="legend-down">{copy.down}</span>
           <span className="legend-bar" />
-          <span className="legend-up">Winning</span>
+          <span className="legend-up">{copy.up}</span>
         </span>
         {hover ? (
           <span>
@@ -174,7 +277,7 @@ export function PositionTreemap({ positions, markLabel }: Props) {
             {hover.weightPctNav != null
               ? ` · ${hover.weightPctNav.toFixed(1)}% NAV`
               : ""}{" "}
-            · {money(hover.pnl)} ({pct(hover.pnlPct)})
+            · {money(hover.heatUsd)} ({pct(hover.heatPct)})
           </span>
         ) : (
           <span className="muted">Hover a tile · click to open dossier</span>
@@ -196,6 +299,7 @@ export function PositionTreemap({ positions, markLabel }: Props) {
               content={(cellProps) => (
                 <TreemapCell
                   cell={cellProps as CellProps}
+                  colorScale={colorScale}
                   onHover={setHovered}
                   onOpen={(symbol) => router.push(`/explore/${symbol}`)}
                 />

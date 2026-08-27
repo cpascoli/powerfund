@@ -1,4 +1,5 @@
 import {
+  addCalendarDays,
   aiCapexNavPct,
   aiMemoryNavPct,
   RISK_DEFAULTS,
@@ -25,11 +26,15 @@ export type OpenPositionRow = {
   /** Last sale used for NAV (live when the tape is open, else last close). */
   markPrice: number | null;
   previousClose: number | null;
+  /** Close on or before 7 calendar days before the last stored session. */
+  weekClose: number | null;
   marketValue: number | null;
   unrealizedPnl: number | null;
   unrealizedPnlPct: number | null;
   dayPnl: number | null;
   dayPnlPct: number | null;
+  weekPnl: number | null;
+  weekPnlPct: number | null;
   weightPctNav: number | null;
   priceSource: "live" | "close";
   openedAt: string;
@@ -233,25 +238,30 @@ export async function getOpenPortfolioBook(
         .select("bar_date, close, adj_close")
         .eq("instrument_id", instrumentId)
         .order("bar_date", { ascending: false })
-        .limit(2);
-      const bars = (data as Array<{
+        .limit(12);
+      const bars = ((data as Array<{
         bar_date: string;
         close: number | null;
         adj_close: number | null;
-      }> | null) ?? [];
+      }> | null) ?? [])
+        .map((row) => {
+          const close = row.adj_close ?? row.close;
+          if (close == null) return null;
+          return { date: row.bar_date, close: Number(close) };
+        })
+        .filter((row): row is { date: string; close: number } => row != null);
       const latest = bars[0];
       const prior = bars[1];
-      const close = latest?.adj_close ?? latest?.close ?? null;
-      const previous = prior?.adj_close ?? prior?.close ?? null;
-      if (close == null || latest == null) {
+      if (latest == null) {
         return [instrumentId, null] as const;
       }
       return [
         instrumentId,
         {
-          close: Number(close),
-          date: latest.bar_date,
-          previousClose: previous == null ? null : Number(previous),
+          close: latest.close,
+          date: latest.date,
+          previousClose: prior?.close ?? null,
+          weekClose: weekCloseFromBars(bars),
         },
       ] as const;
     }),
@@ -267,7 +277,14 @@ export async function getOpenPortfolioBook(
     const lastClose = mark?.close ?? null;
     const lastCloseSession = mark?.date ?? null;
     const previousClose = mark?.previousClose ?? null;
-    const marked = markPosition(quantity, costBasis, lastClose, previousClose);
+    const weekClose = mark?.weekClose ?? null;
+    const marked = markPosition(
+      quantity,
+      costBasis,
+      lastClose,
+      previousClose,
+      weekClose,
+    );
     const theme = primaryThemeByInstrument.get(position.instrument_id);
 
     return {
@@ -284,6 +301,7 @@ export async function getOpenPortfolioBook(
       lastClose,
       lastCloseSession,
       previousClose,
+      weekClose,
       openedAt: position.opened_at,
       thesisSummary: position.thesis_summary,
       invalidation: position.invalidation,
@@ -308,6 +326,7 @@ function markPosition(
   costBasis: number,
   markPrice: number | null,
   previousClose: number | null,
+  weekClose: number | null,
 ): Pick<
   OpenPositionRow,
   | "markPrice"
@@ -316,6 +335,8 @@ function markPosition(
   | "unrealizedPnlPct"
   | "dayPnl"
   | "dayPnlPct"
+  | "weekPnl"
+  | "weekPnlPct"
 > {
   const marketValue = markPrice == null ? null : quantity * markPrice;
   const unrealizedPnl = marketValue == null ? null : marketValue - costBasis;
@@ -331,6 +352,14 @@ function markPosition(
     markPrice == null || previousClose == null || previousClose === 0
       ? null
       : ((markPrice - previousClose) / previousClose) * 100;
+  const weekPnl =
+    markPrice == null || weekClose == null
+      ? null
+      : quantity * (markPrice - weekClose);
+  const weekPnlPct =
+    markPrice == null || weekClose == null || weekClose === 0
+      ? null
+      : ((markPrice - weekClose) / weekClose) * 100;
   return {
     markPrice,
     marketValue,
@@ -338,7 +367,25 @@ function markPosition(
     unrealizedPnlPct,
     dayPnl,
     dayPnlPct,
+    weekPnl,
+    weekPnlPct,
   };
+}
+
+/**
+ * Close on or before 7 calendar days before the latest bar. Bars are newest
+ * first. Matches the 1W lookback on dossiers (~5 sessions, not week-to-date).
+ */
+export function weekCloseFromBars(
+  bars: Array<{ date: string; close: number }>,
+): number | null {
+  const latest = bars[0];
+  if (latest == null) return null;
+  const target = addCalendarDays(latest.date, -7);
+  for (const bar of bars) {
+    if (bar.date <= target) return bar.close;
+  }
+  return null;
 }
 
 /** Overlay delayed Yahoo last sale onto stored closes. Does not write market_bars. */
@@ -359,7 +406,13 @@ export function applyLiveMarks(
       ...row,
       previousClose,
       priceSource: "live" as const,
-      ...markPosition(row.quantity, row.costBasis, quote.price, previousClose),
+      ...markPosition(
+        row.quantity,
+        row.costBasis,
+        quote.price,
+        previousClose,
+        row.weekClose,
+      ),
     };
   });
 

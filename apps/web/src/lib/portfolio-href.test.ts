@@ -1,11 +1,11 @@
 import { describe, expect, it } from "vitest";
 
-import { applySectionTabToSearch, portfolioHref } from "./portfolio-href";
+import { applySectionTabToSearch, parseMapColor, portfolioHref } from "./portfolio-href";
 
 describe("portfolioHref", () => {
   it("omits default stats, chart, and section tab", () => {
     expect(
-      portfolioHref({ stats: "book", chart: "nav", tab: "book" }),
+      portfolioHref({ stats: "book", chart: "nav", tab: "book", map: "day" }),
     ).toBe("/portfolio");
   });
 
@@ -13,6 +13,17 @@ describe("portfolioHref", () => {
     expect(
       portfolioHref({ stats: "score", chart: "pnl", tab: "queue" }),
     ).toBe("/portfolio?stats=score&chart=pnl&tab=queue");
+    expect(
+      portfolioHref({ map: "week" }),
+    ).toBe("/portfolio?map=week");
+  });
+});
+
+describe("parseMapColor", () => {
+  it("defaults to daily change", () => {
+    expect(parseMapColor(undefined)).toBe("day");
+    expect(parseMapColor("pnl")).toBe("pnl");
+    expect(parseMapColor("nope")).toBe("day");
   });
 });
 

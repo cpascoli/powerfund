@@ -33,6 +33,7 @@ import {
 } from "@/lib/data/snapshots";
 import {
   parseChartTab,
+  parseMapColor,
   parseSectionTab,
   parseStatsTab,
   portfolioHref,
@@ -88,6 +89,7 @@ export default async function PortfolioPage({
     tab?: string;
     stats?: string;
     chart?: string;
+    map?: string;
     add?: string;
     cash?: string;
     plan?: string;
@@ -99,6 +101,7 @@ export default async function PortfolioPage({
     tab,
     stats: statsRaw,
     chart: chartRaw,
+    map: mapRaw,
     add,
     cash: cashEdit,
     plan,
@@ -173,6 +176,7 @@ export default async function PortfolioPage({
   const queueWarnings = queue.flags.filter((flag) => flag.severity === "warn");
   const statsTab = parseStatsTab(statsRaw);
   const chartTab = parseChartTab(chartRaw);
+  const mapColor = parseMapColor(mapRaw);
   const snapshotSeries = buildNavChartSeries(snapshots, flows);
   const navSeries =
     book.markAsOf == null
@@ -193,6 +197,7 @@ export default async function PortfolioPage({
     portfolioHref({
       stats: statsTab,
       chart: chartTab,
+      map: mapColor,
       tab: activeTab,
       ...patch,
     });
@@ -746,7 +751,11 @@ export default async function PortfolioPage({
         }}
       />
 
-      <PositionTreemap positions={book.positions} markLabel={book.markLabel} />
+      <PositionTreemap
+        positions={book.positions}
+        markLabel={book.markLabel}
+        initialColor={mapColor}
+      />
 
       <NavHistoryChart points={navSeries} initialView={chartTab} />
 

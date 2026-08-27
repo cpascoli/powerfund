@@ -17,6 +17,15 @@ export const CHART_TABS: Array<{ id: NavChartView; label: string }> = [
 
 export type ChartTab = NavChartView;
 
+export const MAP_COLOR_MODES = ["day", "week", "pnl"] as const;
+export type MapColorMode = (typeof MAP_COLOR_MODES)[number];
+
+export const MAP_COLOR_ITEMS: Array<{ id: MapColorMode; label: string }> = [
+  { id: "day", label: "Daily change" },
+  { id: "week", label: "Weekly change" },
+  { id: "pnl", label: "Unrealised P&L" },
+];
+
 export type PortfolioSectionTab =
   | "book"
   | "queue"
@@ -40,6 +49,7 @@ const FORM_QUERY_KEYS = ["add", "cash", "plan", "confirm", "sell"] as const;
 export type PortfolioQuery = {
   stats?: StatsTab;
   chart?: ChartTab;
+  map?: MapColorMode;
   tab?: PortfolioSectionTab;
   add?: string;
   cash?: string;
@@ -61,6 +71,17 @@ export function parseStatsTab(raw: string | undefined): StatsTab {
 
 export function parseChartTab(raw: string | undefined): ChartTab {
   return isNavChartView(raw) ? raw : "nav";
+}
+
+export function parseMapColor(raw: string | undefined): MapColorMode {
+  switch (raw) {
+    case "day":
+    case "week":
+    case "pnl":
+      return raw;
+    default:
+      return "day";
+  }
 }
 
 export function parseSectionTab(
@@ -87,6 +108,9 @@ export function portfolioHref(query: PortfolioQuery): string {
   if (query.chart != null && query.chart !== "nav") {
     params.set("chart", query.chart);
   }
+  if (query.map != null && query.map !== "day") {
+    params.set("map", query.map);
+  }
   if (query.tab != null && query.tab !== "book") {
     params.set("tab", query.tab);
   }
@@ -104,7 +128,7 @@ export function portfolioHref(query: PortfolioQuery): string {
  * (no refresh, no scroll-to-top).
  */
 export function replacePortfolioSearchParam(
-  key: "stats" | "chart",
+  key: "stats" | "chart" | "map",
   value: string,
   defaultValue: string,
 ): void {

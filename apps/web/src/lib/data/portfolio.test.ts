@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import type { LiveQuote } from "@powerfund/data-clients";
 
-import { applyLiveMarks, type PortfolioBook } from "./portfolio";
+import { applyLiveMarks, weekCloseFromBars, type PortfolioBook } from "./portfolio";
 
 function quote(overrides: Partial<LiveQuote>): LiveQuote {
   return {
@@ -36,11 +36,14 @@ function closeBook(): PortfolioBook {
         lastCloseSession: "2026-08-26",
         markPrice: 100,
         previousClose: 95,
+        weekClose: 90,
         marketValue: 1000,
         unrealizedPnl: 200,
         unrealizedPnlPct: 25,
         dayPnl: 50,
         dayPnlPct: 5.263157894736842,
+        weekPnl: 100,
+        weekPnlPct: 11.11111111111111,
         weightPctNav: 0.4,
         priceSource: "close",
         openedAt: "2026-08-12T00:00:00.000Z",
@@ -81,6 +84,9 @@ describe("applyLiveMarks", () => {
     expect(row.unrealizedPnl).toBe(300);
     expect(row.dayPnl).toBe(100);
     expect(row.dayPnlPct).toBe(10);
+    expect(row.weekClose).toBe(90);
+    expect(row.weekPnl).toBe(200);
+    expect(row.weekPnlPct).toBeCloseTo((20 / 90) * 100, 8);
     expect(row.priceSource).toBe("live");
     expect(live.nav).toBe(250_100);
     expect(live.dayPnl).toBe(100);
@@ -107,5 +113,28 @@ describe("applyLiveMarks", () => {
   it("leaves stored closes in place when no quotes arrive", () => {
     const book = closeBook();
     expect(applyLiveMarks(book, [])).toBe(book);
+  });
+});
+
+describe("weekCloseFromBars", () => {
+  it("picks the last close on or before 7 calendar days earlier", () => {
+    expect(
+      weekCloseFromBars([
+        { date: "2026-08-26", close: 100 },
+        { date: "2026-08-25", close: 98 },
+        { date: "2026-08-21", close: 94 },
+        { date: "2026-08-19", close: 90 },
+        { date: "2026-08-18", close: 88 },
+      ]),
+    ).toBe(90);
+  });
+
+  it("returns null when history does not reach a week back", () => {
+    expect(
+      weekCloseFromBars([
+        { date: "2026-08-26", close: 100 },
+        { date: "2026-08-25", close: 98 },
+      ]),
+    ).toBeNull();
   });
 });
