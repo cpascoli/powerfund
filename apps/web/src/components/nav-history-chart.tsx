@@ -147,22 +147,31 @@ function NavTooltip({
   );
 }
 
-function chartCopy(view: NavChartView): { title: string; blurb: string } {
+function chartCopy(
+  view: NavChartView,
+  liveToday: boolean,
+): { title: string; blurb: string } {
   switch (view) {
     case "nav":
       return {
         title: "NAV",
-        blurb: "Official weekday EOD marks · cash + positions",
+        blurb: liveToday
+          ? "Weekday EOD marks, plus today's delayed last sale"
+          : "Official weekday EOD marks · cash + positions",
       };
     case "change":
       return {
         title: "Daily change",
-        blurb: "Dollar P&L that session · deposits stripped out",
+        blurb: liveToday
+          ? "Dollar P&L that session · today uses the delayed last sale"
+          : "Dollar P&L that session · deposits stripped out",
       };
     case "pnl":
       return {
         title: "P&L",
-        blurb: "Cumulative economic P&L since the first snapshot",
+        blurb: liveToday
+          ? "Cumulative economic P&L, including today's delayed mark"
+          : "Cumulative economic P&L since the first snapshot",
       };
     default: {
       const _exhaustive: never = view;
@@ -173,7 +182,8 @@ function chartCopy(view: NavChartView): { title: string; blurb: string } {
 
 export function NavHistoryChart({ points, initialView }: NavHistoryChartProps) {
   const [view, setView] = useState<NavChartView>(initialView);
-  const copy = chartCopy(view);
+  const liveToday = points.at(-1)?.live === true;
+  const copy = chartCopy(view, liveToday);
   const tabs = (
     <div className="seg" role="tablist" aria-label="NAV series">
       {CHART_TABS.map((entry) => (

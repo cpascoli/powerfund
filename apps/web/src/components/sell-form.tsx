@@ -30,7 +30,11 @@ export function SellForm({ position }: Props) {
   );
   const [quantity, setQuantity] = useState(String(position.quantity));
   const [price, setPrice] = useState(
-    position.lastClose != null ? position.lastClose.toFixed(2) : "",
+    position.markPrice != null
+      ? position.markPrice.toFixed(2)
+      : position.lastClose != null
+        ? position.lastClose.toFixed(2)
+        : "",
   );
   const [fees, setFees] = useState("0");
 

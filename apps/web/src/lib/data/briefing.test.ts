@@ -17,6 +17,8 @@ const emptyBook: PortfolioBook = {
   invested: 0,
   marketValue: 0,
   unrealizedPnl: 0,
+  dayPnl: null,
+  dayPnlPct: null,
   openCount: 0,
   cash: 0,
   nav: 0,
@@ -27,6 +29,7 @@ const emptyBook: PortfolioBook = {
   cashNotes: null,
   markLabel: "Last close",
   markAsOf: null,
+  tapeActive: false,
   priceDataThrough: null,
 };
 

@@ -3,6 +3,7 @@ import { RISK_DEFAULTS } from "@powerfund/domain";
 
 import { CashEntryForm } from "@/components/cash-entry-form";
 import { ConfirmFillForm } from "@/components/confirm-fill-form";
+import { LiveMarksRefresh } from "@/components/live-marks-refresh";
 import { NavHistoryChart } from "@/components/nav-history-chart";
 import { PlannedActionForm } from "@/components/planned-action-form";
 import { PortfolioSectionTabs } from "@/components/portfolio-section-tabs";
@@ -16,7 +17,7 @@ import {
   restorePlannedAction,
 } from "@/lib/actions/planned-actions";
 import { getLedgerSummary } from "@/lib/data/ledger";
-import { buildNavChartSeries } from "@/lib/data/nav-series";
+import { appendLiveChartPoint, buildNavChartSeries } from "@/lib/data/nav-series";
 import { getPerformanceReport } from "@/lib/data/performance";
 import {
   buildDeploymentQueue,
@@ -53,10 +54,27 @@ function money(value: number | null | undefined): string {
   });
 }
 
-function pct(value: number | null | undefined, signed = false): string {
+function signedMoney(value: number | null | undefined): string {
+  if (value == null || Number.isNaN(value)) return "—";
+  const formatted = money(value);
+  return value > 0 ? `+${formatted}` : formatted;
+}
+
+function pct(
+  value: number | null | undefined,
+  signed = false,
+  digits = 1,
+): string {
   if (value == null || Number.isNaN(value)) return "—";
   const sign = signed && value > 0 ? "+" : "";
-  return `${sign}${value.toFixed(1)}%`;
+  return `${sign}${value.toFixed(digits)}%`;
+}
+
+function signedClass(value: number | null | undefined): string | undefined {
+  if (value == null) return undefined;
+  if (value > 0) return "is-up";
+  if (value < 0) return "is-down";
+  return undefined;
 }
 
 function parseTab(raw: string | undefined): PortfolioTab | null {
@@ -155,7 +173,22 @@ export default async function PortfolioPage({
   const queueWarnings = queue.flags.filter((flag) => flag.severity === "warn");
   const statsTab = parseStatsTab(statsRaw);
   const chartTab = parseChartTab(chartRaw);
-  const navSeries = buildNavChartSeries(snapshots, flows);
+  const snapshotSeries = buildNavChartSeries(snapshots, flows);
+  const navSeries =
+    book.markAsOf == null
+      ? snapshotSeries
+      : appendLiveChartPoint(
+          snapshotSeries,
+          {
+            asOf: book.markAsOf,
+            nav: book.nav,
+            cash: book.cash,
+            invested: book.invested,
+            positionsValue: book.marketValue,
+            dayPnl: book.dayPnl,
+          },
+          flows,
+        );
   const href = (patch: Partial<PortfolioQuery> = {}) =>
     portfolioHref({
       stats: statsTab,
@@ -195,7 +228,8 @@ export default async function PortfolioPage({
                     {position.quantity.toLocaleString(undefined, {
                       maximumFractionDigits: 5,
                     })}{" "}
-                    @ {money(position.avgCost)} · cost {money(position.costBasis)}
+                    @ {money(position.avgCost)} · mark{" "}
+                    {money(position.markPrice)}
                     {position.weightPctNav != null
                       ? ` · ${pct(position.weightPctNav)} NAV`
                       : ""}
@@ -227,17 +261,13 @@ export default async function PortfolioPage({
                 </div>
                 <div className="position-mtm">
                   <strong>{money(position.marketValue)}</strong>
-                  <span
-                    className={
-                      (position.unrealizedPnl ?? 0) > 0
-                        ? "is-up"
-                        : (position.unrealizedPnl ?? 0) < 0
-                          ? "is-down"
-                          : undefined
-                    }
-                  >
-                    {money(position.unrealizedPnl)} (
-                    {pct(position.unrealizedPnlPct, true)})
+                  <span className={signedClass(position.dayPnl)}>
+                    {signedMoney(position.dayPnl)} (
+                    {pct(position.dayPnlPct, true)}) today
+                  </span>
+                  <span className={signedClass(position.unrealizedPnl)}>
+                    {signedMoney(position.unrealizedPnl)} (
+                    {pct(position.unrealizedPnlPct, true)}) vs cost
                   </span>
                   <Link href={href({ sell: position.id, tab: "book" })}>
                     Sell or close
@@ -330,14 +360,6 @@ export default async function PortfolioPage({
   );
 
   const inception = performance.windows.find((row) => row.id === "inception");
-  const signedClass = (value: number | null | undefined) =>
-    value == null
-      ? undefined
-      : value > 0
-        ? "is-up"
-        : value < 0
-          ? "is-down"
-          : undefined;
 
   const performancePanel = (
     <section className="panel" aria-label="Benchmark performance">
@@ -525,6 +547,7 @@ export default async function PortfolioPage({
 
   return (
     <>
+      <LiveMarksRefresh active={book.tapeActive} />
       <header className="page-header">
         <div>
           <h1>Portfolio</h1>
@@ -577,10 +600,19 @@ export default async function PortfolioPage({
         initialTab={statsTab}
         panels={{
           book: (
-          <div className="stat-row">
+          <div className="stat-row stats-5">
             <div className="stat">
               <span>NAV ({book.markLabel.toLowerCase()})</span>
               <strong>{money(book.nav)}</strong>
+            </div>
+            <div className="stat">
+              <span>Daily change</span>
+              <strong className={signedClass(book.dayPnl)}>
+                {signedMoney(book.dayPnl)}
+              </strong>
+              <em className={`stat-note ${signedClass(book.dayPnlPct) ?? ""}`.trim()}>
+                {pct(book.dayPnlPct, true, 2)} vs prior close
+              </em>
             </div>
             <div className="stat">
               <span>Cash</span>
@@ -604,16 +636,8 @@ export default async function PortfolioPage({
             </div>
             <div className="stat">
               <span>Unrealized P&amp;L</span>
-              <strong
-                className={
-                  book.unrealizedPnl > 0
-                    ? "is-up"
-                    : book.unrealizedPnl < 0
-                      ? "is-down"
-                      : undefined
-                }
-              >
-                {money(book.unrealizedPnl)}
+              <strong className={signedClass(book.unrealizedPnl)}>
+                {signedMoney(book.unrealizedPnl)}
               </strong>
             </div>
           </div>

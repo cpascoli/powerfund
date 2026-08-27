@@ -3,10 +3,10 @@ import {
   aiMemoryNavPct,
   RISK_DEFAULTS,
   unclassifiedSymbols,
-  utcDay,
 } from "@powerfund/domain";
 import { fetchYahooQuotes, type LiveQuote } from "@powerfund/data-clients";
 
+import { isTapeActive, quoteCaption } from "@/lib/market/quotes";
 import { resolveDb, type DbClient } from "@/lib/supabase/db";
 
 export type OpenPositionRow = {
@@ -22,9 +22,14 @@ export type OpenPositionRow = {
   costBasis: number;
   lastClose: number | null;
   lastCloseSession: string | null;
+  /** Last sale used for NAV (live when the tape is open, else last close). */
+  markPrice: number | null;
+  previousClose: number | null;
   marketValue: number | null;
   unrealizedPnl: number | null;
   unrealizedPnlPct: number | null;
+  dayPnl: number | null;
+  dayPnlPct: number | null;
   weightPctNav: number | null;
   priceSource: "live" | "close";
   openedAt: string;
@@ -61,6 +66,8 @@ export type PortfolioBook = {
   invested: number;
   marketValue: number;
   unrealizedPnl: number;
+  dayPnl: number | null;
+  dayPnlPct: number | null;
   openCount: number;
   cash: number;
   nav: number;
@@ -71,6 +78,7 @@ export type PortfolioBook = {
   cashNotes: string | null;
   markLabel: string;
   markAsOf: string | null;
+  tapeActive: boolean;
   priceDataThrough: string | null;
 };
 
@@ -133,6 +141,8 @@ export async function getOpenPortfolioBook(
       invested: 0,
       marketValue: 0,
       unrealizedPnl: 0,
+      dayPnl: null,
+      dayPnlPct: null,
       openCount: 0,
       cash,
       nav,
@@ -149,6 +159,7 @@ export async function getOpenPortfolioBook(
       cashNotes,
       markLabel: "Close",
       markAsOf: null,
+      tapeActive: false,
       priceDataThrough: null,
     };
   }
@@ -222,20 +233,26 @@ export async function getOpenPortfolioBook(
         .select("bar_date, close, adj_close")
         .eq("instrument_id", instrumentId)
         .order("bar_date", { ascending: false })
-        .limit(1)
-        .maybeSingle();
-      const bar = data as {
+        .limit(2);
+      const bars = (data as Array<{
         bar_date: string;
         close: number | null;
         adj_close: number | null;
-      } | null;
-      const close = bar?.adj_close ?? bar?.close ?? null;
-      if (close == null || bar == null) {
+      }> | null) ?? [];
+      const latest = bars[0];
+      const prior = bars[1];
+      const close = latest?.adj_close ?? latest?.close ?? null;
+      const previous = prior?.adj_close ?? prior?.close ?? null;
+      if (close == null || latest == null) {
         return [instrumentId, null] as const;
       }
       return [
         instrumentId,
-        { close: Number(close), date: bar.bar_date },
+        {
+          close: Number(close),
+          date: latest.bar_date,
+          previousClose: previous == null ? null : Number(previous),
+        },
       ] as const;
     }),
   );
@@ -249,13 +266,8 @@ export async function getOpenPortfolioBook(
     const mark = closeMap.get(position.instrument_id) ?? null;
     const lastClose = mark?.close ?? null;
     const lastCloseSession = mark?.date ?? null;
-    const marketValue = lastClose == null ? null : quantity * lastClose;
-    const unrealizedPnl =
-      marketValue == null ? null : marketValue - costBasis;
-    const unrealizedPnlPct =
-      unrealizedPnl == null || costBasis === 0
-        ? null
-        : (unrealizedPnl / costBasis) * 100;
+    const previousClose = mark?.previousClose ?? null;
+    const marked = markPosition(quantity, costBasis, lastClose, previousClose);
     const theme = primaryThemeByInstrument.get(position.instrument_id);
 
     return {
@@ -271,13 +283,12 @@ export async function getOpenPortfolioBook(
       costBasis,
       lastClose,
       lastCloseSession,
-      marketValue,
-      unrealizedPnl,
-      unrealizedPnlPct,
+      previousClose,
       openedAt: position.opened_at,
       thesisSummary: position.thesis_summary,
       invalidation: position.invalidation,
       priceSource: "close" as const,
+      ...marked,
     };
   });
 
@@ -288,81 +299,101 @@ export async function getOpenPortfolioBook(
     positions: draftRows,
     markLabel: "Close",
     markAsOf: null,
+    tapeActive: false,
   });
 }
 
-function markCaption(state: LiveQuote["marketState"]): string {
-  switch (state) {
-    case "REGULAR":
-      return "Delayed";
-    case "PRE":
-    case "PREPRE":
-      return "Pre-market";
-    case "POST":
-    case "POSTPOST":
-      return "After-hours";
-    case "CLOSED":
-      return "Last";
-    case "UNKNOWN":
-      return "Delayed";
-    default: {
-      const _exhaustive: never = state;
-      return _exhaustive;
-    }
-  }
-}
-
-function isUsTapeActive(state: LiveQuote["marketState"]): boolean {
-  return state === "REGULAR" || state === "PRE" || state === "POST";
+function markPosition(
+  quantity: number,
+  costBasis: number,
+  markPrice: number | null,
+  previousClose: number | null,
+): Pick<
+  OpenPositionRow,
+  | "markPrice"
+  | "marketValue"
+  | "unrealizedPnl"
+  | "unrealizedPnlPct"
+  | "dayPnl"
+  | "dayPnlPct"
+> {
+  const marketValue = markPrice == null ? null : quantity * markPrice;
+  const unrealizedPnl = marketValue == null ? null : marketValue - costBasis;
+  const unrealizedPnlPct =
+    unrealizedPnl == null || costBasis === 0
+      ? null
+      : (unrealizedPnl / costBasis) * 100;
+  const dayPnl =
+    markPrice == null || previousClose == null
+      ? null
+      : quantity * (markPrice - previousClose);
+  const dayPnlPct =
+    markPrice == null || previousClose == null || previousClose === 0
+      ? null
+      : ((markPrice - previousClose) / previousClose) * 100;
+  return {
+    markPrice,
+    marketValue,
+    unrealizedPnl,
+    unrealizedPnlPct,
+    dayPnl,
+    dayPnlPct,
+  };
 }
 
 /** Overlay delayed Yahoo last sale onto stored closes. Does not write market_bars. */
-export async function withLiveMarks(
+export function applyLiveMarks(
   book: PortfolioBook,
-): Promise<PortfolioBook> {
-  if (book.positions.length === 0) return book;
+  quotes: LiveQuote[],
+): PortfolioBook {
+  if (book.positions.length === 0 || quotes.length === 0) return book;
 
-  let quotes: LiveQuote[] = [];
-  try {
-    quotes = await fetchYahooQuotes(book.positions.map((row) => row.symbol));
-  } catch (error) {
-    console.error("Live quotes unavailable; using stored closes", error);
-    return book;
-  }
-
-  const bySymbol = new Map(quotes.map((quote) => [quote.symbol, quote]));
+  const bySymbol = new Map(
+    quotes.map((quote) => [quote.symbol.toUpperCase(), quote]),
+  );
   const positions = book.positions.map((row) => {
-    const quote = bySymbol.get(row.symbol);
+    const quote = bySymbol.get(row.symbol.toUpperCase());
     if (quote == null) return row;
-    const lastClose = quote.price;
-    const marketValue = row.quantity * lastClose;
-    const unrealizedPnl = marketValue - row.costBasis;
-    const unrealizedPnlPct =
-      row.costBasis === 0 ? null : (unrealizedPnl / row.costBasis) * 100;
+    const previousClose = quote.previousClose ?? row.previousClose;
     return {
       ...row,
-      lastClose,
-      lastCloseSession: quote.asOf ? utcDay(quote.asOf) : row.lastCloseSession,
-      marketValue,
-      unrealizedPnl,
-      unrealizedPnlPct,
+      previousClose,
       priceSource: "live" as const,
+      ...markPosition(row.quantity, row.costBasis, quote.price, previousClose),
     };
   });
 
   const live = positions
-    .map((row) => bySymbol.get(row.symbol))
+    .map((row) => bySymbol.get(row.symbol.toUpperCase()))
     .filter((quote): quote is LiveQuote => quote != null);
-  const active = live.find((quote) => isUsTapeActive(quote.marketState)) ?? live[0];
+  const active =
+    live.find((quote) => isTapeActive(quote.marketState)) ?? live[0];
 
   return assembleBook({
     cash: book.cash,
     cashUpdatedAt: book.cashUpdatedAt,
     cashNotes: book.cashNotes,
     positions,
-    markLabel: active ? markCaption(active.marketState) : book.markLabel,
+    markLabel: active ? quoteCaption(active) : book.markLabel,
     markAsOf: active?.asOf ?? null,
+    tapeActive: live.some((quote) => isTapeActive(quote.marketState)),
   });
+}
+
+export async function withLiveMarks(
+  book: PortfolioBook,
+): Promise<PortfolioBook> {
+  if (book.positions.length === 0) return book;
+
+  try {
+    const quotes = await fetchYahooQuotes(
+      book.positions.map((row) => row.symbol),
+    );
+    return applyLiveMarks(book, quotes);
+  } catch (error) {
+    console.error("Live quotes unavailable; using stored closes", error);
+    return book;
+  }
 }
 
 type DraftPosition = Omit<OpenPositionRow, "weightPctNav"> & {
@@ -376,6 +407,7 @@ function assembleBook(args: {
   positions: DraftPosition[];
   markLabel: string;
   markAsOf: string | null;
+  tapeActive: boolean;
 }): PortfolioBook {
   const invested = args.positions.reduce((sum, row) => sum + row.costBasis, 0);
   const marketValue = args.positions.reduce(
@@ -424,12 +456,15 @@ function assembleBook(args: {
     .filter((date): date is string => date != null)
     .sort();
   const priceDataThrough = sessions.at(-1) ?? null;
+  const dayMove = bookDayMove(rows, args.cash, nav);
 
   return {
     positions: rows,
     invested,
     marketValue,
     unrealizedPnl: marketValue - invested,
+    dayPnl: dayMove.dayPnl,
+    dayPnlPct: dayMove.dayPnlPct,
     openCount: rows.length,
     cash: args.cash,
     nav,
@@ -446,8 +481,31 @@ function assembleBook(args: {
     cashNotes: args.cashNotes,
     markLabel: args.markLabel,
     markAsOf: args.markAsOf,
+    tapeActive: args.tapeActive,
     priceDataThrough,
   };
+}
+
+function bookDayMove(
+  positions: OpenPositionRow[],
+  cash: number,
+  nav: number,
+): { dayPnl: number | null; dayPnlPct: number | null } {
+  let priorMarket = 0;
+  let anyPrior = false;
+  for (const row of positions) {
+    if (row.previousClose != null) {
+      priorMarket += row.quantity * row.previousClose;
+      anyPrior = true;
+    } else {
+      priorMarket += row.marketValue ?? row.costBasis;
+    }
+  }
+  if (!anyPrior) return { dayPnl: null, dayPnlPct: null };
+  const priorNav = cash + priorMarket;
+  const dayPnl = nav - priorNav;
+  const dayPnlPct = priorNav > 0 ? (dayPnl / priorNav) * 100 : null;
+  return { dayPnl, dayPnlPct };
 }
 
 function buildFlags(args: {

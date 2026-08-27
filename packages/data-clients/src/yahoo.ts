@@ -91,30 +91,95 @@ function toIso(value: Date | string | number | null | undefined): string | null 
   return date.toISOString();
 }
 
-function quoteFromYahoo(
-  symbol: string,
-  raw: {
-    symbol?: string;
-    regularMarketPrice?: number;
-    regularMarketTime?: Date | string | number;
-    regularMarketChange?: number;
-    regularMarketChangePercent?: number;
-    regularMarketPreviousClose?: number;
-    marketState?: string;
-  },
+type YahooQuoteRaw = {
+  symbol?: string;
+  marketState?: string;
+  regularMarketPrice?: unknown;
+  regularMarketTime?: Date | string | number;
+  regularMarketChange?: unknown;
+  regularMarketChangePercent?: unknown;
+  regularMarketPreviousClose?: unknown;
+  preMarketPrice?: unknown;
+  preMarketTime?: Date | string | number;
+  postMarketPrice?: unknown;
+  postMarketTime?: Date | string | number;
+  extendedMarketPrice?: unknown;
+  extendedMarketTime?: Date | string | number;
+};
+
+function sessionMark(
+  state: MarketState,
+  raw: YahooQuoteRaw,
+): { price: number | null; asOf: string | null } {
+  const regularPrice = num(raw.regularMarketPrice);
+  const regularAsOf = toIso(raw.regularMarketTime);
+  const extendedPrice = num(raw.extendedMarketPrice);
+  const extendedAsOf = toIso(raw.extendedMarketTime);
+
+  switch (state) {
+    case "PRE":
+    case "PREPRE":
+      return {
+        price: num(raw.preMarketPrice) ?? extendedPrice ?? regularPrice,
+        asOf: toIso(raw.preMarketTime) ?? extendedAsOf ?? regularAsOf,
+      };
+    case "POST":
+    case "POSTPOST":
+      return {
+        price: num(raw.postMarketPrice) ?? extendedPrice ?? regularPrice,
+        asOf: toIso(raw.postMarketTime) ?? extendedAsOf ?? regularAsOf,
+      };
+    case "REGULAR":
+    case "CLOSED":
+    case "UNKNOWN":
+      return {
+        price: regularPrice ?? extendedPrice,
+        asOf: regularAsOf ?? extendedAsOf,
+      };
+    default: {
+      const _exhaustive: never = state;
+      return _exhaustive;
+    }
+  }
+}
+
+/** Map a Yahoo quote payload onto the session last sale vs previous close. */
+export function liveQuoteFromYahoo(
+  raw: YahooQuoteRaw,
+  fallbackSymbol = "",
 ): LiveQuote | null {
-  const price = num(raw.regularMarketPrice);
+  const marketState = toMarketState(raw.marketState);
+  const { price, asOf } = sessionMark(marketState, raw);
   if (price == null) return null;
+  const previousClose = num(raw.regularMarketPreviousClose);
+  const change =
+    previousClose == null ? num(raw.regularMarketChange) : price - previousClose;
+  const changePct =
+    previousClose != null && previousClose !== 0
+      ? ((price - previousClose) / previousClose) * 100
+      : num(raw.regularMarketChangePercent);
   return {
-    symbol: (raw.symbol ?? symbol).toUpperCase(),
+    symbol: (raw.symbol ?? fallbackSymbol).toUpperCase(),
     price,
-    asOf: toIso(raw.regularMarketTime),
-    marketState: toMarketState(raw.marketState),
-    change: num(raw.regularMarketChange),
-    changePct: num(raw.regularMarketChangePercent),
-    previousClose: num(raw.regularMarketPreviousClose),
+    asOf,
+    marketState,
+    change,
+    changePct,
+    previousClose,
     source: "yahoo",
   };
+}
+
+function quotesFromYahooResult(
+  result: unknown,
+  fallbackSymbol: string,
+): LiveQuote[] {
+  const rows = Array.isArray(result) ? result : [result];
+  return rows.flatMap((row) => {
+    if (row == null || typeof row !== "object") return [];
+    const quote = liveQuoteFromYahoo(row as YahooQuoteRaw, fallbackSymbol);
+    return quote ? [quote] : [];
+  });
 }
 
 /** Delayed last sale. Do not persist into market_bars. */
@@ -126,12 +191,28 @@ export async function fetchYahooQuotes(
   ];
   if (unique.length === 0) return [];
 
-  const result = await yahooFinance.quote(unique.length === 1 ? unique[0]! : unique);
-  const rows = Array.isArray(result) ? result : [result];
+  const query = unique.length === 1 ? unique[0]! : unique;
+  try {
+    const result = await yahooFinance.quote(query, {}, { validateResult: false });
+    return quotesFromYahooResult(result, unique[0]!);
+  } catch (error) {
+    console.error("Batch live quotes failed; retrying per symbol", error);
+  }
 
-  return rows.flatMap((row) => {
-    const quote = quoteFromYahoo(row.symbol ?? unique[0]!, row);
-    return quote ? [quote] : [];
+  const settled = await Promise.allSettled(
+    unique.map((symbol) =>
+      yahooFinance.quote(symbol, {}, { validateResult: false }),
+    ),
+  );
+  return settled.flatMap((result, index) => {
+    if (result.status === "rejected") {
+      console.error(
+        `Live quote unavailable for ${unique[index]}`,
+        result.reason,
+      );
+      return [];
+    }
+    return quotesFromYahooResult(result.value, unique[index]!);
   });
 }
 

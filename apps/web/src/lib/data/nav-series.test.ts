@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { buildNavChartSeries } from "./nav-series";
+import { appendLiveChartPoint, buildNavChartSeries } from "./nav-series";
 import type { SnapshotRow } from "./snapshots";
 
 function snap(
@@ -47,5 +47,53 @@ describe("buildNavChartSeries", () => {
       247_561.22 / 247_817.21 - 1,
       10,
     );
+  });
+});
+
+describe("appendLiveChartPoint", () => {
+  it("appends today's live mark after the last EOD snapshot", () => {
+    const points = appendLiveChartPoint(
+      buildNavChartSeries([
+        snap("2026-08-25", 250_000),
+        snap("2026-08-26", 249_000),
+      ]),
+      {
+        asOf: "2026-08-27T14:15:00.000Z",
+        nav: 249_400,
+        cash: 200_000,
+        invested: 50_000,
+        positionsValue: 49_400,
+        dayPnl: 400,
+      },
+    );
+
+    expect(points).toHaveLength(3);
+    expect(points[2]?.date).toBe("2026-08-27");
+    expect(points[2]?.nav).toBe(249_400);
+    expect(points[2]?.dailyPnl).toBe(400);
+    expect(points[2]?.cumulativePnl).toBeCloseTo(-600, 8);
+    expect(points[2]?.live).toBe(true);
+  });
+
+  it("replaces a same-day snapshot instead of doubling the session", () => {
+    const points = appendLiveChartPoint(
+      buildNavChartSeries([
+        snap("2026-08-26", 249_000),
+        snap("2026-08-27", 249_100),
+      ]),
+      {
+        asOf: "2026-08-27T20:10:00.000Z",
+        nav: 249_400,
+        cash: 200_000,
+        invested: 50_000,
+        positionsValue: 49_400,
+        dayPnl: 400,
+      },
+    );
+
+    expect(points).toHaveLength(2);
+    expect(points[1]?.nav).toBe(249_400);
+    expect(points[1]?.dailyPnl).toBe(400);
+    expect(points[1]?.live).toBe(true);
   });
 });

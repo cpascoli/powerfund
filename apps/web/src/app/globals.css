@@ -926,7 +926,7 @@ a {
   display: flex;
   flex-direction: column;
   gap: 0.2rem;
-  min-width: 9rem;
+  min-width: 11rem;
 }
 
 .position-mtm strong {
@@ -1516,7 +1516,8 @@ a {
   }
 
   .panel.half,
-  .stat-row {
+  .stat-row,
+  .stat-row.stats-5 {
     grid-column: span 12;
     grid-template-columns: 1fr 1fr;
   }

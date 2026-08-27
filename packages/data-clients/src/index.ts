@@ -23,6 +23,7 @@ export {
   fetchYahooMarketCap,
   fetchYahooQuarterlyFundamentals,
   fetchYahooQuotes,
+  liveQuoteFromYahoo,
 } from "./yahoo";
 
 export async function sleep(ms: number): Promise<void> {

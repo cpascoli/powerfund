@@ -47,6 +47,25 @@ export function quoteCaption(quote: LiveQuote | null): string {
   }
 }
 
+/** True while a US tape (regular or extended) can still move the last sale. */
+export function isTapeActive(state: LiveQuote["marketState"]): boolean {
+  switch (state) {
+    case "REGULAR":
+    case "PRE":
+    case "PREPRE":
+    case "POST":
+    case "POSTPOST":
+    case "UNKNOWN":
+      return true;
+    case "CLOSED":
+      return false;
+    default: {
+      const _exhaustive: never = state;
+      return _exhaustive;
+    }
+  }
+}
+
 /**
  * Paint the delayed last sale as the latest daily point. Uses the quote's
  * session date in America/New_York so a live print becomes "today" during
