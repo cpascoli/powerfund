@@ -257,4 +257,38 @@ describe("upcoming filters", () => {
       filterUpcomingItems(items, "all", "later", asOf).map((row) => row.id),
     ).toEqual(["oct"]);
   });
+
+  it("keeps undated planned trades on every horizon, after dated matches", () => {
+    const asOf = new Date("2026-08-22T12:00:00.000Z");
+    const undated = [
+      action({ id: "open-1", symbol: "CLS", dueBy: null }),
+      action({ id: "open-2", symbol: "NVT", dueBy: null }),
+      action({ id: "open-3", symbol: "VST", dueBy: null }),
+    ];
+    const october: BriefingReview = {
+      ...nvidiaReview,
+      id: "oct",
+      title: "October check",
+      scheduled_for: "2026-10-02T00:00:00.000Z",
+      not_before: "2026-10-02T00:00:00.000Z",
+      symbols: ["NVDA"],
+      themes: [],
+    };
+    const items = flattenUpcomingItems(
+      upcomingSections(undated, [nvidiaReview, october], asOf),
+    );
+    const undatedIds = ["open-1", "open-2", "open-3"];
+    expect(
+      filterUpcomingItems(items, "all", "this_week", asOf).map((row) => row.id),
+    ).toEqual([nvidiaReview.id, ...undatedIds]);
+    expect(
+      filterUpcomingItems(items, "all", "this_month", asOf).map((row) => row.id),
+    ).toEqual([nvidiaReview.id, ...undatedIds]);
+    expect(
+      filterUpcomingItems(items, "all", "next_month", asOf).map((row) => row.id),
+    ).toEqual(undatedIds);
+    expect(
+      filterUpcomingItems(items, "all", "later", asOf).map((row) => row.id),
+    ).toEqual(["oct", ...undatedIds]);
+  });
 });

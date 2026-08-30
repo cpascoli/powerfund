@@ -511,25 +511,31 @@ function matchesUpcomingKind(
   }
 }
 
+function isUndatedUpcoming(item: UpcomingItem): boolean {
+  return upcomingItemSchedule(item).date == null;
+}
+
 function matchesUpcomingHorizon(
   item: UpcomingItem,
   horizon: UpcomingHorizonFilter,
   today: Date,
 ): boolean {
-  const { date } = upcomingItemSchedule(item);
+  // Open items with no date are still live; show them on every horizon after
+  // the dated matches so they do not disappear behind Later.
+  if (isUndatedUpcoming(item)) return true;
   const itemMonth = itemYearMonth(item);
   const todayMonth = utcYearMonth(today);
   switch (horizon) {
     case "this_week": {
-      if (date == null) return false;
-      return daysUntil(date, today) <= UPCOMING_WEEK_DAYS;
+      const { date } = upcomingItemSchedule(item);
+      return date != null && daysUntil(date, today) <= UPCOMING_WEEK_DAYS;
     }
     case "this_month":
       return itemMonth === todayMonth;
     case "next_month":
       return itemMonth === todayMonth + 1;
     case "later":
-      return itemMonth == null || itemMonth > todayMonth + 1;
+      return itemMonth != null && itemMonth > todayMonth + 1;
     default: {
       const _exhaustive: never = horizon;
       return _exhaustive;
@@ -544,11 +550,18 @@ export function filterUpcomingItems(
   now = new Date(),
 ): UpcomingItem[] {
   const today = startOfUtcDay(now);
-  return items.filter(
-    (item) =>
-      matchesUpcomingKind(item, kind) &&
-      matchesUpcomingHorizon(item, horizon, today),
-  );
+  return items
+    .filter(
+      (item) =>
+        matchesUpcomingKind(item, kind) &&
+        matchesUpcomingHorizon(item, horizon, today),
+    )
+    .sort((left, right) => {
+      const leftUndated = isUndatedUpcoming(left);
+      const rightUndated = isUndatedUpcoming(right);
+      if (leftUndated === rightUndated) return 0;
+      return leftUndated ? 1 : -1;
+    });
 }
 
 function upcomingSortKey(item: UpcomingItem): string {
