@@ -11,6 +11,7 @@ import {
   isUrgentAttention,
   parseUpcomingHorizonFilter,
   parseUpcomingKindFilter,
+  splitAttentionInbox,
   upcomingDayGroups,
   upcomingSections,
   type AttentionItem,
@@ -44,11 +45,12 @@ export const metadata = {
   title: "Briefing",
 };
 
-type BriefingTabId = "upcoming" | "attention";
+type BriefingTabId = "upcoming" | "attention" | "diligence";
 
 const TABS: Array<{ id: BriefingTabId; label: string }> = [
   { id: "upcoming", label: "Upcoming" },
   { id: "attention", label: "Attention" },
+  { id: "diligence", label: "Diligence" },
 ];
 
 const KIND_FILTERS: Array<{ id: UpcomingKindFilter; label: string }> = [
@@ -67,6 +69,7 @@ const HORIZON_FILTERS: Array<{ id: UpcomingHorizonFilter; label: string }> = [
 function parseTab(raw: string | undefined): BriefingTabId | null {
   switch (raw) {
     case "attention":
+    case "diligence":
     case "upcoming":
       return raw;
     default:
@@ -79,7 +82,19 @@ function briefingHref(args: {
   kind?: UpcomingKindFilter;
   when?: UpcomingHorizonFilter;
 }): string {
-  if (args.tab === "attention") return "/briefing?tab=attention";
+  switch (args.tab) {
+    case "attention":
+      return "/briefing?tab=attention";
+    case "diligence":
+      return "/briefing?tab=diligence";
+    case "upcoming":
+    case undefined:
+      break;
+    default: {
+      const _exhaustive: never = args.tab;
+      return _exhaustive;
+    }
+  }
   const params = new URLSearchParams();
   if (args.kind && args.kind !== "all") params.set("kind", args.kind);
   if (args.when && args.when !== "this_week") params.set("when", args.when);
@@ -148,21 +163,23 @@ export default async function BriefingPage({
     flows,
   );
   const bookFlags = [...snapshotFlags(snapshots, drawdown), ...book.flags];
-  const attention = buildAttentionItems({
-    bookFlags,
-    queueFlags: queue.flags,
-    queue: queue.actions,
-    book,
-    decisions,
-    dossiers,
-    instruments,
-    reviews,
-  });
   const upcoming = upcomingSections(queue.actions, reviews);
   const upcomingItems = filterUpcomingItems(
     flattenUpcomingItems(upcoming),
     kind,
     horizon,
+  );
+  const { attention, diligence } = splitAttentionInbox(
+    buildAttentionItems({
+      bookFlags,
+      queueFlags: queue.flags,
+      queue: queue.actions,
+      book,
+      decisions,
+      dossiers,
+      instruments,
+      reviews,
+    }),
   );
   const pulse = bookPulse(book);
   const thisWeekCount = upcoming[0]?.items.length ?? 0;
@@ -188,7 +205,44 @@ export default async function BriefingPage({
       );
       break;
     case "attention":
-      tabContent = <AttentionPanel items={attention} />;
+      tabContent = (
+        <InboxPanel
+          label="Needs attention"
+          title="Needs attention"
+          empty={
+            <>
+              Nothing needs attention. Mandate checks are clear. Dated actions
+              and upcoming reviews are on Upcoming; stale research checklists
+              are on Diligence. Browse names in{" "}
+              <Link href="/explore">Explore</Link>.
+            </>
+          }
+          items={attention}
+        />
+      );
+      break;
+    case "diligence":
+      tabContent = (
+        <InboxPanel
+          label="Diligence"
+          title="Diligence"
+          intro={
+            <>
+              Live dossiers whose next-diligence checklist has not been saved
+              for 14 days. Not urgent — fold holdings into the weekly review,
+              and touch watchlist names before a buy. Saving the dossier
+              clears the item.
+            </>
+          }
+          empty={
+            <>
+              No stale diligence. Live dossiers were saved within 14 days.
+              Holdings still get a weekly thesis review on Attention.
+            </>
+          }
+          items={diligence}
+        />
+      );
       break;
     default: {
       const _exhaustive: never = activeTab;
@@ -287,9 +341,11 @@ export default async function BriefingPage({
           const badge =
             entry.id === "attention"
               ? attention.length
-              : entry.id === "upcoming"
-                ? thisWeekCount
-                : null;
+              : entry.id === "diligence"
+                ? diligence.length
+                : entry.id === "upcoming"
+                  ? thisWeekCount
+                  : null;
           const warn = entry.id === "attention" && attentionWarn;
           return (
             <Link
@@ -297,7 +353,7 @@ export default async function BriefingPage({
               href={
                 entry.id === "upcoming"
                   ? briefingHref({ kind, when: horizon })
-                  : briefingHref({ tab: "attention" })
+                  : briefingHref({ tab: entry.id })
               }
               className={entry.id === activeTab ? "is-active" : undefined}
               aria-current={entry.id === activeTab ? "page" : undefined}
@@ -352,16 +408,25 @@ function SubjectLinks({ subjects }: { subjects: ReviewSubjectLink[] }) {
   );
 }
 
-function AttentionPanel({ items }: { items: AttentionItem[] }) {
+function InboxPanel({
+  label,
+  title,
+  intro,
+  empty,
+  items,
+}: {
+  label: string;
+  title: string;
+  intro?: ReactNode;
+  empty: ReactNode;
+  items: AttentionItem[];
+}) {
   return (
-    <section className="panel" aria-label="Needs attention">
-      <h2>Needs attention</h2>
+    <section className="panel" aria-label={label}>
+      <h2>{title}</h2>
+      {intro && items.length > 0 ? <p className="muted">{intro}</p> : null}
       {items.length === 0 ? (
-        <p className="empty">
-          Nothing needs attention. Mandate checks are clear. Dated actions and
-          upcoming reviews are on Upcoming; browse names in{" "}
-          <Link href="/explore">Explore</Link>.
-        </p>
+        <p className="empty">{empty}</p>
       ) : (
         <ul className="list">
           {items.map((item) => (

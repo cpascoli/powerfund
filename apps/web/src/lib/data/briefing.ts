@@ -564,6 +564,16 @@ export function filterUpcomingItems(
     });
 }
 
+export function splitAttentionInbox(items: AttentionItem[]): {
+  attention: AttentionItem[];
+  diligence: AttentionItem[];
+} {
+  return {
+    attention: items.filter((item) => item.kind !== "diligence"),
+    diligence: items.filter((item) => item.kind === "diligence"),
+  };
+}
+
 function upcomingSortKey(item: UpcomingItem): string {
   const { date, time } = upcomingItemSchedule(item);
   switch (item.kind) {

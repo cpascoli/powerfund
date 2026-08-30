@@ -18,7 +18,7 @@ Machine contract: `GET /api/v1/agent/openapi.json`. Playbook (mandate, cash, siz
 
 | When | Ritual |
 |------|--------|
-| Daily (or whenever the GPT is opened) | Briefing sweep — Upcoming this week, then Attention |
+| Daily (or whenever the GPT is opened) | Briefing sweep — Upcoming this week, then Attention. Diligence is a backlog, not the sweep. |
 | Weekly | Holding review — every open name |
 | Rolling | Calendar fill — known events 2–3 months out |
 | Ad hoc | New-name research; watchlist hygiene |
@@ -33,7 +33,7 @@ Machine contract: `GET /api/v1/agent/openapi.json`. Playbook (mandate, cash, siz
 
 ## Object taxonomy
 
-Briefing mixes **queued** rows the agent can create with **derived** Attention items the app infers. Action them differently.
+Briefing mixes **queued** rows the agent can create with **derived** Attention items the app infers, plus a **Diligence** backlog. Action them differently.
 
 ### Queued (agent-created)
 
@@ -57,11 +57,16 @@ Review-task triggers:
 | Kind | Meaning | Agent action |
 |------|---------|--------------|
 | `thesis_review` | Latest `enter` / `add` / `hold` without `reviewed_at` or `outcome_grade` on **that row** is older than **7 days** | This **is** the weekly holding process. Do not create a review task. A new `createDecision` resets the clock. `recordDecisionOutcome` and UI grades on the old enter do not. |
-| `diligence` | Live dossier `next_diligence` stale **14 days** | Research, then `updateDossier`. |
 | `missing_invalidation` | Open position with no kill criteria | Mandate rule 4. Write invalidation before any add. |
 | `flag` | Mandate or queue vs NAV (cash, position size, theme, AI-capex, deployed-drawdown diagnostic) | Explain. Caps still constrain size. A Phase-1 15% sleeve flag is ritual 11 (diagnose), not an automatic `reduce`. |
 | `review_due` | A **review task** whose trigger has fired | Same as queued review task above. |
 | `due_today` / `overdue` | A **planned action** whose `due_by` is today or past | Same as queued planned action above. |
+
+### Diligence tab (not Attention)
+
+| Kind | Meaning | Agent action |
+|------|---------|--------------|
+| `diligence` | Live dossier `next_diligence` stale **14 days** | Backlog. Research, then `updateDossier`. Do not invent a review task. Fold holdings into ritual 2; touch watchlist names before a buy. |
 
 ---
 
@@ -73,7 +78,7 @@ Purpose: action what is due; leave the rest of the calendar alone.
 2. Optionally `getReviewQueue?status=due` and `getPlannedActions` if the snapshot is thin.
 3. For each **due review task**: read `instructions` and the company dossier. Reassess. Write dossier/journal/planned trade only if the conclusion changed. Then `completeReviewTask` with `outcome` (link existing `dossier_version` / `decision` / `planned_action` ids if you created them).
 4. For each **due / overdue planned action**: say whether the window still holds. If yes, stop — the human confirms the fill in `/portfolio?confirm=…`. If no, `updatePlannedAction` to `deferred` or `cancelled` with a reason.
-5. For **flags**, **missing invalidation**, and **stale diligence**: handle as in the table above. Do not invent review tasks for them.
+5. For **flags** and **missing invalidation**: handle as in the table above. Do not invent review tasks for them. Stale **diligence** is on the Diligence tab — not part of the daily sweep.
 6. `thesis_review` names go on this week’s holding list (ritual 2), not the event calendar.
 7. Glance at Upcoming **this month** / **next month** only to spot holes for ritual 3. Do not “action” future items except to thicken `instructions`.
 

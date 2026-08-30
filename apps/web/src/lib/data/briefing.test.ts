@@ -4,6 +4,7 @@ import {
   buildAttentionItems,
   filterUpcomingItems,
   flattenUpcomingItems,
+  splitAttentionInbox,
   toUpcomingAgendaRow,
   upcomingDayGroups,
   upcomingSections,
@@ -11,6 +12,7 @@ import {
 } from "./briefing";
 import type { PlannedActionRow } from "./planned-actions";
 import type { PortfolioBook } from "./portfolio";
+import type { InstrumentWithTheme } from "./research";
 
 const emptyBook: PortfolioBook = {
   positions: [],
@@ -290,5 +292,48 @@ describe("upcoming filters", () => {
     expect(
       filterUpcomingItems(items, "all", "later", asOf).map((row) => row.id),
     ).toEqual(["oct", ...undatedIds]);
+  });
+});
+
+const clsInstrument: InstrumentWithTheme = {
+  id: "inst-cls",
+  symbol: "CLS",
+  name: "Celestica",
+  asset_class: "equity",
+  status: "watchlist",
+  notes: null,
+  theme_slug: "ai-infrastructure",
+  theme_name: "AI Infrastructure",
+  has_dossier: true,
+};
+
+describe("diligence inbox", () => {
+  it("keeps stale next-diligence off Attention", () => {
+    const asOf = new Date("2026-08-30T12:00:00.000Z");
+    const items = buildAttentionItems({
+      bookFlags: [],
+      queueFlags: [],
+      queue: [],
+      book: emptyBook,
+      decisions: [],
+      dossiers: [
+        {
+          instrumentId: clsInstrument.id,
+          status: "investigate",
+          nextDiligence: "Verify FY26 guidance vs the 10-Q.",
+          updatedAt: "2026-08-15T00:00:00.000Z",
+        },
+      ],
+      instruments: [clsInstrument],
+      today: asOf,
+    });
+    const { attention, diligence } = splitAttentionInbox(items);
+    expect(attention).toEqual([]);
+    expect(diligence).toEqual([
+      expect.objectContaining({
+        kind: "diligence",
+        title: "Next diligence on CLS",
+      }),
+    ]);
   });
 });
