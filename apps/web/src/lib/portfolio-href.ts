@@ -17,6 +17,14 @@ export const CHART_TABS: Array<{ id: NavChartView; label: string }> = [
 
 export type ChartTab = NavChartView;
 
+export const VIZ_TABS = ["map", "nav"] as const;
+export type VizTab = (typeof VIZ_TABS)[number];
+
+export const VIZ_TAB_ITEMS: Array<{ id: VizTab; label: string }> = [
+  { id: "map", label: "Position map" },
+  { id: "nav", label: "NAV" },
+];
+
 export const MAP_COLOR_MODES = ["day", "week", "pnl"] as const;
 export type MapColorMode = (typeof MAP_COLOR_MODES)[number];
 
@@ -48,6 +56,7 @@ const FORM_QUERY_KEYS = ["add", "cash", "plan", "confirm", "sell"] as const;
 
 export type PortfolioQuery = {
   stats?: StatsTab;
+  viz?: VizTab;
   chart?: ChartTab;
   map?: MapColorMode;
   tab?: PortfolioSectionTab;
@@ -71,6 +80,16 @@ export function parseStatsTab(raw: string | undefined): StatsTab {
 
 export function parseChartTab(raw: string | undefined): ChartTab {
   return isNavChartView(raw) ? raw : "nav";
+}
+
+export function parseVizTab(raw: string | undefined): VizTab {
+  switch (raw) {
+    case "map":
+    case "nav":
+      return raw;
+    default:
+      return "map";
+  }
 }
 
 export function parseMapColor(raw: string | undefined): MapColorMode {
@@ -99,11 +118,14 @@ export function parseSectionTab(
   }
 }
 
-/** Shareable portfolio URL. Omits default stats/chart/tab so the path stays short. */
+/** Shareable portfolio URL. Omits default stats/chart/viz/tab so the path stays short. */
 export function portfolioHref(query: PortfolioQuery): string {
   const params = new URLSearchParams();
   if (query.stats != null && query.stats !== "book") {
     params.set("stats", query.stats);
+  }
+  if (query.viz != null && query.viz !== "map") {
+    params.set("viz", query.viz);
   }
   if (query.chart != null && query.chart !== "nav") {
     params.set("chart", query.chart);
@@ -128,7 +150,7 @@ export function portfolioHref(query: PortfolioQuery): string {
  * (no refresh, no scroll-to-top).
  */
 export function replacePortfolioSearchParam(
-  key: "stats" | "chart" | "map",
+  key: "stats" | "viz" | "chart" | "map",
   value: string,
   defaultValue: string,
 ): void {

@@ -1,11 +1,17 @@
 import { describe, expect, it } from "vitest";
 
-import { applySectionTabToSearch, parseMapColor, portfolioHref } from "./portfolio-href";
+import { applySectionTabToSearch, parseMapColor, parseVizTab, portfolioHref } from "./portfolio-href";
 
 describe("portfolioHref", () => {
-  it("omits default stats, chart, and section tab", () => {
+  it("omits default stats, chart, viz, and section tab", () => {
     expect(
-      portfolioHref({ stats: "book", chart: "nav", tab: "book", map: "day" }),
+      portfolioHref({
+        stats: "book",
+        viz: "map",
+        chart: "nav",
+        tab: "book",
+        map: "day",
+      }),
     ).toBe("/portfolio");
   });
 
@@ -13,9 +19,16 @@ describe("portfolioHref", () => {
     expect(
       portfolioHref({ stats: "score", chart: "pnl", tab: "queue" }),
     ).toBe("/portfolio?stats=score&chart=pnl&tab=queue");
-    expect(
-      portfolioHref({ map: "week" }),
-    ).toBe("/portfolio?map=week");
+    expect(portfolioHref({ map: "week" })).toBe("/portfolio?map=week");
+    expect(portfolioHref({ viz: "nav" })).toBe("/portfolio?viz=nav");
+  });
+});
+
+describe("parseVizTab", () => {
+  it("defaults to the position map", () => {
+    expect(parseVizTab(undefined)).toBe("map");
+    expect(parseVizTab("nav")).toBe("nav");
+    expect(parseVizTab("nope")).toBe("map");
   });
 });
 

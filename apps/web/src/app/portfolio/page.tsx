@@ -8,6 +8,7 @@ import { NavHistoryChart } from "@/components/nav-history-chart";
 import { PlannedActionForm } from "@/components/planned-action-form";
 import { PortfolioSectionTabs } from "@/components/portfolio-section-tabs";
 import { PortfolioStatTabs } from "@/components/portfolio-stat-tabs";
+import { PortfolioVizTabs } from "@/components/portfolio-viz-tabs";
 import { PositionForm } from "@/components/position-form";
 import { PositionTreemap } from "@/components/position-treemap";
 import { SellForm } from "@/components/sell-form";
@@ -16,6 +17,7 @@ import {
   deferPlannedAction,
   restorePlannedAction,
 } from "@/lib/actions/planned-actions";
+import { listSleeveDiagnosticRecords } from "@/lib/data/drawdown-diagnostic";
 import { getLedgerSummary } from "@/lib/data/ledger";
 import { appendLiveChartPoint, buildNavChartSeries } from "@/lib/data/nav-series";
 import { getPerformanceReport } from "@/lib/data/performance";
@@ -29,13 +31,14 @@ import {
   computeDrawdown,
   listLedgerFlows,
   listPortfolioSnapshots,
-  snapshotFlags,
+  snapshotFlagsForDrawdown,
 } from "@/lib/data/snapshots";
 import {
   parseChartTab,
   parseMapColor,
   parseSectionTab,
   parseStatsTab,
+  parseVizTab,
   portfolioHref,
   type PortfolioQuery,
   type PortfolioSectionTab,
@@ -88,6 +91,7 @@ export default async function PortfolioPage({
   searchParams: Promise<{
     tab?: string;
     stats?: string;
+    viz?: string;
     chart?: string;
     map?: string;
     add?: string;
@@ -100,6 +104,7 @@ export default async function PortfolioPage({
   const {
     tab,
     stats: statsRaw,
+    viz: vizRaw,
     chart: chartRaw,
     map: mapRaw,
     add,
@@ -108,7 +113,7 @@ export default async function PortfolioPage({
     confirm,
     sell,
   } = await searchParams;
-  const [rawBook, instruments, rawQueue, ledger, snapshots, flows] =
+  const [rawBook, instruments, rawQueue, ledger, snapshots, flows, diagnosticRecords] =
     await Promise.all([
       getOpenPortfolioBook(),
       listInstrumentsWithThemes(),
@@ -116,6 +121,7 @@ export default async function PortfolioPage({
       getLedgerSummary(),
       listPortfolioSnapshots(),
       listLedgerFlows(),
+      listSleeveDiagnosticRecords(),
     ]);
   const book = await withLiveMarks(rawBook);
   const performance = await getPerformanceReport({
@@ -125,17 +131,23 @@ export default async function PortfolioPage({
     positionsValue: book.marketValue,
   });
   const queue = buildDeploymentQueue(book, instruments, rawQueue);
-  const drawdown = computeDrawdown(
-    snapshots,
-    {
-      nav: book.nav,
-      invested: book.invested,
-      positionsValue: book.marketValue,
-      asOf: book.markAsOf ?? new Date().toISOString(),
-    },
-    flows,
-  );
-  const riskFlags = [...book.flags, ...snapshotFlags(snapshots, drawdown)];
+  const liveMark = {
+    nav: book.nav,
+    invested: book.invested,
+    positionsValue: book.marketValue,
+    asOf: book.markAsOf ?? new Date().toISOString(),
+  };
+  const drawdown = computeDrawdown(snapshots, liveMark, flows);
+  const riskFlags = [
+    ...book.flags,
+    ...snapshotFlagsForDrawdown(
+      snapshots,
+      drawdown,
+      liveMark,
+      flows,
+      diagnosticRecords,
+    ),
+  ];
   const showForm = add === "1";
   const showCash = cashEdit === "1";
   const showPlan = plan === "1";
@@ -175,6 +187,7 @@ export default async function PortfolioPage({
   const bookWarnings = riskFlags.filter((flag) => flag.severity === "warn");
   const queueWarnings = queue.flags.filter((flag) => flag.severity === "warn");
   const statsTab = parseStatsTab(statsRaw);
+  const vizTab = parseVizTab(vizRaw);
   const chartTab = parseChartTab(chartRaw);
   const mapColor = parseMapColor(mapRaw);
   const snapshotSeries = buildNavChartSeries(snapshots, flows);
@@ -196,6 +209,7 @@ export default async function PortfolioPage({
   const href = (patch: Partial<PortfolioQuery> = {}) =>
     portfolioHref({
       stats: statsTab,
+      viz: vizTab,
       chart: chartTab,
       map: mapColor,
       tab: activeTab,
@@ -752,32 +766,19 @@ export default async function PortfolioPage({
         }}
       />
 
-      <PositionTreemap
-        positions={book.positions}
-        markLabel={book.markLabel}
-        initialColor={mapColor}
+      <PortfolioVizTabs
+        initialTab={vizTab}
+        panels={{
+          map: (
+            <PositionTreemap
+              positions={book.positions}
+              markLabel={book.markLabel}
+              initialColor={mapColor}
+            />
+          ),
+          nav: <NavHistoryChart points={navSeries} initialView={chartTab} />,
+        }}
       />
-
-      <NavHistoryChart points={navSeries} initialView={chartTab} />
-
-      {bookWarnings.length > 0 || queueWarnings.length > 0 ? (
-        <section className="panel" aria-label="Mandate warnings">
-          <ul className="list">
-            {bookWarnings.map((flag) => (
-              <li key={`warn-book-${flag.label}`}>
-                <span className="is-down">Flag</span>
-                <span>{flag.label}</span>
-              </li>
-            ))}
-            {queueWarnings.map((flag) => (
-              <li key={`warn-queue-${flag.label}`}>
-                <span className="is-down">Flag</span>
-                <span>{flag.label} (queue)</span>
-              </li>
-            ))}
-          </ul>
-        </section>
-      ) : null}
 
       <PortfolioSectionTabs
         initialTab={activeTab}

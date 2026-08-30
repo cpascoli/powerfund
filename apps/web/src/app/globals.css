@@ -784,7 +784,8 @@ a {
   margin-bottom: 0.95rem;
 }
 
-.stat-tabs .stat-row {
+.stat-tabs .stat-row,
+.stat-tabs .panel {
   margin-top: 0.55rem;
 }
 
