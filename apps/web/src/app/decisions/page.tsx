@@ -1,3 +1,5 @@
+import Link from "next/link";
+
 import { JournalPanel } from "@/components/journal-panel";
 import { listDecisions } from "@/lib/data/decisions";
 import { parseJournalHorizon } from "@/lib/data/journal-agenda";
@@ -30,8 +32,9 @@ export default async function DecisionsPage({ searchParams }: PageProps) {
         <div>
           <h1>Journal</h1>
           <p>
-            Thesis, catalysts, risks, invalidation, sizing, and outcome review.
-            Process quality compounds; vibes do not.
+            What we decided: thesis, catalysts, risks, invalidation, sizing,
+            and outcome review. Event history lives on{" "}
+            <Link href="/calendar?view=past">Calendar past</Link>.
           </p>
         </div>
       </header>

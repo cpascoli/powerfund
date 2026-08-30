@@ -18,7 +18,7 @@ Machine contract: `GET /api/v1/agent/openapi.json`. Playbook (mandate, cash, siz
 
 | When | Ritual |
 |------|--------|
-| Daily (or whenever the GPT is opened) | Briefing sweep — Upcoming this week, then Attention. Diligence is a backlog, not the sweep. |
+| Daily (or whenever the GPT is opened) | Briefing sweep — Dated this week, then Due. Research is a backlog, not the sweep. |
 | Weekly | Holding review — every open name |
 | Rolling | Calendar fill — known events 2–3 months out |
 | Ad hoc | New-name research; watchlist hygiene |
@@ -33,14 +33,14 @@ Machine contract: `GET /api/v1/agent/openapi.json`. Playbook (mandate, cash, siz
 
 ## Object taxonomy
 
-Briefing mixes **queued** rows the agent can create with **derived** Attention items the app infers, plus a **Diligence** backlog. Action them differently.
+Briefing is **Now** (Dated / Due / Research). Journal is **Then** (what we decided). Calendar Past is event outcomes. Explore and the deployment queue are places, not inboxes.
 
 ### Queued (agent-created)
 
 | Kind | What it is | Lands on | Agent action when due |
 |------|------------|----------|------------------------|
-| **Review task** | Reassess the thesis when X happens (earnings, event window, price condition) | Upcoming until the trigger fires; then Attention as `review_due` | Follow `instructions`. Update dossier / journal / planned trade **if needed**. Then `completeReviewTask` with an outcome. Never a fill. |
-| **Planned action** | Intended `buy` / `add` / `reduce` / `sell` | Upcoming until `due_by`; then Attention as `due_today` or `overdue` | Confirm the window and thesis. **Human books the fill.** Agent may only `updatePlannedAction` (`deferred` / `cancelled`) or leave it for the UI confirm flow. |
+| **Review task** | Reassess the thesis when X happens (earnings, event window, price condition) | Dated until the trigger fires; then Due as `review_due` | Follow `instructions`. Update dossier / journal / planned trade **if needed**. Then `completeReviewTask` with an outcome. Never a fill. |
+| **Planned action** | Intended `buy` / `add` / `reduce` / `sell` | Dated until `due_by`; then Due as `due_today` or `overdue` | Confirm the window and thesis. **Human books the fill** on the Portfolio queue. Agent may only `updatePlannedAction` (`deferred` / `cancelled`) or leave it for the UI confirm flow. |
 
 Review-task triggers:
 
@@ -52,7 +52,7 @@ Review-task triggers:
 
 `instructions` is the checklist for that day. PATCH it with `updateReviewTask` if the title is thin. Cannot PATCH status to `due` or `completed`.
 
-### Derived Attention (not calendar rows)
+### Derived Due (not calendar rows)
 
 | Kind | Meaning | Agent action |
 |------|---------|--------------|
@@ -62,11 +62,13 @@ Review-task triggers:
 | `review_due` | A **review task** whose trigger has fired | Same as queued review task above. |
 | `due_today` / `overdue` | A **planned action** whose `due_by` is today or past | Same as queued planned action above. |
 
-### Diligence tab (not Attention)
+### Research tab (not Due)
 
 | Kind | Meaning | Agent action |
 |------|---------|--------------|
-| `diligence` | Live dossier `next_diligence` stale **14 days** | Backlog. Research, then `updateDossier`. Do not invent a review task. Fold holdings into ritual 2; touch watchlist names before a buy. |
+| `needs_dossier` | Watchlist name with no dossier | Write version 1, or leave it. Not a daily sweep item. |
+| `review_due_date` | Live dossier `next_review_at` is today or past | Research, then `updateDossier`. |
+| `diligence` | Live dossier with no review date, `next_diligence` stale **14 days** | Same. One clock per name: review date if set, else 14-day save. |
 
 ---
 
@@ -78,9 +80,9 @@ Purpose: action what is due; leave the rest of the calendar alone.
 2. Optionally `getReviewQueue?status=due` and `getPlannedActions` if the snapshot is thin.
 3. For each **due review task**: read `instructions` and the company dossier. Reassess. Write dossier/journal/planned trade only if the conclusion changed. Then `completeReviewTask` with `outcome` (link existing `dossier_version` / `decision` / `planned_action` ids if you created them).
 4. For each **due / overdue planned action**: say whether the window still holds. If yes, stop — the human confirms the fill in `/portfolio?confirm=…`. If no, `updatePlannedAction` to `deferred` or `cancelled` with a reason.
-5. For **flags** and **missing invalidation**: handle as in the table above. Do not invent review tasks for them. Stale **diligence** is on the Diligence tab — not part of the daily sweep.
+5. For **flags** and **missing invalidation**: handle as in the table above. Do not invent review tasks for them. **Research** (no dossier / review date / 14-day diligence) is on the Research tab — not part of the daily sweep.
 6. `thesis_review` names go on this week’s holding list (ritual 2), not the event calendar.
-7. Glance at Upcoming **this month** / **next month** only to spot holes for ritual 3. Do not “action” future items except to thicken `instructions`.
+7. Glance at Dated **this month** / **next month** only to spot holes for ritual 3. Do not “action” future items except to thicken `instructions`.
 
 | Step | Tool |
 |------|------|
@@ -98,7 +100,7 @@ Purpose: action what is due; leave the rest of the calendar alone.
 
 Purpose: one written conclusion per open name, every week. This is **not** a `review_task`.
 
-Attention shows `thesis_review` when the latest `enter` / `add` / `hold` without `reviewed_at` or an outcome is older than seven days. A **new** `createDecision` (`hold`, or `add` / `reduce` / `exit`) resets that clock. Grading the old enter in the UI or via `recordDecisionOutcome` only records a post-mortem on that row and does **not** complete this week’s review. The agent has no `updateDecision` / `reviewed_at` path.
+Due shows `thesis_review` when the latest `enter` / `add` / `hold` without `reviewed_at` or an outcome is older than seven days. A **new** `createDecision` (`hold`, or `add` / `reduce` / `exit`) resets that clock. Grading the old enter in the UI or via `recordDecisionOutcome` only records a post-mortem on that row and does **not** complete this week’s review. The agent has no `updateDecision` / `reviewed_at` path.
 
 For each open holding:
 
@@ -137,7 +139,7 @@ A matching GPT pass:
 
 ## 3. Calendar fill (2–3 months)
 
-Purpose: Upcoming should already show the important prints, windows, and price levels **before** they are due.
+Purpose: Briefing Dated should already show the important prints, windows, and price levels **before** they are due.
 
 1. `getFundState` with watchlist. List open holdings plus watchlist names with a live thesis (`has_dossier`).
 2. `getReviewQueue?status=open` so you do not duplicate tasks.

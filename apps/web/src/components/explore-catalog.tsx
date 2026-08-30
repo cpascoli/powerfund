@@ -159,8 +159,8 @@ export function ExploreCatalog({
           <p className="muted">
             {scoped.length === 1 ? "1 name" : `${scoped.length} names`}
             {` · ${heldCount} held`}
-            {` · ${missingCount} need a dossier`}
-            {staleCount > 0 ? ` · ${staleCount} stale` : ""}
+            {missingCount > 0 ? ` · ${missingCount} need a dossier` : ""}
+            {staleCount > 0 ? ` · ${staleCount} review date due` : ""}
           </p>
         </div>
         <Link className="buttonish subtle" href={workbenchHref}>

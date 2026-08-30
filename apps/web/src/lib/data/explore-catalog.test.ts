@@ -38,6 +38,8 @@ describe("explore catalog query parsing", () => {
   it("defaults unknown focus and theme to all", () => {
     expect(parseExploreFocus(undefined)).toBe("all");
     expect(parseExploreFocus("held")).toBe("held");
+    expect(parseExploreFocus("needs_dossier")).toBe("all");
+    expect(parseExploreFocus("stale_review")).toBe("all");
     expect(parseExploreFocus("nope")).toBe("all");
     expect(parseExploreTheme("power", [{ slug: "power" }])).toBe("power");
     expect(parseExploreTheme("missing", [{ slug: "power" }])).toBe("all");
@@ -112,21 +114,6 @@ describe("explore catalog filters", () => {
         query: "",
       }).map((row) => row.symbol),
     ).toEqual(["VRT", "CLS"]);
-    expect(
-      filterExploreNames(rows, {
-        theme: "all",
-        focus: "needs_dossier",
-        query: "",
-      }).map((row) => row.symbol),
-    ).toEqual(["CLS", "FIX"]);
-    expect(
-      filterExploreNames(rows, {
-        theme: "all",
-        focus: "stale_review",
-        query: "",
-        now: saturday,
-      }).map((row) => row.symbol),
-    ).toEqual(["VRT"]);
   });
 
   it("matches ticker, name, or theme against the query", () => {
@@ -147,7 +134,7 @@ describe("explore catalog filters", () => {
   });
 
   it("counts theme chips after focus and query", () => {
-    const counts = exploreThemeCounts(rows, "held", "", saturday);
+    const counts = exploreThemeCounts(rows, "held", "");
     expect(counts.get("power")).toBe(1);
     expect(counts.get("ai-infrastructure")).toBe(1);
   });

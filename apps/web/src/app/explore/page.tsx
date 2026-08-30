@@ -1,3 +1,5 @@
+import Link from "next/link";
+
 import { ExploreCatalog } from "@/components/explore-catalog";
 import { getExploreCatalog } from "@/lib/data/explore";
 import {
@@ -25,8 +27,9 @@ export default async function ExplorePage({ searchParams }: PageProps) {
         <div>
           <h1>Explore</h1>
           <p>
-            Research universe by theme. Open a name for the dossier; compare
-            charts in Workbench.
+            Research universe by theme. Coverage gaps and stale notes live on{" "}
+            <Link href="/briefing?tab=research">Briefing Research</Link>. Open a
+            name for the dossier; compare charts in Workbench.
           </p>
         </div>
       </header>

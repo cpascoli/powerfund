@@ -6,15 +6,17 @@ import {
   attentionKindLabel,
   bookPulse,
   buildAttentionItems,
+  buildResearchItems,
   filterUpcomingItems,
   flattenUpcomingItems,
   isUrgentAttention,
   parseUpcomingHorizonFilter,
   parseUpcomingKindFilter,
-  splitAttentionInbox,
+  researchKindLabel,
   upcomingDayGroups,
   upcomingSections,
   type AttentionItem,
+  type ResearchItem,
   type ReviewSubjectLink,
   type UpcomingDayGroup,
   type UpcomingHorizonFilter,
@@ -45,18 +47,19 @@ export const metadata = {
   title: "Briefing",
 };
 
-type BriefingTabId = "upcoming" | "attention" | "diligence";
+type BriefingTabId = "dated" | "due" | "research";
 
 const TABS: Array<{ id: BriefingTabId; label: string }> = [
-  { id: "upcoming", label: "Upcoming" },
-  { id: "attention", label: "Attention" },
-  { id: "diligence", label: "Diligence" },
+  { id: "dated", label: "Dated" },
+  { id: "due", label: "Due" },
+  { id: "research", label: "Research" },
 ];
 
 const KIND_FILTERS: Array<{ id: UpcomingKindFilter; label: string }> = [
   { id: "all", label: "All" },
   { id: "review", label: "Reviews" },
   { id: "planned", label: "Planned" },
+  { id: "catalysts", label: "Catalysts" },
 ];
 
 const HORIZON_FILTERS: Array<{ id: UpcomingHorizonFilter; label: string }> = [
@@ -68,10 +71,15 @@ const HORIZON_FILTERS: Array<{ id: UpcomingHorizonFilter; label: string }> = [
 
 function parseTab(raw: string | undefined): BriefingTabId | null {
   switch (raw) {
-    case "attention":
-    case "diligence":
+    case "dated":
     case "upcoming":
-      return raw;
+      return "dated";
+    case "due":
+    case "attention":
+      return "due";
+    case "research":
+    case "diligence":
+      return "research";
     default:
       return null;
   }
@@ -83,11 +91,11 @@ function briefingHref(args: {
   when?: UpcomingHorizonFilter;
 }): string {
   switch (args.tab) {
-    case "attention":
-      return "/briefing?tab=attention";
-    case "diligence":
-      return "/briefing?tab=diligence";
-    case "upcoming":
+    case "due":
+      return "/briefing?tab=due";
+    case "research":
+      return "/briefing?tab=research";
+    case "dated":
     case undefined:
       break;
     default: {
@@ -127,7 +135,7 @@ export default async function BriefingPage({
   searchParams: Promise<{ tab?: string; kind?: string; when?: string }>;
 }) {
   const { tab, kind: kindRaw, when: whenRaw } = await searchParams;
-  const activeTab = parseTab(tab) ?? "upcoming";
+  const activeTab = parseTab(tab) ?? "dated";
   const kind = parseUpcomingKindFilter(kindRaw);
   const horizon = parseUpcomingHorizonFilter(whenRaw);
 
@@ -169,18 +177,19 @@ export default async function BriefingPage({
     kind,
     horizon,
   );
-  const { attention, diligence } = splitAttentionInbox(
-    buildAttentionItems({
-      bookFlags,
-      queueFlags: queue.flags,
-      queue: queue.actions,
-      book,
-      decisions,
-      dossiers,
-      instruments,
-      reviews,
-    }),
-  );
+  const attention = buildAttentionItems({
+    bookFlags,
+    queueFlags: queue.flags,
+    queue: queue.actions,
+    book,
+    decisions,
+    reviews,
+  });
+  const research = buildResearchItems({
+    instruments,
+    dossiers,
+    book,
+  });
   const pulse = bookPulse(book);
   const thisWeekCount = upcoming[0]?.items.length ?? 0;
   const attentionWarn = attention.some((item) => isUrgentAttention(item.kind));
@@ -195,7 +204,7 @@ export default async function BriefingPage({
 
   let tabContent: ReactNode;
   switch (activeTab) {
-    case "upcoming":
+    case "dated":
       tabContent = (
         <UpcomingPanel
           items={upcomingItems}
@@ -204,43 +213,26 @@ export default async function BriefingPage({
         />
       );
       break;
-    case "attention":
+    case "due":
       tabContent = (
         <InboxPanel
-          label="Needs attention"
-          title="Needs attention"
+          label="Due now"
+          title="Due"
+          intro="Flags, overdue fills, fired reviews, missing kill, and weekly thesis review. Only this tab warns."
           empty={
             <>
-              Nothing needs attention. Mandate checks are clear. Dated actions
-              and upcoming reviews are on Upcoming; stale research checklists
-              are on Diligence. Browse names in{" "}
-              <Link href="/explore">Explore</Link>.
+              Nothing is due. Dated work is on Dated; research hygiene is on
+              Research. Browse names in <Link href="/explore">Explore</Link>.
             </>
           }
           items={attention}
         />
       );
       break;
-    case "diligence":
+    case "research":
       tabContent = (
-        <InboxPanel
-          label="Diligence"
-          title="Diligence"
-          intro={
-            <>
-              Live dossiers whose next-diligence checklist has not been saved
-              for 14 days. Not urgent — fold holdings into the weekly review,
-              and touch watchlist names before a buy. Saving the dossier
-              clears the item.
-            </>
-          }
-          empty={
-            <>
-              No stale diligence. Live dossiers were saved within 14 days.
-              Holdings still get a weekly thesis review on Attention.
-            </>
-          }
-          items={diligence}
+        <ResearchPanel
+          items={research}
         />
       );
       break;
@@ -256,12 +248,13 @@ export default async function BriefingPage({
         <div>
           <h1>Briefing</h1>
           <p>
-            Dated reviews and queued trades, then flags that need a decision
+            Dated work, then items that need a decision. Research hygiene is a
+            backlog
             {markAsOf
               ? ` — ${book.markLabel.toLowerCase()} as of ${markAsOf}. `
               : ` — ${book.markLabel.toLowerCase()}. `}
-            Deep charts live in <Link href="/workbench">Workbench</Link>;
-            browsing starts in <Link href="/explore">Explore</Link>.
+            Decisions live in the <Link href="/decisions">Journal</Link>; event
+            outcomes on <Link href="/calendar">Calendar past</Link>.
           </p>
         </div>
       </header>
@@ -339,19 +332,19 @@ export default async function BriefingPage({
       <nav className="tab-nav" aria-label="Briefing sections">
         {TABS.map((entry) => {
           const badge =
-            entry.id === "attention"
+            entry.id === "due"
               ? attention.length
-              : entry.id === "diligence"
-                ? diligence.length
-                : entry.id === "upcoming"
+              : entry.id === "research"
+                ? research.length
+                : entry.id === "dated"
                   ? thisWeekCount
                   : null;
-          const warn = entry.id === "attention" && attentionWarn;
+          const warn = entry.id === "due" && attentionWarn;
           return (
             <Link
               key={entry.id}
               href={
-                entry.id === "upcoming"
+                entry.id === "dated"
                   ? briefingHref({ kind, when: horizon })
                   : briefingHref({ tab: entry.id })
               }
@@ -458,6 +451,41 @@ function InboxPanel({
   );
 }
 
+function ResearchPanel({ items }: { items: ResearchItem[] }) {
+  return (
+    <section className="panel" aria-label="Research">
+      <h2>Research</h2>
+      {items.length > 0 ? (
+        <p className="muted">
+          Coverage and stale notes. One clock per name: a written review date
+          if set, otherwise 14 days since the dossier was saved. Not part of
+          the daily sweep. Holdings still get a weekly thesis review on Due.
+        </p>
+      ) : null}
+      {items.length === 0 ? (
+        <p className="empty">
+          Research hygiene is clear. Browse the universe in{" "}
+          <Link href="/explore">Explore</Link>.
+        </p>
+      ) : (
+        <ul className="list">
+          {items.map((item) => (
+            <li key={item.id}>
+              <div>
+                <EventTitle title={item.title} href={item.href} />
+                {item.detail ? (
+                  <div className="muted">{item.detail}</div>
+                ) : null}
+              </div>
+              <span className="tag">{researchKindLabel(item.kind)}</span>
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
+  );
+}
+
 function upcomingEmptyCopy(
   kind: UpcomingKindFilter,
   horizon: UpcomingHorizonFilter,
@@ -471,6 +499,8 @@ function upcomingEmptyCopy(
           ? "next month"
           : "later";
   switch (kind) {
+    case "catalysts":
+      return `No public catalysts ${when}.`;
     case "review":
       return `No review obligations ${when}.`;
     case "planned":
@@ -522,14 +552,14 @@ function UpcomingPanel({
 }) {
   const showMonths = horizon !== "this_week";
   return (
-    <section className="panel" aria-label="Upcoming">
-      <h2>Upcoming</h2>
+    <section className="panel" aria-label="Dated">
+      <h2>Dated</h2>
       <p className="muted">
-        A dated agenda of review obligations and queued trades. Reviews are not
-        fills; the deployment list stays on the{" "}
-        <Link href="/portfolio?tab=queue">queue</Link>. Completed reviews stay
-        on the{" "}
-        <Link href="/calendar?view=past">Calendar past</Link> list.
+        The work queue by date: reviews, planned trades, and public catalysts.
+        Confirm fills on the{" "}
+        <Link href="/portfolio?tab=queue">deployment queue</Link>. Completed
+        events stay on{" "}
+        <Link href="/calendar?view=past">Calendar past</Link>.
       </p>
       <div className="upcoming-filters">
         <SegmentedControl
@@ -562,10 +592,12 @@ function UpcomingPanel({
       ) : (
         <p className="empty">
           {upcomingEmptyCopy(kind, horizon)}{" "}
-          {kind !== "review" ? (
-            <Link href="/portfolio?tab=queue">Open the queue</Link>
-          ) : (
+          {kind === "catalysts" ? (
+            <Link href="/calendar?view=upcoming">Open the catalyst calendar</Link>
+          ) : kind === "review" ? (
             <Link href="/calendar?view=past">Open completed reviews</Link>
+          ) : (
+            <Link href="/portfolio?tab=queue">Open the queue</Link>
           )}
         </p>
       )}

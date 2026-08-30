@@ -2,13 +2,14 @@ import { describe, expect, it } from "vitest";
 
 import {
   buildAttentionItems,
+  buildResearchItems,
   filterUpcomingItems,
   flattenUpcomingItems,
-  splitAttentionInbox,
   toUpcomingAgendaRow,
   upcomingDayGroups,
   upcomingSections,
   type BriefingReview,
+  type UpcomingItem,
 } from "./briefing";
 import type { PlannedActionRow } from "./planned-actions";
 import type { PortfolioBook } from "./portfolio";
@@ -46,6 +47,8 @@ const nvidiaReview: BriefingReview = {
   due_by: null,
   symbols: ["ANET", "CLS", "CRDO", "NBIS", "NVDA", "NVT", "VRT"],
   themes: [{ slug: "ai-infrastructure", name: "AI Infrastructure" }],
+  scope: "theme",
+  trigger: { type: "scheduled" },
 };
 
 function action(overrides: Partial<PlannedActionRow> = {}): PlannedActionRow {
@@ -69,7 +72,7 @@ function action(overrides: Partial<PlannedActionRow> = {}): PlannedActionRow {
 }
 
 describe("briefing reviews", () => {
-  it("puts a pending scheduled review on Upcoming this week before it is due", () => {
+  it("puts a pending scheduled review on Dated this week before it is due", () => {
     const asOf = new Date("2026-08-20T18:00:00.000Z");
     const sections = upcomingSections([], [nvidiaReview], asOf);
     expect(sections[0]?.items).toEqual([
@@ -84,15 +87,13 @@ describe("briefing reviews", () => {
       queue: [],
       book: emptyBook,
       decisions: [],
-      dossiers: [],
-      instruments: [],
       reviews: [nvidiaReview],
       today: asOf,
     });
     expect(attention.map((row) => row.kind)).not.toContain("review_due");
   });
 
-  it("moves the review to Attention after the scheduled instant", () => {
+  it("moves the review to Due after the scheduled instant", () => {
     const asOf = new Date("2026-08-26T21:00:00.000Z");
     const dueReview = { ...nvidiaReview, status: "due" as const };
     const sections = upcomingSections([], [dueReview], asOf);
@@ -103,8 +104,6 @@ describe("briefing reviews", () => {
       queue: [],
       book: emptyBook,
       decisions: [],
-      dossiers: [],
-      instruments: [],
       reviews: [dueReview],
       today: asOf,
     });
@@ -156,6 +155,9 @@ describe("briefing reviews", () => {
       "planned_action",
       "review",
     ]);
+    expect(
+      toUpcomingAgendaRow(sections[0]!.items[0] as UpcomingItem).href,
+    ).toBe("/portfolio?confirm=action-1");
   });
 
   it("shows review instructions and links subjects, not the title", () => {
@@ -212,6 +214,9 @@ describe("upcoming filters", () => {
     expect(filterUpcomingItems(items, "planned", "this_week", asOf).map((row) => row.kind)).toEqual([
       "planned_action",
     ]);
+    expect(
+      filterUpcomingItems(items, "catalysts", "this_week", asOf).map((row) => row.id),
+    ).toEqual([nvidiaReview.id]);
   });
 
   it("buckets this week, this month, next month, and later", () => {
@@ -307,29 +312,85 @@ const clsInstrument: InstrumentWithTheme = {
   has_dossier: true,
 };
 
-describe("diligence inbox", () => {
-  it("keeps stale next-diligence off Attention", () => {
-    const asOf = new Date("2026-08-30T12:00:00.000Z");
-    const items = buildAttentionItems({
-      bookFlags: [],
-      queueFlags: [],
-      queue: [],
+describe("research inbox", () => {
+  const asOf = new Date("2026-08-30T12:00:00.000Z");
+
+  it("lists names without a dossier", () => {
+    const items = buildResearchItems({
+      instruments: [clsInstrument],
+      dossiers: [],
       book: emptyBook,
-      decisions: [],
+      today: asOf,
+    });
+    expect(items).toEqual([
+      expect.objectContaining({
+        kind: "needs_dossier",
+        title: "Write a dossier for CLS",
+      }),
+    ]);
+  });
+
+  it("uses next_review_at when set, not the 14-day save clock", () => {
+    const items = buildResearchItems({
+      instruments: [clsInstrument],
       dossiers: [
         {
           instrumentId: clsInstrument.id,
           status: "investigate",
           nextDiligence: "Verify FY26 guidance vs the 10-Q.",
+          nextReviewAt: "2026-08-01T00:00:00.000Z",
           updatedAt: "2026-08-15T00:00:00.000Z",
         },
       ],
-      instruments: [clsInstrument],
+      book: emptyBook,
       today: asOf,
     });
-    const { attention, diligence } = splitAttentionInbox(items);
+    expect(items.map((row) => row.kind)).toEqual(["review_due_date"]);
+  });
+
+  it("does not fire 14-day diligence when a future review date is set", () => {
+    const items = buildResearchItems({
+      instruments: [clsInstrument],
+      dossiers: [
+        {
+          instrumentId: clsInstrument.id,
+          status: "investigate",
+          nextDiligence: "Verify FY26 guidance vs the 10-Q.",
+          nextReviewAt: "2026-09-15T00:00:00.000Z",
+          updatedAt: "2026-08-15T00:00:00.000Z",
+        },
+      ],
+      book: emptyBook,
+      today: asOf,
+    });
+    expect(items).toEqual([]);
+  });
+
+  it("falls back to 14-day next-diligence when no review date is set", () => {
+    const attention = buildAttentionItems({
+      bookFlags: [],
+      queueFlags: [],
+      queue: [],
+      book: emptyBook,
+      decisions: [],
+      today: asOf,
+    });
     expect(attention).toEqual([]);
-    expect(diligence).toEqual([
+    const items = buildResearchItems({
+      instruments: [clsInstrument],
+      dossiers: [
+        {
+          instrumentId: clsInstrument.id,
+          status: "investigate",
+          nextDiligence: "Verify FY26 guidance vs the 10-Q.",
+          nextReviewAt: null,
+          updatedAt: "2026-08-15T00:00:00.000Z",
+        },
+      ],
+      book: emptyBook,
+      today: asOf,
+    });
+    expect(items).toEqual([
       expect.objectContaining({
         kind: "diligence",
         title: "Next diligence on CLS",

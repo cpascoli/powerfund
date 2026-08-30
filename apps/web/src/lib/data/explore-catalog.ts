@@ -5,20 +5,13 @@ import {
   type InflectionSetup,
 } from "@powerfund/domain";
 
-export const EXPLORE_FOCUSES = [
-  "all",
-  "held",
-  "needs_dossier",
-  "stale_review",
-] as const;
+export const EXPLORE_FOCUSES = ["all", "held"] as const;
 
 export type ExploreFocus = (typeof EXPLORE_FOCUSES)[number];
 
 export const EXPLORE_FOCUS_ITEMS: Array<{ id: ExploreFocus; label: string }> = [
   { id: "all", label: "All" },
   { id: "held", label: "Held" },
-  { id: "needs_dossier", label: "Needs dossier" },
-  { id: "stale_review", label: "Stale review" },
 ];
 
 export const EXPLORE_SORTS = [
@@ -138,17 +131,12 @@ function matchesQuery(row: ExploreName, query: string): boolean {
 function matchesFocus(
   row: ExploreName,
   focus: ExploreFocus,
-  now: Date,
 ): boolean {
   switch (focus) {
     case "all":
       return true;
     case "held":
       return row.held;
-    case "needs_dossier":
-      return !row.hasDossier;
-    case "stale_review":
-      return isStaleReview(row.nextReviewAt, now);
     default: {
       const _exhaustive: never = focus;
       return _exhaustive;
@@ -162,13 +150,11 @@ export function filterExploreNames(
     theme: string;
     focus: ExploreFocus;
     query: string;
-    now?: Date;
   },
 ): ExploreName[] {
-  const now = args.now ?? new Date();
   return names.filter((row) => {
     if (args.theme !== "all" && row.themeSlug !== args.theme) return false;
-    if (!matchesFocus(row, args.focus, now)) return false;
+    if (!matchesFocus(row, args.focus)) return false;
     return matchesQuery(row, args.query);
   });
 }
@@ -236,11 +222,10 @@ export function exploreThemeCounts(
   names: ExploreName[],
   focus: ExploreFocus,
   query: string,
-  now = new Date(),
 ): Map<string, number> {
   const counts = new Map<string, number>();
   for (const row of names) {
-    if (!matchesFocus(row, focus, now)) continue;
+    if (!matchesFocus(row, focus)) continue;
     if (!matchesQuery(row, query)) continue;
     counts.set(row.themeSlug, (counts.get(row.themeSlug) ?? 0) + 1);
   }
@@ -258,10 +243,6 @@ export function exploreEmptyCopy(args: {
   switch (args.focus) {
     case "held":
       return `No held names${inTheme}${match}.`;
-    case "needs_dossier":
-      return `No names without a dossier${inTheme}${match}.`;
-    case "stale_review":
-      return `No stale reviews${inTheme}${match}.`;
     case "all":
       if (q.length > 0) {
         return args.themeName

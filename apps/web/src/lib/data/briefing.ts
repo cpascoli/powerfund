@@ -4,12 +4,18 @@ import type { DecisionListItem } from "@/lib/data/decisions";
 import type { PlannedActionRow } from "@/lib/data/planned-actions";
 import type { MandateFlag, PortfolioBook } from "@/lib/data/portfolio";
 import type { DossierReviewRow, InstrumentWithTheme, ThemeRow } from "@/lib/data/research";
+import { isStaleReview } from "@/lib/data/explore-catalog";
 
 export const THESIS_REVIEW_AFTER_DAYS = 7;
 export const DILIGENCE_STALE_AFTER_DAYS = 14;
 export const UPCOMING_WEEK_DAYS = 7;
 
-export const UPCOMING_KIND_FILTERS = ["all", "review", "planned"] as const;
+export const UPCOMING_KIND_FILTERS = [
+  "all",
+  "review",
+  "planned",
+  "catalysts",
+] as const;
 export type UpcomingKindFilter = (typeof UPCOMING_KIND_FILTERS)[number];
 
 export const UPCOMING_HORIZON_FILTERS = [
@@ -26,8 +32,7 @@ export type AttentionKind =
   | "due_today"
   | "review_due"
   | "missing_invalidation"
-  | "thesis_review"
-  | "diligence";
+  | "thesis_review";
 
 export type ReviewSubjectLink = {
   label: string;
@@ -54,6 +59,18 @@ export type BriefingReview = {
   due_by: string | null;
   symbols: string[];
   themes: Array<{ slug: string; name: string }>;
+  scope?: "company" | "theme" | "portfolio" | "macro";
+  trigger?: { type: "scheduled" | "event_window" | "condition" };
+};
+
+export type ResearchKind = "needs_dossier" | "review_due_date" | "diligence";
+
+export type ResearchItem = {
+  id: string;
+  kind: ResearchKind;
+  title: string;
+  detail: string;
+  href: string | null;
 };
 
 export type UpcomingItem =
@@ -101,7 +118,6 @@ const KIND_ORDER: Record<AttentionKind, number> = {
   review_due: 3,
   missing_invalidation: 4,
   thesis_review: 5,
-  diligence: 6,
 };
 
 export function startOfUtcDay(now = new Date()): Date {
@@ -138,6 +154,19 @@ export function attentionKindLabel(kind: AttentionKind): string {
       return "Kill";
     case "thesis_review":
       return "Review";
+    default: {
+      const _exhaustive: never = kind;
+      return _exhaustive;
+    }
+  }
+}
+
+export function researchKindLabel(kind: ResearchKind): string {
+  switch (kind) {
+    case "needs_dossier":
+      return "Dossier";
+    case "review_due_date":
+      return "Review date";
     case "diligence":
       return "Diligence";
     default: {
@@ -145,6 +174,12 @@ export function attentionKindLabel(kind: AttentionKind): string {
       return _exhaustive;
     }
   }
+}
+
+export function reviewIsPublicCatalyst(review: BriefingReview): boolean {
+  if (review.scope === "portfolio" || review.scope == null) return false;
+  const type = review.trigger?.type;
+  return type === "scheduled" || type === "event_window";
 }
 
 export function isUrgentAttention(kind: AttentionKind): boolean {
@@ -156,7 +191,6 @@ export function isUrgentAttention(kind: AttentionKind): boolean {
     case "missing_invalidation":
       return true;
     case "thesis_review":
-    case "diligence":
       return false;
     default: {
       const _exhaustive: never = kind;
@@ -271,16 +305,12 @@ export function buildAttentionItems(args: {
   queue: PlannedActionRow[];
   book: PortfolioBook;
   decisions: DecisionListItem[];
-  dossiers: DossierReviewRow[];
-  instruments: InstrumentWithTheme[];
   reviews?: BriefingReview[];
   today?: Date;
 }): AttentionItem[] {
   const now = args.today ?? new Date();
   const today = startOfUtcDay(now);
   const items: AttentionItem[] = [];
-  const onBook = new Set(args.book.positions.map((row) => row.instrumentId));
-  const byId = new Map(args.instruments.map((row) => [row.id, row]));
 
   for (const flag of [...args.bookFlags, ...args.queueFlags]) {
     if (flag.severity !== "warn") continue;
@@ -360,19 +390,67 @@ export function buildAttentionItems(args: {
     });
   }
 
-  for (const dossier of args.dossiers) {
+  return items.sort((a, b) => {
+    const kindCmp = KIND_ORDER[a.kind] - KIND_ORDER[b.kind];
+    if (kindCmp !== 0) return kindCmp;
+    return a.title.localeCompare(b.title);
+  });
+}
+
+const RESEARCH_KIND_ORDER: Record<ResearchKind, number> = {
+  needs_dossier: 0,
+  review_due_date: 1,
+  diligence: 2,
+};
+
+export function buildResearchItems(args: {
+  instruments: InstrumentWithTheme[];
+  dossiers: DossierReviewRow[];
+  book: PortfolioBook;
+  today?: Date;
+}): ResearchItem[] {
+  const now = args.today ?? new Date();
+  const today = startOfUtcDay(now);
+  const onBook = new Set(args.book.positions.map((row) => row.instrumentId));
+  const dossierByInstrument = new Map(
+    args.dossiers.map((row) => [row.instrumentId, row]),
+  );
+  const items: ResearchItem[] = [];
+
+  for (const instrument of args.instruments) {
+    if (instrument.status === "archived") continue;
+    const dossier = dossierByInstrument.get(instrument.id);
+    if (!dossier) {
+      items.push({
+        id: `dossier-${instrument.id}`,
+        kind: "needs_dossier",
+        title: `Write a dossier for ${instrument.symbol}`,
+        detail: "A ticker is not research until it has a thesis and kill criteria",
+        href: `/explore/${instrument.symbol}`,
+      });
+      continue;
+    }
+    if (isStaleReview(dossier.nextReviewAt, now)) {
+      const due = dossier.nextReviewAt?.slice(0, 10) ?? "";
+      items.push({
+        id: `review-date-${instrument.id}`,
+        kind: "review_due_date",
+        title: `Review date on ${instrument.symbol}`,
+        detail: due ? `next_review_at ${due}` : "Review date is due",
+        href: `/explore/${instrument.symbol}`,
+      });
+      continue;
+    }
+    if (dossier.nextReviewAt?.trim()) continue;
     if (!dossier.nextDiligence?.trim()) continue;
+    const live =
+      LIVE_DILIGENCE_STATUSES.has(dossier.status) || onBook.has(instrument.id);
+    if (!live) continue;
     if (daysSince(dossier.updatedAt, today) < DILIGENCE_STALE_AFTER_DAYS) {
       continue;
     }
-    const live =
-      LIVE_DILIGENCE_STATUSES.has(dossier.status) ||
-      onBook.has(dossier.instrumentId);
-    if (!live) continue;
-    const instrument = byId.get(dossier.instrumentId);
-    if (!instrument) continue;
     items.push({
-      id: `diligence-${dossier.instrumentId}`,
+      id: `diligence-${instrument.id}`,
       kind: "diligence",
       title: `Next diligence on ${instrument.symbol}`,
       detail: dossier.nextDiligence,
@@ -381,7 +459,7 @@ export function buildAttentionItems(args: {
   }
 
   return items.sort((a, b) => {
-    const kindCmp = KIND_ORDER[a.kind] - KIND_ORDER[b.kind];
+    const kindCmp = RESEARCH_KIND_ORDER[a.kind] - RESEARCH_KIND_ORDER[b.kind];
     if (kindCmp !== 0) return kindCmp;
     return a.title.localeCompare(b.title);
   });
@@ -504,6 +582,8 @@ function matchesUpcomingKind(
       return item.kind === "review";
     case "planned":
       return item.kind === "planned_action";
+    case "catalysts":
+      return item.kind === "review" && reviewIsPublicCatalyst(item.review);
     default: {
       const _exhaustive: never = kind;
       return _exhaustive;
@@ -562,16 +642,6 @@ export function filterUpcomingItems(
       if (leftUndated === rightUndated) return 0;
       return leftUndated ? 1 : -1;
     });
-}
-
-export function splitAttentionInbox(items: AttentionItem[]): {
-  attention: AttentionItem[];
-  diligence: AttentionItem[];
-} {
-  return {
-    attention: items.filter((item) => item.kind !== "diligence"),
-    diligence: items.filter((item) => item.kind === "diligence"),
-  };
 }
 
 function upcomingSortKey(item: UpcomingItem): string {
@@ -713,7 +783,7 @@ export function toUpcomingAgendaRow(item: UpcomingItem): UpcomingAgendaRow {
         kind: "planned_action",
         kindLabel: action.actionType,
         time,
-        href: `/explore/${action.symbol}`,
+        href: `/portfolio?confirm=${action.id}`,
         title: action.symbol,
         detail: action.rationale ? `${line} · ${action.rationale}` : line,
         subjects: [],
@@ -724,7 +794,7 @@ export function toUpcomingAgendaRow(item: UpcomingItem): UpcomingAgendaRow {
       return {
         key: `review-${item.review.id}`,
         kind: "review",
-        kindLabel: "Review",
+        kindLabel: reviewIsPublicCatalyst(item.review) ? "Catalyst" : "Review",
         time,
         href: null,
         title: item.review.title,

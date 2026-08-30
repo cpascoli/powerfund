@@ -48,20 +48,19 @@ const PAST_SCOPE_FILTERS: Array<{ id: CalendarPastScope; label: string }> = [
 ];
 
 function calendarHref(args: {
-  view?: CalendarView;
+  view: CalendarView;
   when?: CalendarHorizonFilter;
   scope?: CalendarPastScope;
 }): string {
   const params = new URLSearchParams();
-  const view = args.view ?? "upcoming";
-  if (view === "past") {
-    params.set("view", "past");
+  params.set("view", args.view);
+  if (args.view === "past") {
     if (args.scope === "operator") params.set("scope", "operator");
   } else if (args.when && args.when !== "this_month") {
     params.set("when", args.when);
   }
   const query = params.toString();
-  return query ? `/calendar?${query}` : "/calendar";
+  return `/calendar?${query}`;
 }
 
 function weekdayCaption(day: UpcomingDayGroup): string {
@@ -103,7 +102,11 @@ export default async function CalendarPage({
 }) {
   const { when: whenRaw, view: viewRaw, scope: scopeRaw } = await searchParams;
   const signedIn = (await getSessionUser()) != null;
-  const view = parseCalendarView(viewRaw);
+  const view = viewRaw
+    ? parseCalendarView(viewRaw)
+    : signedIn
+      ? "past"
+      : "upcoming";
   const horizon = parseCalendarHorizonFilter(whenRaw);
   const scope = parseCalendarPastScope(scopeRaw, signedIn);
 
@@ -127,8 +130,8 @@ export default async function CalendarPage({
           <h1>Calendar</h1>
           <p>
             {view === "past"
-              ? "Completed catalysts and what we concluded. Not a trade list."
-              : "Dated catalysts we monitor — earnings, policy windows, and known events. Not a trade list."}
+              ? "Completed catalysts and what we concluded. Decisions live in the Journal. This is event history, not a work queue."
+              : "Public catalyst calendar — earnings, policy windows, and known events. The work queue is Briefing Dated; this page is the dated catalog, not a todo list."}
           </p>
         </div>
       </header>

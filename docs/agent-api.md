@@ -342,7 +342,7 @@ Typical workflows:
 3. Read `relative_returns` (fill session, not `action_at`) and any `outcomes`
 4. Do not use the live dossier as a proxy for that date
 
-**Tighten a review already on Upcoming**
+**Tighten a review already on Dated**
 
 1. `getReviewQueue` (or `getFundState`) to get the task id
 2. `updateReviewTask` with `instructions` (and optionally `title`, `trigger`, `symbols` / `themes`)

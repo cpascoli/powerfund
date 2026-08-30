@@ -13,15 +13,16 @@ Visualization is a first-class medium, not decoration. Every chart should answer
 
 ## Information architecture
 
-Five zones. Everything we publish maps into one of them.
+Zones. Everything we publish maps into one of them.
 
 ```text
-Briefing     →  what needs attention now
+Briefing     →  what to do next (Dated / Due / Research)
 Explore      →  browse the research universe (themes → names → dossiers)
 Signals      →  ranked candidates with rationale
 Workbench    →  charts, comparisons, datasets (deep viz)
-Portfolio    →  book, exposure, risk against mandate
-Journal      →  theses, actions, outcomes
+Portfolio    →  book, exposure, risk against mandate; queue confirms fills
+Journal      →  what we decided
+Calendar     →  event history (past) and public catalyst catalog
 ```
 
 ### Navigation rules
@@ -87,13 +88,14 @@ Chart library choice is deferred until the first real series lands — document 
 
 | Route | Intent | Viz expectation |
 |-------|--------|-----------------|
-| `/` Briefing | Situational awareness | Small sparklines / risk meters later; not a chart zoo |
+| `/briefing` | What to do next | Small sparklines / risk meters later; not a chart zoo |
 | `/explore` | Enter the universe | Theme map, coverage counts |
 | `/explore` → instrument | Dossier | Price + events; filings list; notes |
 | `/signals` | Triage inbox | Confidence/score distribution optional |
 | `/workbench` | Open-ended analysis | Primary heavy-viz home |
-| `/portfolio` | Mandate, book, and deployment queue | Exposure by theme, drawdown |
-| `/decisions` (Journal) | Process memory | Timeline; optional P&L by decision |
+| `/portfolio` | Mandate, book, and fill confirm | Exposure by theme, drawdown |
+| `/decisions` (Journal) | What we decided | Timeline; optional P&L by decision |
+| `/calendar` | Event history + catalyst catalog | Agenda; not a second work queue |
 
 ## Interaction standards
 

@@ -290,8 +290,9 @@ export default async function PortfolioPage({
     <section className="panel" aria-label="Deployment queue">
       <h2>Deployment queue</h2>
       <p className="muted">
-        Intend here, execute at the broker, then confirm the fill. Queue vs
-        current NAV: cash after {money(queue.cashAfter)} (
+        Intend here, execute at the broker, then confirm the fill. Find dated
+        work on <Link href="/briefing">Briefing Dated</Link>. Queue vs current
+        NAV: cash after {money(queue.cashAfter)} (
         {pct(queue.cashPctAfter)}), invested after {money(queue.investedAfter)}.
       </p>
       {queue.flags.length > 0 ? (
