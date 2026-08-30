@@ -58,7 +58,7 @@ Review-task triggers:
 |------|---------|--------------|
 | `thesis_review` | Latest `enter` / `add` / `hold` without `reviewed_at` or `outcome_grade` on **that row** is older than **7 days** | This **is** the weekly holding process. Do not create a review task. A new `createDecision` resets the clock. `recordDecisionOutcome` and UI grades on the old enter do not. |
 | `missing_invalidation` | Open position with no kill criteria | Mandate rule 4. Write invalidation before any add. |
-| `flag` | Mandate or queue vs NAV (cash, position size, theme, AI-capex, deployed-drawdown diagnostic) | Explain. Caps still constrain size. A Phase-1 15% sleeve flag is ritual 11 (diagnose), not an automatic `reduce`. |
+| `flag` | Mandate or queue vs NAV (cash, position size, theme, AI-capex). The 15% **sleeve condition** stays on Portfolio → Mandate while breached. It is only on Due when ritual 11 has not yet been written for **this** breach. | Caps still constrain size. A Due kill-switch flag is ritual 11. After that write, leave it on Mandate as monitoring unless drawdown deepens 5pp, 14 days pass, or the sleeve recovers then breaches again. |
 | `review_due` | A **review task** whose trigger has fired | Same as queued review task above. |
 | `due_today` / `overdue` | A **planned action** whose `due_by` is today or past | Same as queued planned action above. |
 
@@ -297,9 +297,9 @@ Purpose: theme labels are not diversification. Mandate and [themes.md](./themes.
 
 ## 11. Stress / kill-switch incident
 
-Purpose: when the 15% deployed-sleeve diagnostic fires (or a major factor shock hits), stop and classify. Do not improvise a de-risk.
+Purpose: when the 15% deployed-sleeve diagnostic fires (or a major factor shock hits), stop and classify. Do not improvise a de-risk. Briefing Due shows this until a **covering book-level write** exists for the current breach.
 
-1. `getFundState` + `getPortfolio` — sleeve drawdown flag, NAV, cash %, holdings. `getPerformance` for NAV/deployed vs QQQ/SPY and max drawdown.
+1. `getFundState` + `getPortfolio` — sleeve drawdown flag, NAV, cash %, holdings. `getPerformance` for NAV/deployed vs QQQ/SPY and max drawdown. A kill-switch flag with `due: false` is monitoring, not a request to re-run this ritual.
 2. Freeze **new correlated buys** until the classification is written. During Phase 1 do **not** freeze the whole ladder and do **not** raise cash just to “do something.”
 3. For each open name: `getCompanyDossier` + `getJournal?symbol=`. Has invalidation triggered? Have estimates/backlog/guidance changed, or only the multiple?
 4. Classify the book move as **valuation / factor / earnings / thesis failure** ([mandate.md](./mandate.md) rule 8).
@@ -307,13 +307,17 @@ Purpose: when the 15% deployed-sleeve diagnostic fires (or a major factor shock 
    - Valuation shock, theses intact → hold; consider acceleration per the ladder (ritual 9 still applies).
    - Factor shock → pause more capital into that factor; keep independent themes in play.
    - Earnings shock or thesis failure → `createPlannedAction` `reduce` / `sell` on **those** names; `createDecision` with the conclusion.
-6. After Phase 1, a 15% flag still blocks new buys in software until a written override. That is not an order to sell.
+6. Record the **book-level** diagnosis: `createReviewTask` with `scope: portfolio` (or complete the existing one) titled as a deployed-drawdown diagnostic. Put the classification and the current unitized deployed drawdown in `outcome`. Per-name `createDecision` still records each holding. That completed portfolio task is what clears Due for this breach.
+7. After Phase 1, a 15% flag still blocks new buys in software until a written override. That is not an order to sell.
+
+Due re-opens this ritual if the sleeve recovers below 15% and breaches again, if live drawdown is **5 percentage points** worse than the diagnosed print, or **14 days** after the covering write while still breached. Mandate keeps showing the live 15% condition the whole time.
 
 | Step | Tool |
 |------|------|
 | Snapshot | `getFundState`, `getPortfolio` |
 | Per name | `getCompanyDossier`, `getJournal?symbol=` |
-| Record the diagnosis | `createDecision` |
+| Book-level diagnosis (clears Due) | `createReviewTask` `scope=portfolio` then `completeReviewTask`, or complete the existing diagnostic task |
+| Per-name conclusion | `createDecision` |
 | Size change only if the class requires it | `createPlannedAction` |
 
 ---

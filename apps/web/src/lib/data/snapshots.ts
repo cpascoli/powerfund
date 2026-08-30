@@ -10,6 +10,11 @@ import {
 } from "@powerfund/domain";
 import type { Database } from "@powerfund/db";
 
+import {
+  resolveDrawdownDiagnostic,
+  type DrawdownDiagnosticState,
+  type SleeveDiagnosticRecord,
+} from "@/lib/data/drawdown-diagnostic";
 import type { MandateFlag } from "@/lib/data/portfolio";
 import { resolveDb, type DbClient } from "@/lib/supabase/db";
 
@@ -116,6 +121,42 @@ function toPoint(
   };
 }
 
+function livePerformancePoints(
+  history: SnapshotRow[],
+  current: {
+    nav: number;
+    invested: number;
+    positionsValue: number;
+    asOf?: string;
+  },
+  flows: Map<string, DailyFlows>,
+): PerformancePoint[] {
+  const points: PerformancePoint[] = history.map((row) =>
+    toPoint(
+      utcDay(row.asOf),
+      row.nav,
+      row.invested,
+      row.positionsValue,
+      flows,
+    ),
+  );
+  const liveDate = utcDay(current.asOf ?? new Date().toISOString());
+  const livePoint = toPoint(
+    liveDate,
+    current.nav,
+    current.invested,
+    current.positionsValue,
+    flows,
+  );
+  const last = points.at(-1);
+  if (last == null || last.date < liveDate) {
+    points.push(livePoint);
+  } else if (last.date === liveDate) {
+    points[points.length - 1] = livePoint;
+  }
+  return points;
+}
+
 export function computeDrawdown(
   history: SnapshotRow[],
   current: {
@@ -141,31 +182,7 @@ export function computeDrawdown(
   const peakNav = Math.max(...history.map((row) => row.nav), current.nav);
   const navDrawdownPct =
     peakNav > 0 ? ((peakNav - current.nav) / peakNav) * 100 : null;
-
-  const points: PerformancePoint[] = history.map((row) =>
-    toPoint(
-      utcDay(row.asOf),
-      row.nav,
-      row.invested,
-      row.positionsValue,
-      flows,
-    ),
-  );
-  const liveDate = utcDay(current.asOf ?? new Date().toISOString());
-  const livePoint = toPoint(
-    liveDate,
-    current.nav,
-    current.invested,
-    current.positionsValue,
-    flows,
-  );
-  const last = points.at(-1);
-  if (last == null || last.date < liveDate) {
-    points.push(livePoint);
-  } else if (last.date === liveDate) {
-    points[points.length - 1] = livePoint;
-  }
-
+  const points = livePerformancePoints(history, current, flows);
   const deployedDrawdownPp = drawdownFromPeakPct(
     unitizedDeployedIndex(points),
   );
@@ -187,14 +204,43 @@ export function computeDrawdown(
   };
 }
 
+/** Running unitized deployed drawdown on each history day plus the live mark. */
+export function deployedDrawdownSeries(
+  history: SnapshotRow[],
+  current: {
+    nav: number;
+    invested: number;
+    positionsValue: number;
+    asOf?: string;
+  },
+  flows: Map<string, DailyFlows> = new Map(),
+): Array<{ date: string; pct: number | null }> {
+  if (history.length === 0) return [];
+  const points = livePerformancePoints(history, current, flows);
+  const index = unitizedDeployedIndex(points);
+  let peak = -Infinity;
+  return points.map((point, i) => {
+    const value = index[i];
+    if (value == null) return { date: point.date, pct: null };
+    if (value > peak) peak = value;
+    const pct = peak > 0 ? ((peak - value) / peak) * 100 : 0;
+    return { date: point.date, pct };
+  });
+}
+
 /**
  * Snapshot-derived mandate flags: the rule-8 drawdown diagnostic and a
  * freshness check on the nightly job. Rendered alongside the book flags
  * on both the Briefing and the Portfolio mandate tab.
+ *
+ * The 15% sleeve print is always the live condition. `diagnostic` decides
+ * whether Briefing Due still owes a ritual-11 write (`due: true`) or the
+ * condition is only being monitored (`due: false`).
  */
 export function snapshotFlags(
   history: SnapshotRow[],
   drawdown: DrawdownSummary,
+  diagnostic?: DrawdownDiagnosticState,
 ): MandateFlag[] {
   const flags: MandateFlag[] = [];
 
@@ -222,22 +268,61 @@ export function snapshotFlags(
   }
 
   if (drawdown.killSwitchBreached) {
+    const monitoring = diagnostic?.status === "monitoring";
     flags.push({
       code: "drawdown_kill_switch",
       severity: "warn",
-      label: drawdown.killSwitchBlocksNewRisk
-        ? `Unitized deployed drawdown ${drawdown.deployedDrawdownPp?.toFixed(1)}% breaches the ${RISK_DEFAULTS.drawdownKillSwitchPct}% diagnostic after Phase 1 — halt new risk and review the book`
-        : `Unitized deployed drawdown ${drawdown.deployedDrawdownPp?.toFixed(1)}% — mandatory diagnostic (Phase 1: does not halt new buys)`,
+      due: !monitoring,
+      label: killSwitchFlagLabel(drawdown, diagnostic),
     });
   } else if (drawdown.deployedDrawdownPp != null) {
     flags.push({
       code: "drawdown_kill_switch",
       severity: "ok",
+      due: false,
       label: `Unitized deployed drawdown ${drawdown.deployedDrawdownPp.toFixed(1)}% vs ${RISK_DEFAULTS.drawdownKillSwitchPct}% diagnostic`,
     });
   }
 
   return flags;
+}
+
+function killSwitchFlagLabel(
+  drawdown: DrawdownSummary,
+  diagnostic: DrawdownDiagnosticState | undefined,
+): string {
+  const pct = drawdown.deployedDrawdownPp?.toFixed(1);
+  if (diagnostic?.status === "monitoring") {
+    return drawdown.killSwitchBlocksNewRisk
+      ? `Unitized deployed drawdown ${pct}% — diagnostic completed; new buys still need an override`
+      : `Unitized deployed drawdown ${pct}% — diagnostic completed; monitoring`;
+  }
+  return drawdown.killSwitchBlocksNewRisk
+    ? `Unitized deployed drawdown ${pct}% breaches the ${RISK_DEFAULTS.drawdownKillSwitchPct}% diagnostic after Phase 1 — halt new risk and review the book`
+    : `Unitized deployed drawdown ${pct}% — mandatory diagnostic (Phase 1: does not halt new buys)`;
+}
+
+export function snapshotFlagsForDrawdown(
+  history: SnapshotRow[],
+  drawdown: DrawdownSummary,
+  current: {
+    nav: number;
+    invested: number;
+    positionsValue: number;
+    asOf?: string;
+  },
+  flows: Map<string, DailyFlows>,
+  records: SleeveDiagnosticRecord[],
+  now?: Date,
+): MandateFlag[] {
+  const diagnostic = resolveDrawdownDiagnostic({
+    breached: drawdown.killSwitchBreached,
+    currentPct: drawdown.deployedDrawdownPp,
+    daily: deployedDrawdownSeries(history, current, flows),
+    records,
+    now,
+  });
+  return snapshotFlags(history, drawdown, diagnostic);
 }
 
 export function mergeBookAndSnapshotFlags(
@@ -250,7 +335,19 @@ export function mergeBookAndSnapshotFlags(
     asOf?: string;
   },
   flows: Map<string, DailyFlows> = new Map(),
+  records: SleeveDiagnosticRecord[] = [],
+  now?: Date,
 ): MandateFlag[] {
   const drawdown = computeDrawdown(history, current, flows);
-  return [...snapshotFlags(history, drawdown), ...bookFlags];
+  return [
+    ...snapshotFlagsForDrawdown(
+      history,
+      drawdown,
+      current,
+      flows,
+      records,
+      now,
+    ),
+    ...bookFlags,
+  ];
 }

@@ -64,6 +64,11 @@ export type MandateFlag = {
     | "all_clear";
   label: string;
   severity: "warn" | "ok";
+  /**
+   * When false, Mandate still shows the live condition but Briefing Due
+   * does not treat it as unfinished work.
+   */
+  due?: boolean;
 };
 
 export type PortfolioBook = {

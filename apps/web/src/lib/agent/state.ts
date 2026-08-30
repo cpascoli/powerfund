@@ -2,6 +2,7 @@ import { RISK_DEFAULTS } from "@powerfund/domain";
 
 import { getPlaybookDoc } from "@/lib/docs";
 import { listDecisions } from "@/lib/data/decisions";
+import { listSleeveDiagnosticRecords } from "@/lib/data/drawdown-diagnostic";
 import { getLedgerSummary } from "@/lib/data/ledger";
 import {
   buildDeploymentQueue,
@@ -48,6 +49,7 @@ export async function getFundState(
     radar,
     snapshots,
     flows,
+    diagnosticRecords,
   ] = await Promise.all([
     getOpenPortfolioBook(supabase),
     getLedgerSummary(12, supabase),
@@ -58,6 +60,7 @@ export async function getFundState(
     getReviewRadar(supabase),
     listPortfolioSnapshots(365, supabase),
     listLedgerFlows(supabase),
+    listSleeveDiagnosticRecords(supabase),
   ]);
 
   const queue = buildDeploymentQueue(book, instruments, plannedRaw);
@@ -72,6 +75,7 @@ export async function getFundState(
       asOf: new Date().toISOString(),
     },
     flows,
+    diagnosticRecords,
   );
 
   const { data: dossierRows, error } = await supabase

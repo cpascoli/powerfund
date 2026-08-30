@@ -398,3 +398,51 @@ describe("research inbox", () => {
     ]);
   });
 });
+
+describe("drawdown diagnostic on Due", () => {
+  const asOf = new Date("2026-08-30T18:00:00.000Z");
+
+  it("omits a covered sleeve diagnostic from Due", () => {
+    const attention = buildAttentionItems({
+      bookFlags: [
+        {
+          code: "drawdown_kill_switch",
+          severity: "warn",
+          due: false,
+          label:
+            "Unitized deployed drawdown 15.3% — diagnostic completed; monitoring",
+        },
+      ],
+      queueFlags: [],
+      queue: [],
+      book: emptyBook,
+      decisions: [],
+      today: asOf,
+    });
+    expect(attention).toEqual([]);
+  });
+
+  it("keeps an uncovered sleeve diagnostic on Due", () => {
+    const attention = buildAttentionItems({
+      bookFlags: [
+        {
+          code: "drawdown_kill_switch",
+          severity: "warn",
+          label:
+            "Unitized deployed drawdown 15.3% — mandatory diagnostic (Phase 1: does not halt new buys)",
+        },
+      ],
+      queueFlags: [],
+      queue: [],
+      book: emptyBook,
+      decisions: [],
+      today: asOf,
+    });
+    expect(attention).toEqual([
+      expect.objectContaining({
+        kind: "flag",
+        title: expect.stringContaining("mandatory diagnostic"),
+      }),
+    ]);
+  });
+});

@@ -31,6 +31,29 @@ describe("snapshotFlags kill-switch copy", () => {
     expect(row?.severity).toBe("warn");
     expect(row?.label).toContain("mandatory diagnostic");
     expect(row?.label).toContain("does not halt new buys");
+    expect(row?.due).toBe(true);
+  });
+
+  it("keeps the 15% condition as a warn after the diagnostic is written", () => {
+    const flags = snapshotFlags(
+      [{ asOf: "2026-08-22T00:00:00.000Z", nav: 250_000, cash: 232_000, invested: 18_000, positionsValue: 18_000 }],
+      summary(),
+      {
+        status: "monitoring",
+        currentPct: 16.2,
+        covering: {
+          id: "diag-1",
+          at: "2026-08-30T11:15:16.000Z",
+          text: "completed",
+          deployedDrawdownPct: 16.2,
+        },
+      },
+    );
+    const row = flags.find((flag) => flag.code === "drawdown_kill_switch");
+    expect(row?.severity).toBe("warn");
+    expect(row?.due).toBe(false);
+    expect(row?.label).toContain("diagnostic completed");
+    expect(row?.label).not.toContain("mandatory diagnostic");
   });
 
   it("halts new risk in the flag once Phase 1 is behind", () => {

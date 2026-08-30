@@ -24,6 +24,7 @@ import {
   type UpcomingKindFilter,
 } from "@/lib/data/briefing";
 import { listDecisions } from "@/lib/data/decisions";
+import { listSleeveDiagnosticRecords } from "@/lib/data/drawdown-diagnostic";
 import {
   buildDeploymentQueue,
   listOpenPlannedActions,
@@ -38,7 +39,7 @@ import {
   computeDrawdown,
   listLedgerFlows,
   listPortfolioSnapshots,
-  snapshotFlags,
+  snapshotFlagsForDrawdown,
 } from "@/lib/data/snapshots";
 
 export const dynamic = "force-dynamic";
@@ -148,6 +149,7 @@ export default async function BriefingPage({
     decisions,
     dossiers,
     reviews,
+    diagnosticRecords,
   ] = await Promise.all([
     listInstrumentsWithThemes(),
     getOpenPortfolioBook().then(withLiveMarks),
@@ -157,20 +159,27 @@ export default async function BriefingPage({
     listDecisions(),
     listDossierReviews(),
     listOpenReviewTasks(),
+    listSleeveDiagnosticRecords(),
   ]);
 
   const queue = buildDeploymentQueue(book, instruments, rawQueue);
-  const drawdown = computeDrawdown(
-    snapshots,
-    {
-      nav: book.nav,
-      invested: book.invested,
-      positionsValue: book.marketValue,
-      asOf: book.markAsOf ?? new Date().toISOString(),
-    },
-    flows,
-  );
-  const bookFlags = [...snapshotFlags(snapshots, drawdown), ...book.flags];
+  const liveMark = {
+    nav: book.nav,
+    invested: book.invested,
+    positionsValue: book.marketValue,
+    asOf: book.markAsOf ?? new Date().toISOString(),
+  };
+  const drawdown = computeDrawdown(snapshots, liveMark, flows);
+  const bookFlags = [
+    ...snapshotFlagsForDrawdown(
+      snapshots,
+      drawdown,
+      liveMark,
+      flows,
+      diagnosticRecords,
+    ),
+    ...book.flags,
+  ];
   const upcoming = upcomingSections(queue.actions, reviews);
   const upcomingItems = filterUpcomingItems(
     flattenUpcomingItems(upcoming),

@@ -11,7 +11,7 @@ Private agent API: `/api/v1/agent/*` — Bearer token, scoped permissions, dolla
 | Operation | Mutates | Notes |
 |-----------|---------|--------|
 | `getFundState` | no | Compact current investment state |
-| `getPortfolio` | no | Private book from the ledger. Marks include `last_close_session` and `price_data_through`. Flags include the kill-switch diagnostic. TWR is `getPerformance` |
+| `getPortfolio` | no | Private book from the ledger. Marks include `last_close_session` and `price_data_through`. Flags include the kill-switch: `due: false` means the 15% condition is live but ritual 11 is done for this breach. TWR is `getPerformance` |
 | `getPerformance` | no | NAV and deployed TWR vs SPY/QQQ, unitized drawdowns, and dollar contribution by ticker / theme / factor. Optional `from`/`to`. Percent returns. `price_data_through` is the last session, not `as_of` |
 | `getJournal` | no | Decisions + pinned `dossier_version`, fill-based 30/90/180d vs SPY, append-only outcomes. `price_data_through` is the last bar used |
 | `getCompanyDossier` | no | Live research object. Includes `last_close` / `last_close_session` and `price_data_stale` |

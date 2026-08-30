@@ -314,6 +314,7 @@ export function buildAttentionItems(args: {
 
   for (const flag of [...args.bookFlags, ...args.queueFlags]) {
     if (flag.severity !== "warn") continue;
+    if (flag.due === false) continue;
     const fromQueue = args.queueFlags.includes(flag);
     items.push({
       id: `flag-${flag.code}-${fromQueue ? "queue" : "book"}`,
