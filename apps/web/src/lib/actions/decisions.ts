@@ -8,6 +8,10 @@ import { DECISION_TYPES, type DecisionType } from "@powerfund/domain";
 import { AgentApiError } from "@/lib/api/agent/errors";
 import { loadJournalDossierFields } from "@/lib/dossiers/versions";
 import { createDecision } from "@/lib/journal/create-decision";
+import {
+  copyEnterInvalidationToPosition,
+  findOpenPositionId,
+} from "@/lib/positions/copy-invalidation";
 import { createClient } from "@/lib/supabase/server";
 
 type DecisionUpdate = Database["public"]["Tables"]["decisions"]["Update"];
@@ -80,8 +84,42 @@ export async function saveDecision(
     if (error) {
       return { error: error.message };
     }
+    if (
+      (decisionTypeRaw === "enter" || decisionTypeRaw === "add") &&
+      instrumentId
+    ) {
+      const { data: existing } = await supabase
+        .from("decisions")
+        .select("position_id")
+        .eq("id", id)
+        .maybeSingle();
+      const positionId =
+        existing?.position_id ??
+        (await findOpenPositionId(supabase, instrumentId));
+      if (positionId && !existing?.position_id) {
+        await supabase
+          .from("decisions")
+          .update({ position_id: positionId })
+          .eq("id", id);
+      }
+      try {
+        await copyEnterInvalidationToPosition(supabase, {
+          positionId,
+          invalidation: payload.invalidation,
+        });
+      } catch (error) {
+        return {
+          error:
+            error instanceof Error
+              ? error.message
+              : "Decision saved but kill criteria were not copied onto the position.",
+        };
+      }
+    }
     revalidatePath("/decisions");
     revalidatePath(`/decisions/${id}`);
+    revalidatePath("/portfolio");
+    revalidatePath("/briefing");
     redirect(`/decisions/${id}`);
   }
 

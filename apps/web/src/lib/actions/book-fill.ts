@@ -5,6 +5,7 @@ import type { Database } from "@powerfund/db";
 
 import { loadJournalDossierFields } from "@/lib/dossiers/versions";
 import { mandateGate } from "@/lib/mandate/enforce";
+import { copyEnterInvalidationToPosition } from "@/lib/positions/copy-invalidation";
 import { createClient } from "@/lib/supabase/server";
 
 type TransactionInsert = Database["public"]["Tables"]["transactions"]["Insert"];
@@ -101,8 +102,10 @@ export async function bookFill(args: {
   // The journal entry is written first so the ledger row can reference it, and
   // is cleaned up if the fill itself is rejected.
   let decisionId: string | null = null;
+  let killCriteria = args.invalidation;
   if (args.logDecision) {
     const dossier = await loadJournalDossierFields(supabase, args.instrumentId);
+    killCriteria = args.invalidation ?? dossier.invalidation;
     const decision: DecisionInsert = {
       instrument_id: args.instrumentId,
       decision_type: decisionType,
@@ -112,7 +115,7 @@ export async function bookFill(args: {
       catalysts: dossier.catalysts,
       risks: dossier.risks,
       sizing_rationale: `Cost basis $${costBasis.toFixed(2)}.`,
-      invalidation: args.invalidation ?? dossier.invalidation,
+      invalidation: killCriteria,
       dossier_version_id: dossier.dossierVersionId,
       action_at: args.openedAt,
     };
@@ -174,6 +177,23 @@ export async function bookFill(args: {
       .from("decisions")
       .update({ position_id: positionId })
       .eq("id", decisionId);
+  }
+
+  if (positionId && killCriteria) {
+    try {
+      await copyEnterInvalidationToPosition(supabase, {
+        positionId,
+        invalidation: killCriteria,
+      });
+    } catch (error) {
+      return {
+        ok: false,
+        error:
+          error instanceof Error
+            ? error.message
+            : "Fill booked but kill criteria were not copied onto the position.",
+      };
+    }
   }
 
   return { ok: true, positionId, decisionId, decisionType };

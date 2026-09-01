@@ -5,6 +5,10 @@ import {
 
 import { notFound, validationError } from "@/lib/api/agent/errors";
 import { loadJournalDossierFields } from "@/lib/dossiers/versions";
+import {
+  copyEnterInvalidationToPosition,
+  findOpenPositionId,
+} from "@/lib/positions/copy-invalidation";
 import type { DbClient } from "@/lib/supabase/db";
 
 const MAX_TEXT = 50_000;
@@ -113,8 +117,14 @@ export async function createDecision(
     sizing = sizing ? `${line}\n${sizing}` : line;
   }
 
+  const openPositionId =
+    input.decision_type === "enter" || input.decision_type === "add"
+      ? await findOpenPositionId(supabase, instrument.id)
+      : null;
+
   const payload = {
     instrument_id: instrument.id,
+    position_id: openPositionId,
     decision_type: input.decision_type,
     thesis,
     catalysts:
@@ -153,6 +163,11 @@ export async function createDecision(
       version = { id: versionRow.id, number: versionRow.version_number };
     }
   }
+
+  await copyEnterInvalidationToPosition(supabase, {
+    positionId: openPositionId,
+    invalidation: payload.invalidation,
+  });
 
   return {
     id: data.id,

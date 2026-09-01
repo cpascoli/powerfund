@@ -13,47 +13,56 @@ function mockClient(args: {
     from(table: string) {
       return {
         select() {
+          const chain = {
+            eq() {
+              return chain;
+            },
+            maybeSingle: async () => {
+              if (table === "instruments") {
+                return {
+                  data: { id: args.instrumentId, symbol: "MRCY" },
+                  error: null,
+                };
+              }
+              if (table === "dossiers") {
+                return {
+                  data: {
+                    id: "dossier-1",
+                    catalysts: "cat",
+                    risks: "risk",
+                    invalidation: "inv",
+                  },
+                  error: null,
+                };
+              }
+              if (table === "dossier_versions") {
+                return {
+                  data: { id: args.versionId, version_number: 3 },
+                  error: null,
+                };
+              }
+              return { data: null, error: null };
+            },
+            order() {
+              return {
+                limit() {
+                  return {
+                    maybeSingle: async () => ({
+                      data: { id: args.versionId, version_number: 3 },
+                      error: null,
+                    }),
+                  };
+                },
+              };
+            },
+          };
+          return chain;
+        },
+        update() {
           return {
             eq() {
               return {
-                maybeSingle: async () => {
-                  if (table === "instruments") {
-                    return {
-                      data: { id: args.instrumentId, symbol: "MRCY" },
-                      error: null,
-                    };
-                  }
-                  if (table === "dossiers") {
-                    return {
-                      data: {
-                        id: "dossier-1",
-                        catalysts: "cat",
-                        risks: "risk",
-                        invalidation: "inv",
-                      },
-                      error: null,
-                    };
-                  }
-                  if (table === "dossier_versions") {
-                    return {
-                      data: { id: args.versionId, version_number: 3 },
-                      error: null,
-                    };
-                  }
-                  return { data: null, error: null };
-                },
-                order() {
-                  return {
-                    limit() {
-                      return {
-                        maybeSingle: async () => ({
-                          data: { id: args.versionId, version_number: 3 },
-                          error: null,
-                        }),
-                      };
-                    },
-                  };
-                },
+                eq: async () => ({ error: null }),
               };
             },
           };

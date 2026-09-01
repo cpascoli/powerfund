@@ -26,6 +26,9 @@ declare
   v_raised boolean;
   v_planned uuid;
   v_other uuid;
+  v_decision uuid;
+  v_pos uuid;
+  v_inv text;
 begin
   select id into v_nvda from public.instruments where symbol = 'NVDA';
   if v_nvda is null then
@@ -273,6 +276,37 @@ begin
     raise exception 'FAIL fees: expected average cost 50.7 including fees, got %', v_avg;
   end if;
   raise notice 'PASS fees are capitalised into cost basis';
+
+  ---------------------------------------------------------------------------
+  -- Enter/add invalidation is copied onto the open position (mandate rule 4).
+  ---------------------------------------------------------------------------
+  select id into v_pos
+    from public.positions
+   where instrument_id = v_other and status = 'open';
+
+  insert into public.decisions (
+    instrument_id, decision_type, thesis, invalidation, action_at
+  )
+  values (
+    v_other, 'enter', 'Opened a starter.',
+    'Exit if procedures stall.', '2026-10-06 15:00:00+00'
+  )
+  returning id into v_decision;
+
+  update public.decisions
+     set position_id = v_pos
+   where id = v_decision;
+
+  select invalidation into v_inv
+    from public.positions
+   where id = v_pos;
+
+  if v_inv is distinct from 'Exit if procedures stall.' then
+    raise exception
+      'FAIL decision invalidation copy: expected kill criteria on the position, got %',
+      v_inv;
+  end if;
+  raise notice 'PASS enter-decision invalidation is copied onto the position';
 
   ---------------------------------------------------------------------------
   -- Regression: Supabase's `authenticator` role preloads `safeupdate`, which
