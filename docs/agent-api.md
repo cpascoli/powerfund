@@ -26,7 +26,7 @@ Private agent API: `/api/v1/agent/*` — Bearer token, scoped permissions, dolla
 | `completeReviewTask` | review row + links | Does not create dossiers, decisions, or fills |
 | `addWatchlistCompany` | `instruments` + primary theme | Status is always `watchlist`. No dossier, queue, or fill |
 
-Humans still confirm fills in the UI. There is no agent path to `transactions`, `bookFill`, cash movement, or SQL. `planned_actions` are intended trades. `review_tasks` are “reassess the thesis when X happens.” A review trigger must never create a transaction.
+Humans still confirm fills in the UI. There is no agent path to `transactions`, `bookFill`, cash movement, or SQL. `planned_actions` are intended trades. `review_tasks` are dated obligations: company/theme catalysts, or `scope: portfolio` book reviews (monthly pass, quarterly review, stress diagnostic, capital-phase gates). A review trigger must never create a transaction. Cadence and what to persist: [gpt-agent-process.md](./gpt-agent-process.md).
 
 ## Authentication
 

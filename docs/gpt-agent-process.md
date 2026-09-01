@@ -5,10 +5,10 @@ How a GPT with the [agent API](./agent-api.md) helps run Power Fund. Paste this 
 Hard rules:
 
 - There is no agent path to `transactions`, `bookFill`, or cash movement.
-- `review_tasks` are the event calendar. Weekly holding reviews are **journal + dossier**, not a review task.
+- `review_tasks` are dated obligations, not a dumping ground. **Company / theme** tasks are the catalyst calendar. **Portfolio** tasks are book-level reviews (monthly pass, quarterly review, stress diagnostic, capital-phase gates). Weekly holding reviews are **journal + dossier**, not a review task.
 - There is no `updateDecision`, `reviewed_at` endpoint, or `completeWeeklyReview`. Completing a weekly hold is a **new** `createDecision`.
 - `recordDecisionOutcome` appends a child row. It does **not** set `reviewed_at` and does **not** complete a weekly hold.
-- Do not `createReviewTask` for a weekly hold. Do not `createPlannedAction` for an earnings print.
+- Do not `createReviewTask` for a weekly hold. Do not `createPlannedAction` for an earnings print. Do persist monthly and quarterly book rituals as `scope: portfolio` review tasks (see Object taxonomy).
 - User approval before `updateDossier`, `createDecision`, `recordDecisionOutcome`, `createPlannedAction`, `createReviewTask`, and `addWatchlistCompany`.
 - A capital Phase-1 15% deployed-sleeve drawdown is a **diagnostic**, not an automatic trim or buy halt. Per-name invalidation still forces reduce/exit.
 - Do not treat software phases and capital phases as one ladder. The PM implements the **capital** plan.
@@ -37,10 +37,8 @@ Playbook links: mandate (cash, size caps, capital phases), goals, themes, softwa
 | Rolling | Calendar fill — known events 2–3 months out |
 | Ad hoc | New-name research; watchlist hygiene |
 | Before any `buy` / `add` planned action | Dossier / data-integrity gate |
-| Monthly | Book / mandate pass — cash, caps, deployment ladder |
-| Monthly / before a material tranche | Opportunity ranking — where the next dollar goes |
-| Quarterly | Theme and factor review |
-| Quarterly | Performance attribution and decision calibration |
+| Monthly | Book / mandate pass + opportunity ranking — one portfolio review task |
+| Quarterly | Theme/factor review + performance calibration — one portfolio review task |
 | On −15% deployed sleeve / major factor shock | Stress incident review |
 | At $75k invested cost | Capital Phase-1 → Phase-2 transition review (ritual 13) |
 | At the authorized Phase-2 cap (once set) | Capital Phase-2 → Phase-3 transition review (ritual 14) |
@@ -54,7 +52,8 @@ Briefing is **Now** (Dated / Due / Research). Journal is **Then** (what we decid
 
 | Kind | What it is | Lands on | Agent action when due |
 |------|------------|----------|------------------------|
-| **Review task** | Reassess the thesis when X happens (earnings, event window, price condition) | Dated until the trigger fires; then Due as `review_due` | Follow `instructions`. Update dossier / journal / planned trade **if needed**. Then `completeReviewTask` with an outcome. Never a fill. |
+| **Review task (company / theme)** | Reassess when X happens (earnings, event window, price condition) | Dated until the trigger fires; then Due as `review_due` | Follow `instructions`. Update dossier / journal / planned trade **if needed**. Then `completeReviewTask` with an outcome. Never a fill. |
+| **Review task (portfolio)** | Book-level cadence or incident (monthly pass, quarterly review, 15% diagnostic, capital-phase gate) | Dated until `scheduled.at`; then Due as `review_due`. Operator Calendar Past labels these **Book**. They do not appear on the public catalyst calendar. | Run the named ritual. Put conclusions in `outcome` (not only in chat). Link `planned_action` / `decision` ids in `outputs` when you created them. Then `completeReviewTask`. On monthly/quarterly complete, **roll the next period** (below). Never a fill. |
 | **Planned action** | Intended `buy` / `add` / `reduce` / `sell` | Dated until `due_by`; then Due as `due_today` or `overdue` | Confirm the window and thesis. **Human books the fill** on the Portfolio queue. Agent may only `updatePlannedAction` (`deferred` / `cancelled`) or leave it for the UI confirm flow. |
 
 Review-task triggers:
@@ -66,6 +65,27 @@ Review-task triggers:
 | `condition` | `{ "type": "condition", "metric", "symbol", "operator", "value" }` | Evaluable metric matches (`price`, `price_return_pct` auto-due) |
 
 `instructions` is the checklist for that day. PATCH it with `updateReviewTask` if the title is thin. Cannot PATCH status to `due` or `completed`.
+
+### Book cadence (portfolio review tasks)
+
+Monthly and quarterly rituals are **not** chat-only. They follow the same persist contract as ritual 11: create (or find the open task) → perform the ritual → `completeReviewTask` → schedule the next period.
+
+| Cadence | One task covers | Title pattern | Trigger |
+|---------|-----------------|---------------|---------|
+| Monthly | Ritual 6 (book / mandate pass) **and** ritual 9 (opportunity ranking) | `Monthly book pass — YYYY-MM` | `scheduled` at the review date |
+| Quarterly | Ritual 10 (theme / factor) **and** ritual 12 (performance / calibration) | `Quarterly book review — YYYY-Qn` | `scheduled` at the review date |
+| Incident | Ritual 11 (15% sleeve / factor shock) | Deployed-drawdown diagnostic (existing naming) | Create when it fires; do **not** roll a “next stress” |
+| Gate | Ritual 13 / 14 (capital-phase transition) | `Capital Phase-1 → Phase-2 transition` (or Phase-2 → Phase-3) | Create when the cap is in sight; do **not** roll |
+
+`scope` is always `portfolio`. No `symbols`. `instructions` must name the ritual numbers and the checklist, not just “do the monthly.”
+
+**Do not** create a second monthly task for ranking when it is the regular monthly pass — ranking is a section of that task. If you rank before a material tranche **after** that month’s task is already completed, open a separate portfolio task `Opportunity pass — YYYY-MM-DD` rather than rewriting history.
+
+**Roll forward (monthly / quarterly only):** on `completeReviewTask`, `createReviewTask` for the next period unless an open task with that title pattern already exists (`getReviewQueue?status=open`). Use `scheduled.at` ~one month or one quarter out. Completing does **not** auto-insert the next row in software; the agent must create it.
+
+**Hygiene:** during calendar fill (ritual 3), if there is no open monthly book-pass in the next ~6 weeks, or no open quarterly review in the next ~4 months, create it. Do not duplicate.
+
+Weekly holds, the daily sweep, the data-integrity gate, and post-fill notes stay **out** of `review_tasks`.
 
 ### Derived Due (not calendar rows)
 
@@ -93,7 +113,9 @@ Purpose: action what is due; leave the rest of the calendar alone.
 
 1. `getFundState` (due reviews, upcoming reviews, planned actions, flags, holdings).
 2. Optionally `getReviewQueue?status=due` and `getPlannedActions` if the snapshot is thin.
-3. For each **due review task**: read `instructions` and the company dossier. Reassess. Write dossier/journal/planned trade only if the conclusion changed. Then `completeReviewTask` with `outcome` (link existing `dossier_version` / `decision` / `planned_action` ids if you created them).
+3. For each **due review task**:
+   - `scope: company` / `theme` — read `instructions` and the dossier. Reassess. Write dossier/journal/planned trade only if the conclusion changed. Then `completeReviewTask` with `outcome` (link existing `dossier_version` / `decision` / `planned_action` ids if you created them).
+   - `scope: portfolio` — this **is** a book ritual, not a catalyst. Match the title: monthly → rituals 6 and 9; quarterly → 10 and 12; drawdown diagnostic → 11; capital-phase → 13 or 14. Do not treat it as “read a company dossier.”
 4. For each **due / overdue planned action**: say whether the window still holds. If yes, stop — the human confirms the fill in `/portfolio?confirm=…`. If no, `updatePlannedAction` to `deferred` or `cancelled` with a reason.
 5. For **flags** and **missing invalidation**: handle as in the table above. Do not invent review tasks for them. **Research** (no dossier / review date / 14-day diligence) is on the Research tab — not part of the daily sweep.
 6. `thesis_review` names go on this week’s holding list (ritual 2), not the event calendar.
@@ -161,12 +183,13 @@ Purpose: Briefing Dated should already show the important prints, windows, and p
 3. For each name, add `createReviewTask` only for dated, actionable events: earnings, financing settlements, policy windows, explicit price invalidation. Skip vague “keep an eye on it.”
 4. Always send `instructions` (what to check that day), `scope` (`company` needs `symbols`; `theme` needs existing theme slugs), and a real trigger. Prefer `scheduled` or `event_window` when the date is known.
 5. Do not create a review task for the weekly hold. Do not create a planned trade “just to remember the date.”
+6. Ensure the **book cadence** exists: an open `Monthly book pass — YYYY-MM` within ~6 weeks, and an open `Quarterly book review — YYYY-Qn` within ~4 months. Create with `scope: portfolio` and a `scheduled` trigger if missing. Do not duplicate. Do not create a separate monthly “ranking” task.
 
 | Step | Tool |
 |------|------|
 | Universe | `getFundState?include_watchlist=true` |
 | Existing calendar | `getReviewQueue?status=open` |
-| Add an event | `createReviewTask` |
+| Add a catalyst or missing book-cadence task | `createReviewTask` (`company` / `theme` / `portfolio`) |
 | Thicken a thin checklist | `updateReviewTask` (`instructions`) |
 
 ---
@@ -203,19 +226,23 @@ The agent **cannot** archive or delete a name. Propose drops in chat; the operat
 
 Purpose: cash and concentration are decisions, not drift. Numbers live in [mandate.md](./mandate.md) (10% max position, 40% max theme, 10% min cash, 15% deployed-drawdown **diagnostic**, ~$10k/month baseline tranche, **$75k capital Phase-1 invested cap**). $150k / ~$225k are proposals, not live caps.
 
+This ritual is a **portfolio review task**. Find the open `Monthly book pass — YYYY-MM` (`getReviewQueue`) or `createReviewTask` (`scope: portfolio`, `scheduled`) before working. Do not leave the month’s conclusions only in chat.
+
 1. `getFundState` + `getPortfolio` — flags, cash % NAV, largest weight, AI-capex factor, open planned dollars, `invested_cost_usd` vs the **authorized** phase cap. `getPerformance` for NAV/deployed vs SPY/QQQ, drawdowns, and dollar contribution by ticker/theme/factor.
 2. State the current **capital** phase and remaining room under the authorized cap. While in capital Phase 1, the month’s job is evidence (selection, sizing, anti-chase, volatility behavior, journal grades, workflow through PowerFund) — not filling the $75k cap as a quota.
-3. If cash is above plan for a second consecutive monthly pass: either queue deployment per the ladder or write why not (journal or chat, then a `hold` / mandate note as appropriate).
+3. If cash is above plan for a second consecutive monthly pass: either queue deployment per the ladder or write why not in this task’s `outcome` (and a `hold` / mandate note if the reason must live on a name).
 4. If a **size / theme / cash / AI-capex cap** flag is on: queue `reduce` / `sell` or halt new `buy`s. If the flag is the **15% deployed diagnostic**, run ritual 11 — do not treat it as a cap during capital Phase 1. Do not edit the mandate file via the API.
 5. Check the baseline tranche vs the authorized cap. Continuing past $75k cost is ritual 13, not creep. Past a later authorized cap is ritual 14.
-6. Run ritual 9 (opportunity ranking) before queuing the month’s tranche.
-7. Output: written conclusions plus any `createPlannedAction` / `updatePlannedAction`. Human still fills.
+6. Run ritual 9 (opportunity ranking) as a **section of this same task** before queuing the month’s tranche. Do not open a second review task for the ranking.
+7. `completeReviewTask` with the written conclusions in `outcome` (capital phase, cash decision, flags, next-dollar ranking, planned-action ids). Then `createReviewTask` for next month unless that row already exists. Human still fills queued trades.
 
 | Step | Tool |
 |------|------|
+| Open or create this month’s task | `getReviewQueue`, `createReviewTask` `scope=portfolio` |
 | Snapshot | `getFundState`, `getPortfolio` |
 | Queue trims or the monthly tranche | `createPlannedAction` |
 | Slip a queued add | `updatePlannedAction` |
+| Persist and roll | `completeReviewTask`, then `createReviewTask` for next month |
 
 ---
 
@@ -281,7 +308,9 @@ Purpose: the fund succeeds by answering “given everything else we could own, i
 5. Check factor overlap: several “different” themes can still be one AI-capex trade. Prefer the next dollar in an independent sleeve when the ranking is close. Crowding raises the required dislocation; it is not an automatic skip.
 6. Only then `createPlannedAction` for the names that won the rank, after user approval and ritual 8.
 
-No ranking endpoint. Write the table in chat (or a journal `watch` / `hold` if the conclusion is durable). `getPerformance` is book-level TWR vs SPY/QQQ plus dollar contribution — not probability-weighted relative value.
+On the **monthly** pass, this ranking is a section of `Monthly book pass — YYYY-MM` — persist the table in that task’s `outcome`, not a second review task. If you rank before a material tranche **after** that month’s task is already completed, `createReviewTask` `scope: portfolio` titled `Opportunity pass — YYYY-MM-DD`, complete it with the ranking in `outcome`, and do not roll a next “opportunity” task (the monthly cadence already rolls).
+
+No ranking endpoint. `getPerformance` is book-level TWR vs SPY/QQQ plus dollar contribution — not probability-weighted relative value. Do not leave a durable ranking only in chat.
 
 | Step | Tool |
 |------|------|
@@ -289,6 +318,7 @@ No ranking endpoint. Write the table in chat (or a journal `watch` / `hold` if t
 | Each name | `getCompanyDossier`, `getJournal?symbol=` |
 | Book context | `getPortfolio` |
 | Queue the winner | `createPlannedAction` `buy` / `add` |
+| Persist the rank | `completeReviewTask` on the monthly (or ad-hoc opportunity) portfolio task |
 
 ---
 
@@ -296,15 +326,19 @@ No ranking endpoint. Write the table in chat (or a journal `watch` / `hold` if t
 
 Purpose: theme labels are not diversification. Mandate and [themes.md](./themes.md) already require a quarterly pass; this is that pass.
 
+This ritual shares **one** portfolio review task with ritual 12: `Quarterly book review — YYYY-Qn`. Find or create it before working. Do not open a separate “theme review” task.
+
 1. `getFundState` + `getPortfolio` — weight by theme, AI-capex and memory flags, largest names.
-2. Operator opens **Workbench → Risk** (pairwise correlation, standing hyperscaler-capex −20% stress). The agent API cannot read that surface yet; paste or describe the stress result in chat.
+2. Operator opens **Workbench → Risk** (pairwise correlation, standing hyperscaler-capex −20% stress). The agent API cannot read that surface yet; paste or describe the stress result in chat **and** in the task `outcome`.
 3. Rank each core theme (AI infrastructure, energy, robotics/AI, defence, other) by thesis health, valuation, evidence trend, portfolio weight, and shared-factor exposure. Name the **next under-obsessed bottleneck** ([themes.md](./themes.md)).
 4. Identify hidden correlation (e.g. cooling + power + EMS as one AI-capex trade).
 5. Conclude **more / same / less capital** for each theme next quarter. Update dossiers and, if the map changed, say so — factor weights live in code (`FACTOR_EXPOSURES`), not the agent API.
-6. Optional: `createReviewTask` on a theme scope for the next dated catalyst; `createPlannedAction` only for size changes that survived rituals 8–9.
+6. Optional: `createReviewTask` on a **theme** scope for the next dated catalyst; `createPlannedAction` only for size changes that survived rituals 8–9.
+7. Continue with ritual 12 on the **same** task, then `completeReviewTask` and roll the next quarter.
 
 | Step | Tool |
 |------|------|
+| Open or create this quarter’s task | `getReviewQueue`, `createReviewTask` `scope=portfolio` |
 | Weights and flags | `getFundState`, `getPortfolio` |
 | Correlation / −20% stress | Workbench → Risk (human) |
 | Theme thesis | `getCompanyDossier` on the sleeve’s names |
@@ -340,24 +374,27 @@ Due re-opens this ritual if the sleeve recovers below 15% and breaches again, if
 
 ## 12. Quarterly performance and decision calibration
 
-Purpose: improve the process, not accumulate dossiers.
+Purpose: improve the process, not accumulate dossiers. Same portfolio task as ritual 10 (`Quarterly book review — YYYY-Qn`). Run after the theme/factor section. Persist lessons in that task’s `outcome`; chat is not the archive.
 
 Qualitative (works today):
 
 1. `getJournal` (filter by date or symbol). For each material `enter` / `add` / `reduce` / `exit`, `getDossierVersion` on the pin — not the live dossier.
 2. Ask: did stock selection add value? Did cash timing help or hurt? Which themes contributed? Were we right for the right reason? Did we add only on new evidence? Were scenario estimates systematically optimistic?
-3. Write lessons in chat and/or a new `createDecision` (`hold` / `watch`) if the process itself changed. Do not PATCH old journal rows to grade them — that is not an agent API, and `reviewed_at` / `outcome_grade` on the old enter is not this week’s review.
+3. Write lessons on the quarterly task. Add a new `createDecision` (`hold` / `watch`) only if the process itself changed and must live on a name. Do not PATCH old journal rows to grade them — that is not an agent API, and `reviewed_at` / `outcome_grade` on the old enter is not this week’s review.
 
 Quantitative (partial today):
 
 - `getPerformance` — NAV TWR and deployed TWR vs SPY and QQQ, plus **current and max** unitized drawdowns, plus **dollar contribution** by ticker, theme, and factor. Optional `from` / `to`. Returns are percent; `pnl_usd` is dollars. That is the mandate scoreboard.
 - `getJournal` — per-decision **30/90/180d vs SPY** (`relative_returns`, close-to-close from the **fill session**, not `action_at`). Horizons that have not elapsed still report so far. `recordDecisionOutcome` for structured thesis/timing/sizing/risk grades. That does not complete a weekly hold.
 
+Then `completeReviewTask` (theme conclusions + scoreboard + calibration in `outcome`) and `createReviewTask` for the next quarter unless it already exists.
+
 | Step | Tool |
 |------|------|
 | Scoreboard | `getPerformance` |
 | Decision returns + grades | `getJournal`, `recordDecisionOutcome` |
 | What we believed | `getJournal`, `getDossierVersion` |
+| Persist and roll | `completeReviewTask`, then `createReviewTask` for next quarter |
 
 ---
 
@@ -387,7 +424,7 @@ Can we `research → decide → size → deploy → monitor → invalidate → r
 - **Journal** — good process / bad outcome is distinguishable from the reverse.
 - **Operations** — the weekly workflow ran through PowerFund.
 
-Then `createPlannedAction` only if the user accepts that review. The buy gate will also refuse fills above $75k without a mandate override. Software Phase 2 being unfinished is **not** a reason to refuse the transition if the capital proofs hold; note the software gaps.
+Then persist the review as a **portfolio** task (`Capital Phase-1 → Phase-2 transition`) if one is not already open: conclusions in `outcome`, then `completeReviewTask`. Do not roll a “next phase-gate” task. `createPlannedAction` only if the user accepts that review. The buy gate will also refuse fills above $75k without a mandate override. Software Phase 2 being unfinished is **not** a reason to refuse the transition if the capital proofs hold; note the software gaps.
 
 | Step | Tool |
 |------|------|
@@ -395,6 +432,7 @@ Then `createPlannedAction` only if the user accepts that review. The buy gate wi
 | Factor / theme mix | `getFundState` |
 | Scoreboard / drawdowns | `getPerformance` |
 | Evidence on starters | `getJournal`, `getCompanyDossier` |
+| Persist the gate | `createReviewTask` `scope=portfolio`, `completeReviewTask` |
 
 ---
 
@@ -404,7 +442,7 @@ Purpose: the same “earn the next allocation” rule after Phase 2 has an autho
 
 **Capital Phase-2 → Phase-3** (when invested cost would exceed the cap set in ritual 13 — default proposal $150k, only if authorized):
 
-Write the Phase-2 proofs in [mandate.md](./mandate.md) (repeatability, portfolio-level risk actually changing decisions, next-dollar allocation, evidence-driven adds, drawdown behavior, calibration, signal usefulness). Then propose the Phase-3 invested cap and cash target (default proposal: up to ~$225k, i.e. allocated NAV minus min cash). `createPlannedAction` only after the user accepts. A full market cycle is **not** required to release remaining proprietary capital if these proofs are real; it is a capital Phase-4 bar.
+Write the Phase-2 proofs in [mandate.md](./mandate.md) (repeatability, portfolio-level risk actually changing decisions, next-dollar allocation, evidence-driven adds, drawdown behavior, calibration, signal usefulness). Then propose the Phase-3 invested cap and cash target (default proposal: up to ~$225k, i.e. allocated NAV minus min cash). Persist as a portfolio task (`Capital Phase-2 → Phase-3 transition`), `completeReviewTask`, do not roll. `createPlannedAction` only after the user accepts. A full market cycle is **not** required to release remaining proprietary capital if these proofs are real; it is a capital Phase-4 bar.
 
 **Capital Phase 4 (outside money):** out of scope. Do not draft a raise, pitch for external LPs, or publish actionable signals for others. Point at the mandate compliance note.
 
@@ -413,3 +451,4 @@ Write the Phase-2 proofs in [mandate.md](./mandate.md) (repeatability, portfolio
 | Current cost vs authorized cap | `getPortfolio` (`invested_cost_usd`) |
 | Whether risk changed decisions | `getFundState`, `getJournal`, Workbench → Risk (human) |
 | Repeatability / calibration | `getPerformance`, `getJournal`, `recordDecisionOutcome` |
+| Persist the gate | `createReviewTask` `scope=portfolio`, `completeReviewTask` |

@@ -251,11 +251,11 @@ We do not define edge as:
 
 ## Review cadence
 
-| Cadence | Activity |
-|---------|----------|
-| Weekly | Book review, open theses, risk flags, signal quality |
-| Monthly | Mandate compliance, theme mix, where the next dollar goes, lesson write-ups |
-| Quarterly | Strategy fit; theme and factor weights; NAV and deployed performance vs S&P 500 and QQQ; decision calibration; update defaults if needed |
+| Cadence | Activity | Where it is stored |
+|---------|----------|-------------------|
+| Weekly | Book review, open theses, risk flags, signal quality | Per-name **journal** (`hold` / `add` / `reduce` / `exit`). Not a review task. |
+| Monthly | Mandate compliance, theme mix, where the next dollar goes, lesson write-ups | One **portfolio** review task (`Monthly book pass — YYYY-MM`). Process: [gpt-agent-process.md](./gpt-agent-process.md) rituals 6 and 9. |
+| Quarterly | Strategy fit; theme and factor weights; NAV and deployed performance vs S&P 500 and QQQ; decision calibration; update defaults if needed | One **portfolio** review task (`Quarterly book review — YYYY-Qn`). Process: rituals 10 and 12. |
 
 ## Compliance note (future scale)
 
