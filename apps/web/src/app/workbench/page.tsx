@@ -42,7 +42,7 @@ export default async function WorkbenchPage({ searchParams }: PageProps) {
             Comparative views over the research universe. The map sizes by
             market cap
             {signedIn
-              ? "; Risk is the pulled-forward Phase 3 slice — factor exposure, crowding, correlation, and the capex-pause stress."
+              ? "; Risk is the pulled-forward software Phase 3 slice — factor exposure, crowding, correlation, and the capex-pause stress."
               : "."}
           </p>
         </div>

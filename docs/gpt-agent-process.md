@@ -10,9 +10,23 @@ Hard rules:
 - `recordDecisionOutcome` appends a child row. It does **not** set `reviewed_at` and does **not** complete a weekly hold.
 - Do not `createReviewTask` for a weekly hold. Do not `createPlannedAction` for an earnings print.
 - User approval before `updateDossier`, `createDecision`, `recordDecisionOutcome`, `createPlannedAction`, `createReviewTask`, and `addWatchlistCompany`.
-- A Phase-1 15% deployed-sleeve drawdown is a **diagnostic**, not an automatic trim or buy halt. Per-name invalidation still forces reduce/exit.
+- A capital Phase-1 15% deployed-sleeve drawdown is a **diagnostic**, not an automatic trim or buy halt. Per-name invalidation still forces reduce/exit.
+- Do not treat software phases and capital phases as one ladder. The PM implements the **capital** plan.
 
-Machine contract: `GET /api/v1/agent/openapi.json`. Playbook (mandate, cash, size caps): [mandate.md](./mandate.md).
+Machine contract: `GET /api/v1/agent/openapi.json`.
+
+## Two plans
+
+Same phase numbers, different objects. Always say **software Phase N** or **capital Phase N**.
+
+| Plan | Source of truth | The PM’s job |
+|------|-----------------|--------------|
+| **Capital deployment** | [mandate.md](./mandate.md) (capital Phases 1–4) | Respect authorized invested-cost caps. Collect the evidence each phase is meant to prove. Do not queue past a cap without the transition review. |
+| **Software** | [plan.md](./plan.md), [goals.md](./goals.md) | Use the Research OS. Note gaps (weekly ritual, filings, scorers) when they block a capital proof. Do not wait for software Phase N to enter capital Phase N, and do not treat a shipping feature as permission to deploy more dollars. |
+
+**Current capital phase:** Phase 1 (authorized invested-cost cap **$75k**). Immediate objective is process evidence, not racing to the cap. $150k / ~$225k are **proposals** for later reviews, not live gates. Capital Phase 4 (outside money) is out of scope for this agent.
+
+Playbook links: mandate (cash, size caps, capital phases), goals, themes, software plan.
 
 ## Cadence
 
@@ -28,7 +42,8 @@ Machine contract: `GET /api/v1/agent/openapi.json`. Playbook (mandate, cash, siz
 | Quarterly | Theme and factor review |
 | Quarterly | Performance attribution and decision calibration |
 | On −15% deployed sleeve / major factor shock | Stress incident review |
-| At $75k invested cost | Phase-1 → Phase-2 transition review |
+| At $75k invested cost | Capital Phase-1 → Phase-2 transition review (ritual 13) |
+| At the authorized Phase-2 cap (once set) | Capital Phase-2 → Phase-3 transition review (ritual 14) |
 | After a fill or exit | Pin the journal to the dossier version you believed; outcome notes on exit |
 
 ## Object taxonomy
@@ -186,14 +201,15 @@ The agent **cannot** archive or delete a name. Propose drops in chat; the operat
 
 ## 6. Monthly book / mandate pass
 
-Purpose: cash and concentration are decisions, not drift. Numbers live in [mandate.md](./mandate.md) (10% max position, 40% max theme, 10% min cash, 15% deployed-drawdown **diagnostic**, ~$10k/month baseline tranche, $75k phase-1 invested cap).
+Purpose: cash and concentration are decisions, not drift. Numbers live in [mandate.md](./mandate.md) (10% max position, 40% max theme, 10% min cash, 15% deployed-drawdown **diagnostic**, ~$10k/month baseline tranche, **$75k capital Phase-1 invested cap**). $150k / ~$225k are proposals, not live caps.
 
-1. `getFundState` + `getPortfolio` — flags, cash % NAV, largest weight, AI-capex factor, open planned dollars. `getPerformance` for NAV/deployed vs SPY/QQQ, drawdowns, and dollar contribution by ticker/theme/factor.
-2. If cash is above plan for a second consecutive monthly pass: either queue deployment per the ladder or write why not (journal or chat, then a `hold` / mandate note as appropriate).
-3. If a **size / theme / cash / AI-capex cap** flag is on: queue `reduce` / `sell` or halt new `buy`s. If the flag is the **15% deployed diagnostic**, run ritual 11 — do not treat it as a cap during Phase 1. Do not edit the mandate file via the API.
-4. Check the baseline tranche vs phase-1 cap. Continuing past $75k cost is ritual 13, not creep.
-5. Run ritual 9 (opportunity ranking) before queuing the month’s tranche.
-6. Output: written conclusions plus any `createPlannedAction` / `updatePlannedAction`. Human still fills.
+1. `getFundState` + `getPortfolio` — flags, cash % NAV, largest weight, AI-capex factor, open planned dollars, `invested_cost_usd` vs the **authorized** phase cap. `getPerformance` for NAV/deployed vs SPY/QQQ, drawdowns, and dollar contribution by ticker/theme/factor.
+2. State the current **capital** phase and remaining room under the authorized cap. While in capital Phase 1, the month’s job is evidence (selection, sizing, anti-chase, volatility behavior, journal grades, workflow through PowerFund) — not filling the $75k cap as a quota.
+3. If cash is above plan for a second consecutive monthly pass: either queue deployment per the ladder or write why not (journal or chat, then a `hold` / mandate note as appropriate).
+4. If a **size / theme / cash / AI-capex cap** flag is on: queue `reduce` / `sell` or halt new `buy`s. If the flag is the **15% deployed diagnostic**, run ritual 11 — do not treat it as a cap during capital Phase 1. Do not edit the mandate file via the API.
+5. Check the baseline tranche vs the authorized cap. Continuing past $75k cost is ritual 13, not creep. Past a later authorized cap is ritual 14.
+6. Run ritual 9 (opportunity ranking) before queuing the month’s tranche.
+7. Output: written conclusions plus any `createPlannedAction` / `updatePlannedAction`. Human still fills.
 
 | Step | Tool |
 |------|------|
@@ -300,7 +316,7 @@ Purpose: theme labels are not diversification. Mandate and [themes.md](./themes.
 Purpose: when the 15% deployed-sleeve diagnostic fires (or a major factor shock hits), stop and classify. Do not improvise a de-risk. Briefing Due shows this until a **covering book-level write** exists for the current breach.
 
 1. `getFundState` + `getPortfolio` — sleeve drawdown flag, NAV, cash %, holdings. `getPerformance` for NAV/deployed vs QQQ/SPY and max drawdown. A kill-switch flag with `due: false` is monitoring, not a request to re-run this ritual.
-2. Freeze **new correlated buys** until the classification is written. During Phase 1 do **not** freeze the whole ladder and do **not** raise cash just to “do something.”
+2. Freeze **new correlated buys** until the classification is written. During capital Phase 1 do **not** freeze the whole ladder and do **not** raise cash just to “do something.”
 3. For each open name: `getCompanyDossier` + `getJournal?symbol=`. Has invalidation triggered? Have estimates/backlog/guidance changed, or only the multiple?
 4. Classify the book move as **valuation / factor / earnings / thesis failure** ([mandate.md](./mandate.md) rule 8).
 5. Act:
@@ -308,7 +324,7 @@ Purpose: when the 15% deployed-sleeve diagnostic fires (or a major factor shock 
    - Factor shock → pause more capital into that factor; keep independent themes in play.
    - Earnings shock or thesis failure → `createPlannedAction` `reduce` / `sell` on **those** names; `createDecision` with the conclusion.
 6. Record the **book-level** diagnosis: `createReviewTask` with `scope: portfolio` (or complete the existing one) titled as a deployed-drawdown diagnostic. Put the classification and the current unitized deployed drawdown in `outcome`. Per-name `createDecision` still records each holding. That completed portfolio task is what clears Due for this breach.
-7. After Phase 1, a 15% flag still blocks new buys in software until a written override. That is not an order to sell.
+7. After capital Phase 1, a 15% flag still blocks new buys in software until a written override. That is not an order to sell.
 
 Due re-opens this ritual if the sleeve recovers below 15% and breaches again, if live drawdown is **5 percentage points** worse than the diagnosed print, or **14 days** after the covering write while still breached. Mandate keeps showing the live 15% condition the whole time.
 
@@ -345,23 +361,55 @@ Quantitative (partial today):
 
 ---
 
-## 13. Phase-1 → Phase-2 transition ($75k invested cost)
+## 13. Capital Phase-1 → Phase-2 transition ($75k invested cost)
 
-Purpose: the cap is a checkpoint, not a numerical gate you tiptoe past.
+Purpose: the $75k cap is a checkpoint, not a number to tiptoe past. Capital Phase 1 asks whether the process works with limited live money — not whether we maximized return on $75k. Full proofs: [mandate.md](./mandate.md) capital Phase 1.
 
 Before queuing any buy that would take invested cost through $75k, answer in writing:
 
+**Review checklist**
+
 1. Are all four core themes represented (or is a hole explicit and accepted)?
-2. Is factor concentration (especially AI-capex) acceptable vs the −20% stress?
-3. Have Phase-1 starters passed at least one evidence cycle (print, backlog, or guidance — not just price)?
+2. Is factor concentration (especially AI-capex) acceptable vs the −20% stress? Ticker count is not diversification.
+3. Have capital Phase-1 starters passed at least one evidence cycle (print, backlog, or guidance — not just price)?
 4. Did the deployment ladder work, or did we skip acceleration/baseline without a written reason?
 5. Is scenario calibration credible (ritual 12), not systematically too optimistic?
-6. What is the new Phase-2 sizing and cash target?
+6. What is the new **authorized** Phase-2 invested cap and cash target? Default **proposal** to confirm or revise: **$150k** invested cost. Do not treat $150k as live until this review accepts it and the mandate numeric defaults are updated.
 
-Then `createPlannedAction` only if the user accepts that review. The buy gate will also refuse fills above the cap without a mandate override.
+**Phase-1 proof (the real gate)**
+
+Can we `research → decide → size → deploy → monitor → invalidate → review` repeatedly without breaking our own rules? Cite evidence, not vibes:
+
+- **Selection** — genuine opportunities vs fashionable thematic exposure.
+- **Sizing** — starters, adds, factor caps, and cash contained bad ideas.
+- **Anti-chase** — we did not deploy because something was moving.
+- **Volatility** — corrections produced reassessment and selective acceleration, not panic or blind averaging down.
+- **Journal** — good process / bad outcome is distinguishable from the reverse.
+- **Operations** — the weekly workflow ran through PowerFund.
+
+Then `createPlannedAction` only if the user accepts that review. The buy gate will also refuse fills above $75k without a mandate override. Software Phase 2 being unfinished is **not** a reason to refuse the transition if the capital proofs hold; note the software gaps.
 
 | Step | Tool |
 |------|------|
 | Current cost vs cap | `getPortfolio` (`invested_cost_usd`) |
 | Factor / theme mix | `getFundState` |
+| Scoreboard / drawdowns | `getPerformance` |
 | Evidence on starters | `getJournal`, `getCompanyDossier` |
+
+---
+
+## 14. Later capital-phase transitions
+
+Purpose: the same “earn the next allocation” rule after Phase 2 has an authorized cap.
+
+**Capital Phase-2 → Phase-3** (when invested cost would exceed the cap set in ritual 13 — default proposal $150k, only if authorized):
+
+Write the Phase-2 proofs in [mandate.md](./mandate.md) (repeatability, portfolio-level risk actually changing decisions, next-dollar allocation, evidence-driven adds, drawdown behavior, calibration, signal usefulness). Then propose the Phase-3 invested cap and cash target (default proposal: up to ~$225k, i.e. allocated NAV minus min cash). `createPlannedAction` only after the user accepts. A full market cycle is **not** required to release remaining proprietary capital if these proofs are real; it is a capital Phase-4 bar.
+
+**Capital Phase 4 (outside money):** out of scope. Do not draft a raise, pitch for external LPs, or publish actionable signals for others. Point at the mandate compliance note.
+
+| Step | Tool |
+|------|------|
+| Current cost vs authorized cap | `getPortfolio` (`invested_cost_usd`) |
+| Whether risk changed decisions | `getFundState`, `getJournal`, Workbench → Risk (human) |
+| Repeatability / calibration | `getPerformance`, `getJournal`, `recordDecisionOutcome` |

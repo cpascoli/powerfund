@@ -9,7 +9,7 @@ export const dynamic = "force-dynamic";
 export const metadata: Metadata = {
   title: "Playbook",
   description:
-    "Operating constitution — mandate, goals, and themes.",
+    "Operating constitution — mandate, capital phases, goals, and themes.",
 };
 
 export default async function PlaybookIndexPage() {
@@ -23,7 +23,8 @@ export default async function PlaybookIndexPage() {
           <h1>Playbook</h1>
           <p>
             The operating constitution: why Power Fund exists, the investment
-            rules, and the theme map.
+            rules, the capital deployment phases, and the theme map. The
+            software plan is operator-only.
           </p>
         </div>
       </header>

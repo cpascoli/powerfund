@@ -14,14 +14,15 @@ export const PLAYBOOK_DOCS: readonly PlaybookDoc[] = [
     slug: "goals",
     file: "goals.md",
     title: "Goals",
-    description: "Why Power Fund exists and what success looks like.",
+    description:
+      "Why Power Fund exists, the two roadmaps (software vs capital), and what success looks like.",
   },
   {
     slug: "mandate",
     file: "mandate.md",
     title: "Mandate",
     description:
-      "The investment constitution — risk rules, deployment ladder, and process.",
+      "The investment constitution — risk rules, capital deployment phases, and process.",
   },
   {
     slug: "themes",
@@ -34,7 +35,8 @@ export const PLAYBOOK_DOCS: readonly PlaybookDoc[] = [
     slug: "plan",
     file: "plan.md",
     title: "Plan",
-    description: "Phased build plan from operating discipline to optional scale.",
+    description:
+      "Software plan: codify → augment → expand perception → constrain risk → optional scale. Not the capital ladder.",
   },
 ] as const;
 

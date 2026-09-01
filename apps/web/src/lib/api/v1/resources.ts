@@ -14,7 +14,8 @@ export const PUBLIC_RESOURCES = [
   {
     path: "/api/v1/mandate",
     title: "Mandate",
-    description: "Investment constitution, risk rules, and process.",
+    description:
+      "Investment constitution, risk rules, capital deployment phases, and process.",
   },
   {
     path: "/api/v1/goals",

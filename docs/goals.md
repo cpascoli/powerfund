@@ -13,15 +13,18 @@ Not a black-box trading bot. A **research + decision + risk** platform that:
 3. Supports quantitative analysis and repeatable workflows, with a human in the loop for live capital decisions (especially early on).
 4. Records theses, actions, and outcomes so the process improves over time.
 
-## Capital path
+## Two roadmaps
 
-| Stage | Focus |
-|-------|--------|
-| **Now** | Personal capital — prove process, edge, and risk control |
-| **Next** | Sharper insight product and/or tools others can leverage |
-| **Later** | Multi-investor participation or a formal vehicle — only after track record and compliance readiness |
+Same phase numbers, different objects. Do not treat them as one ladder.
 
-Engineering should not block on fund legal structure. Product and data design should not paint us into a single-user corner either.
+| Plan | Lives in | What it sequences |
+|------|----------|-------------------|
+| **Software** | [plan.md](./plan.md) | Codify the PM → augment → expand perception → constrain risk → optional scale of the product |
+| **Capital** | [mandate.md](./mandate.md) | $0–$75k seed → earn the next invested cap → earn most of the $250k book → only then consider outside capital |
+
+PowerFund does not allocate capital because capital is available. Capital is released as the investment process earns trust. While invested cost is well under the $75k capital Phase-1 cap, the job is **evidence collection and process validation**, not racing toward full deployment.
+
+Engineering should not block on fund legal structure. Product and data design should not paint us into a single-user corner either. Software Phase N is not a prerequisite for capital Phase N.
 
 ## Primary opportunity set
 
@@ -37,6 +40,8 @@ Other sectors are in scope when they feed the same stack or clear a high bar for
 A retrospective “this watchlist would have doubled from 2024” is contaminated by survivorship: names are here partly because they already worked. The job is to find 2028 winners in 2026.
 
 ## Success criteria
+
+Near term maps to software Phase 1 plus capital Phase 1. Medium term maps to software Phases 2–3 and capital Phase 2. Long term is optional software Phase 4 / capital Phase 4.
 
 ### Near term (personal operating system)
 
@@ -74,3 +79,4 @@ A retrospective “this watchlist would have doubled from 2024” is contaminate
 4. **Breadth of data, focus of action** — ingest widely; concentrate decisions on the mandate.
 5. **Process over prediction** — journal, review, and risk rules compound; vibes do not.
 6. **Dislocations are a return source** — prepare before the scare (ranked watchlist, scenario values, pre-agreed size). Buy when price fell more than intrinsic value, not because something is down 25%. Cash and fully valued names that can be recycled are the option on that volatility.
+7. **Capital is earned, not assumed** — release more of the $250k only when the process has evidence. Availability of cash is not a reason to deploy it.

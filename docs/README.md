@@ -6,9 +6,9 @@ Intelligence for managing and growing capital in the markets — starting with p
 
 | Doc | Purpose |
 |-----|---------|
-| [goals.md](./goals.md) | Why Power Fund exists and what success looks like |
-| [mandate.md](./mandate.md) | Investment mandate, risk rules, and operating discipline |
-| [plan.md](./plan.md) | Phased build plan (Phase 0 → scale) |
+| [goals.md](./goals.md) | Why Power Fund exists, the two roadmaps, and what success looks like |
+| [mandate.md](./mandate.md) | Investment mandate, risk rules, and **capital deployment phases** |
+| [plan.md](./plan.md) | **Software** plan (Phase 0 → optional product scale) — not the capital ladder |
 | [themes.md](./themes.md) | Priority sectors, why they are one transformation, adjacent watch |
 | [ux.md](./ux.md) | Research UI information architecture and viz principles |
 | [deploy.md](./deploy.md) | GitHub → Netlify CI and remote Supabase |
@@ -28,7 +28,8 @@ Intelligence for managing and growing capital in the markets — starting with p
 
 ## How to use these docs
 
-- Update **mandate** and **themes** when the investment process changes. `themes.md` is the supercycle map: why the four themes are one transformation, and where bottlenecks migrate.
-- Update **plan** when scope or sequencing changes.
+- Update **mandate** and **themes** when the investment process or **capital** phases change. `themes.md` is the supercycle map: why the four themes are one transformation, and where bottlenecks migrate.
+- Update **plan** when **software** scope or sequencing changes. Do not use plan.md to authorize more invested cost.
+- Always qualify **software Phase N** vs **capital Phase N**. The PM implements the capital plan ([gpt-agent-process.md](./gpt-agent-process.md)).
 - The four operator docs (mandate, goals, themes, plan) also render in the app under **Playbook**.
 - Put system design, data models, and pipeline decisions under `architecture/` — not here.
