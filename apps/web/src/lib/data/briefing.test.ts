@@ -308,6 +308,7 @@ const clsInstrument: InstrumentWithTheme = {
   asset_class: "equity",
   status: "watchlist",
   notes: null,
+  currency: "USD",
   theme_slug: "ai-infrastructure",
   theme_name: "AI Infrastructure",
   has_dossier: true,

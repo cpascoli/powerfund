@@ -19,6 +19,8 @@ export type InstrumentWithTheme = {
   asset_class: string;
   status: string;
   notes: string | null;
+  /** Listing currency. The book only supports USD — see BOOK_CURRENCY. */
+  currency: string | null;
   theme_slug: string;
   theme_name: string;
   has_dossier: boolean;
@@ -55,6 +57,7 @@ type InstrumentRow = {
   asset_class: string;
   status: string;
   notes: string | null;
+  currency: string | null;
 };
 
 type InstrumentThemeLink = {
@@ -92,7 +95,7 @@ export async function listInstrumentsWithThemes(
     await Promise.all([
       supabase
         .from("instruments")
-        .select("id, symbol, data_symbol, name, asset_class, status, notes")
+        .select("id, symbol, data_symbol, name, asset_class, status, notes, currency")
         .neq("status", "archived")
         .eq("is_benchmark", false)
         .order("symbol", { ascending: true }),
@@ -151,6 +154,7 @@ export async function listInstrumentsWithThemes(
         asset_class: instrument.asset_class,
         status: instrument.status,
         notes: instrument.notes,
+        currency: instrument.currency,
         theme_slug: theme.slug,
         theme_name: theme.name,
         has_dossier: dossierInstrumentIds.has(instrument.id),

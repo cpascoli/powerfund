@@ -1,4 +1,6 @@
 import {
+  BOOK_CURRENCY,
+  bookCurrencyBlock,
   evaluateProposedBuy,
   formatMandateBlock,
   type MandateBook,
@@ -46,11 +48,15 @@ export async function loadMandateBook(client?: DbClient): Promise<MandateBook> {
 export async function lookupInstrumentTheme(
   instrumentId: string,
   client?: DbClient,
-): Promise<{ symbol: string; themeSlug: string } | null> {
+): Promise<{ symbol: string; themeSlug: string; currency: string } | null> {
   const instruments = await listInstrumentsWithThemes(client);
   const instrument = instruments.find((row) => row.id === instrumentId);
   if (!instrument) return null;
-  return { symbol: instrument.symbol, themeSlug: instrument.theme_slug };
+  return {
+    symbol: instrument.symbol,
+    themeSlug: instrument.theme_slug,
+    currency: instrument.currency ?? BOOK_CURRENCY,
+  };
 }
 
 export async function mandateGate(args: {
@@ -69,6 +75,12 @@ export async function mandateGate(args: {
       error: "Unknown instrument.",
       violations: [],
     };
+  }
+
+  // Refused before any cap is evaluated, and deliberately not overridable.
+  const currencyBlock = bookCurrencyBlock(instrument.symbol, instrument.currency);
+  if (currencyBlock != null) {
+    return { ok: false, error: currencyBlock, violations: [] };
   }
 
   const book = await loadMandateBook(args.supabase);

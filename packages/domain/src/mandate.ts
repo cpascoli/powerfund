@@ -1,4 +1,4 @@
-import { toCents } from "./money";
+import { BOOK_CURRENCY, toCents } from "./money";
 import {
   aiCapexWeight,
   aiMemoryWeight,
@@ -219,6 +219,32 @@ export function evaluateMandate(book: MandateBook): MandateViolation[] {
   }
 
   return violations;
+}
+
+/**
+ * Hard stop before any mandate cap is considered: the book has no FX layer.
+ *
+ * Bars, market caps and fundamentals are all stored in the listing's own
+ * currency, while cash, NAV, cost basis and every cap are USD. Booking a foreign
+ * listing would mark the position at its local price as if it were dollars — SK
+ * Hynix at a ₩1,623,000 close would enter the book at $1.6m a share and blow
+ * through every cap while looking arithmetically fine.
+ *
+ * Returns the reason a buy must be refused, or `null` when the listing is
+ * bookable. Unlike a cap breach this is not overridable: no written reason makes
+ * the arithmetic true.
+ */
+export function bookCurrencyBlock(
+  symbol: string,
+  currency: string | null | undefined,
+): string | null {
+  const listed = (currency ?? BOOK_CURRENCY).trim().toUpperCase();
+  if (listed === BOOK_CURRENCY) return null;
+  return (
+    `${symbol} is listed in ${listed} and the book has no FX conversion. ` +
+    `Its marks, weights and NAV contribution would all be wrong. ` +
+    `Book a ${BOOK_CURRENCY} listing or ADR instead.`
+  );
 }
 
 export function evaluateProposedBuy(

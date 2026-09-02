@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   aiCapexWeight,
   aiMemoryWeight,
+  bookCurrencyBlock,
   evaluateProposedBuy,
   projectBookAfterBuy,
   RISK_DEFAULTS,
@@ -145,5 +146,23 @@ describe("evaluateProposedBuy size and cash gates", () => {
     expect(aiCapexWeight("MU")).toBe(1);
     expect(aiCapexWeight("MRCY")).toBeCloseTo(0.1, 8);
     expect(aiCapexWeight("ISRG")).toBe(0);
+  });
+});
+
+describe("bookCurrencyBlock", () => {
+  it("allows a USD listing", () => {
+    expect(bookCurrencyBlock("VRT", "USD")).toBeNull();
+    expect(bookCurrencyBlock("VRT", "usd")).toBeNull();
+  });
+
+  it("treats a missing currency as the book currency", () => {
+    expect(bookCurrencyBlock("VRT", null)).toBeNull();
+  });
+
+  it("refuses a foreign listing because there is no FX layer", () => {
+    // SKHY closes near ₩1,623,000 — booked as dollars that is $1.6m a share.
+    const block = bookCurrencyBlock("SKHY", "KRW");
+    expect(block).toContain("KRW");
+    expect(block).toContain("no FX conversion");
   });
 });
