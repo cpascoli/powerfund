@@ -103,7 +103,7 @@ export async function getPrivatePortfolio(supabase: DbClient) {
     notes: [
       "TWR, unitized drawdowns, and dollar contribution are on getPerformance. Do not read a performance block here.",
       "flags include the snapshot kill-switch. Warn + due means ritual 11 is still owed; warn with due=false means the 15% condition is live but the diagnostic for this breach is done. all_clear is book-only and can sit next to an ok kill-switch row.",
-      "last_close_session is the market_bars date for last_close. price_data_through is the latest of those sessions. If price_data_stale is true, do not treat last_close as today's mark.",
+      "last_close_session is the market_bars date for last_close. price_data_through is the latest of those sessions. If price_data_stale is true, we are missing the last completed US cash session.",
       "cash.pct_nav, weight_pct_nav, and unrealized_pnl_pct are percent (1.2 means 1.2%).",
     ],
   };

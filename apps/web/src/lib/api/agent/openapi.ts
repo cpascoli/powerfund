@@ -490,7 +490,7 @@ export function agentOpenApiDocument(origin: string) {
           operationId: "getCompanyDossier",
           summary: "Current company dossier",
           description:
-            "Instrument metadata, live thesis, current version pointer, and last_close with last_close_session. Check price_data_stale before using that mark.",
+            "Instrument metadata, live thesis, current version pointer, and last_close with last_close_session. price_data_stale means the last completed US cash session is missing.",
           scope: "powerfund:dossier:read",
           mutating: false,
           parameters: [symbolParam],

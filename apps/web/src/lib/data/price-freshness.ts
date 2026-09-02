@@ -1,4 +1,4 @@
-import { priceDataStale, utcDay } from "@powerfund/domain";
+import { priceDataStale } from "@powerfund/domain";
 import type { Database } from "@powerfund/db";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
@@ -37,6 +37,6 @@ export function freshnessPayload(
 ) {
   return {
     price_data_through: through,
-    price_data_stale: priceDataStale(through, utcDay(asOfIso)),
+    price_data_stale: priceDataStale(through, asOfIso),
   };
 }

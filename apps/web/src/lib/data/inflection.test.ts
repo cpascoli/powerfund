@@ -259,6 +259,15 @@ describe("fundamental_inflection_v1 frozen fixtures", () => {
     expect(snapshot.rationale.toLowerCase()).toMatch(/price data/);
   });
 
+  it("does not mark Monday's close stale when scoring just after midnight UTC Tuesday", () => {
+    const snapshot = score({
+      closes: calmCloses(),
+      calculatedAt: "2026-09-01T00:57:33.001Z",
+      priceThrough: "2026-08-31",
+    });
+    expect(snapshot.priceDataStale).toBe(false);
+  });
+
   it("does not mark Friday bars stale on Saturday", () => {
     const snapshot = score({
       closes: calmCloses(),

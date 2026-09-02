@@ -163,7 +163,7 @@ export async function getAgentJournal(supabase: DbClient, query: JournalQuery) {
     notes: [
       "relative_returns are close-to-close percent from the linked fill session, not action_at. vs_spy_pct is ticker minus SPY. Horizons that have not elapsed still report so far.",
       "outcomes are append-only child rows. They do not set reviewed_at or complete a weekly hold — that is still a new createDecision.",
-      "price_data_through is the last bar used for relative_returns. If price_data_stale is true, do not treat those marks as today.",
+      "price_data_through is the last bar used for relative_returns. If price_data_stale is true, we are missing the last completed US cash session.",
     ],
     entries: sliced.map((row) =>
       serializeDecision(row, relative.get(row.id), outcomes.get(row.id) ?? []),

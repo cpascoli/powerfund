@@ -1,6 +1,5 @@
 import { computeCrowding, type CrowdingBand } from "./crowding";
 import { priceDataStale } from "./dates";
-import { utcDay } from "./performance";
 
 export const INFLECTION_SCORER_KEY = "fundamental_inflection_v1";
 export const INFLECTION_SCORER_VERSION = 1;
@@ -206,10 +205,7 @@ function resolvePriceFreshness(input: InflectionInput): {
 } {
   const priceDataThrough =
     input.priceThrough !== undefined ? input.priceThrough : input.asOf;
-  const behindClock = priceDataStale(
-    priceDataThrough,
-    utcDay(input.calculatedAt),
-  );
+  const behindClock = priceDataStale(priceDataThrough, input.calculatedAt);
   const calendarThrough = input.calendarThrough ?? null;
   const behindCalendar =
     calendarThrough != null &&

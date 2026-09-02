@@ -1,5 +1,20 @@
 import { utcDay } from "./performance";
 
+const NY = "America/New_York";
+const CASH_CLOSE_HOUR = 16;
+const CASH_CLOSE_MINUTE = 0;
+const DATE_ONLY = /^\d{4}-\d{2}-\d{2}$/;
+
+const WEEKDAY_SHORT: Record<string, number> = {
+  Sun: 0,
+  Mon: 1,
+  Tue: 2,
+  Wed: 3,
+  Thu: 4,
+  Fri: 5,
+  Sat: 6,
+};
+
 /** Latest Mon–Fri UTC date on or before `date` (YYYY-MM-DD). Ignores exchange holidays. */
 export function lastWeekdayOnOrBefore(date: string): string {
   let cursor = Date.parse(`${date}T00:00:00Z`);
@@ -14,11 +29,67 @@ export function lastWeekdayOnOrBefore(date: string): string {
   return date;
 }
 
-/** True when bars do not reach the last weekday on or before `asOf`. */
+function nyWall(instant: Date): {
+  ymd: string;
+  hour: number;
+  minute: number;
+  weekday: number;
+} {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: NY,
+    weekday: "short",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23",
+  }).formatToParts(instant);
+  const get = (type: Intl.DateTimeFormatPartTypes): string =>
+    parts.find((part) => part.type === type)?.value ?? "";
+  return {
+    ymd: `${get("year")}-${get("month")}-${get("day")}`,
+    hour: Number(get("hour")),
+    minute: Number(get("minute")),
+    weekday: WEEKDAY_SHORT[get("weekday")] ?? 0,
+  };
+}
+
+function previousWeekday(ymd: string): string {
+  const prior = Date.parse(`${ymd}T00:00:00Z`) - 86_400_000;
+  return lastWeekdayOnOrBefore(new Date(prior).toISOString().slice(0, 10));
+}
+
+/**
+ * Session date of the last regular US cash close at or before `asOf`.
+ * Close is 16:00 America/New_York. Weekends only — no holiday calendar.
+ * A date-only `asOf` is the end of that calendar day (same as last weekday on or before it).
+ */
+export function lastCompletedCashSession(
+  asOf: string = new Date().toISOString(),
+): string {
+  const trimmed = asOf.trim();
+  if (DATE_ONLY.test(trimmed)) {
+    return lastWeekdayOnOrBefore(trimmed);
+  }
+  const instant = new Date(trimmed);
+  if (Number.isNaN(instant.getTime())) {
+    return lastWeekdayOnOrBefore(utcDay(trimmed));
+  }
+  const ny = nyWall(instant);
+  const weekday = ny.weekday >= 1 && ny.weekday <= 5;
+  const closed =
+    ny.hour > CASH_CLOSE_HOUR ||
+    (ny.hour === CASH_CLOSE_HOUR && ny.minute >= CASH_CLOSE_MINUTE);
+  if (weekday && closed) return ny.ymd;
+  return previousWeekday(ny.ymd);
+}
+
+/** True when bars do not reach the last completed US cash session at `asOf`. */
 export function priceDataStale(
   through: string | null,
-  asOf: string = utcDay(new Date().toISOString()),
+  asOf: string = new Date().toISOString(),
 ): boolean {
   if (through == null || through === "") return true;
-  return through < lastWeekdayOnOrBefore(asOf);
+  return through < lastCompletedCashSession(asOf);
 }

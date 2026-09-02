@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { lastWeekdayOnOrBefore, priceDataStale } from "@powerfund/domain";
+import {
+  lastCompletedCashSession,
+  lastWeekdayOnOrBefore,
+  priceDataStale,
+} from "@powerfund/domain";
 
 import { freshnessPayload } from "./price-freshness";
 
@@ -17,6 +21,28 @@ describe("lastWeekdayOnOrBefore", () => {
   });
 });
 
+describe("lastCompletedCashSession", () => {
+  it("uses the prior weekday before the New York cash close", () => {
+    expect(lastCompletedCashSession("2026-09-02T03:42:00.000Z")).toBe(
+      "2026-09-01",
+    );
+    expect(lastCompletedCashSession("2026-09-02T19:59:00.000Z")).toBe(
+      "2026-09-01",
+    );
+  });
+
+  it("uses today's New York date once the cash session has closed", () => {
+    expect(lastCompletedCashSession("2026-09-02T20:00:00.000Z")).toBe(
+      "2026-09-02",
+    );
+  });
+
+  it("treats a date-only asOf as the last weekday on or before that day", () => {
+    expect(lastCompletedCashSession("2026-09-02")).toBe("2026-09-02");
+    expect(lastCompletedCashSession("2026-08-22")).toBe("2026-08-21");
+  });
+});
+
 describe("priceDataStale", () => {
   it("is stale when bars stop before the last weekday", () => {
     expect(priceDataStale("2026-08-19", "2026-08-22")).toBe(true);
@@ -29,6 +55,14 @@ describe("priceDataStale", () => {
   it("is stale when there is no through date", () => {
     expect(priceDataStale(null, "2026-08-21")).toBe(true);
   });
+
+  it("is current when the latest bar is yesterday and today's cash session has not closed", () => {
+    expect(priceDataStale("2026-09-01", "2026-09-02T03:42:00.000Z")).toBe(false);
+  });
+
+  it("is stale after the cash close if today's bar is missing", () => {
+    expect(priceDataStale("2026-09-01", "2026-09-02T20:00:00.000Z")).toBe(true);
+  });
 });
 
 describe("freshnessPayload", () => {
@@ -39,6 +73,13 @@ describe("freshnessPayload", () => {
     });
     expect(freshnessPayload("2026-08-21", "2026-08-22T15:00:00.000Z")).toEqual({
       price_data_through: "2026-08-21",
+      price_data_stale: false,
+    });
+  });
+
+  it("does not treat a completed prior session as stale before the next cash open", () => {
+    expect(freshnessPayload("2026-09-01", "2026-09-02T03:42:00.000Z")).toEqual({
+      price_data_through: "2026-09-01",
       price_data_stale: false,
     });
   });

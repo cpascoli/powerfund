@@ -137,7 +137,7 @@ export function toAgentPerformance(
       ...report.notes,
       ...contribution.notes,
       "Return *_pct fields are percent (1.2 means 1.2%). Contribution pnl_usd is dollars, not TWR. Per-decision 30/90/180d vs SPY is on getJournal, not this payload.",
-      "price_data_through is the last session in this series. as_of is when the response was built. If price_data_stale is true, bars have not reached the last weekday.",
+      "price_data_through is the last session in this series. as_of is when the response was built. If price_data_stale is true, we are missing the last completed US cash session.",
     ],
   };
 }
