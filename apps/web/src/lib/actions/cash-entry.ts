@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { toCents } from "@powerfund/domain";
 import type { Database } from "@powerfund/db";
 
+import { requireOperator } from "@/lib/auth/operator";
 import { createClient } from "@/lib/supabase/server";
 
 type TransactionInsert = Database["public"]["Tables"]["transactions"]["Insert"];
@@ -57,6 +58,9 @@ export async function recordCashEntry(
   _prev: CashEntryState,
   formData: FormData,
 ): Promise<CashEntryState> {
+  const denied = await requireOperator();
+  if (denied) return { error: denied.error, ok: false };
+
   const kind = parseKind(emptyToNull(formData.get("kind")));
   const amountRaw = emptyToNull(formData.get("amount"));
   const occurredRaw = emptyToNull(formData.get("occurred_at"));

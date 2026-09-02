@@ -1,6 +1,7 @@
 import Link from "next/link";
 
 import { DecisionForm } from "@/components/decision-form";
+import { isOperator } from "@/lib/auth/operator";
 import { listInstrumentsWithThemes } from "@/lib/data/research";
 
 export const dynamic = "force-dynamic";
@@ -15,7 +16,10 @@ type PageProps = {
 
 export default async function NewDecisionPage({ searchParams }: PageProps) {
   const { instrument } = await searchParams;
-  const instruments = await listInstrumentsWithThemes();
+  const [operator, instruments] = await Promise.all([
+    isOperator(),
+    listInstrumentsWithThemes(),
+  ]);
 
   return (
     <>
@@ -35,10 +39,17 @@ export default async function NewDecisionPage({ searchParams }: PageProps) {
       </header>
 
       <section className="panel">
-        <DecisionForm
-          instruments={instruments}
-          defaultInstrumentId={instrument ?? null}
-        />
+        {operator ? (
+          <DecisionForm
+            instruments={instruments}
+            defaultInstrumentId={instrument ?? null}
+          />
+        ) : (
+          <p className="empty">
+            This account has read-only access to the book. Browse the journal
+            from <Link href="/decisions">Journal</Link>.
+          </p>
+        )}
       </section>
     </>
   );

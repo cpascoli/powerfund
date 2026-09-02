@@ -10,6 +10,7 @@ import {
 } from "@powerfund/domain";
 
 import { AgentApiError } from "@/lib/api/agent/errors";
+import { requireOperator } from "@/lib/auth/operator";
 import { saveDossierVersioned } from "@/lib/dossiers/save";
 import { createClient } from "@/lib/supabase/server";
 
@@ -35,6 +36,9 @@ export async function saveDossier(
   _prev: DossierActionState,
   formData: FormData,
 ): Promise<DossierActionState> {
+  const denied = await requireOperator();
+  if (denied) return { error: denied.error };
+
   const instrumentId = String(formData.get("instrument_id") ?? "");
   const symbol = String(formData.get("symbol") ?? "").toUpperCase();
   const statusRaw = String(formData.get("status") ?? "watch");

@@ -3,6 +3,7 @@
 import { buyCashDelta } from "@powerfund/domain";
 import type { Database } from "@powerfund/db";
 
+import { requireOperator } from "@/lib/auth/operator";
 import { loadJournalDossierFields } from "@/lib/dossiers/versions";
 import { mandateGate } from "@/lib/mandate/enforce";
 import { copyEnterInvalidationToPosition } from "@/lib/positions/copy-invalidation";
@@ -37,6 +38,9 @@ export async function bookFill(args: {
   plannedActionId?: string | null;
   mandateOverrideReason?: string | null;
 }): Promise<BookFillResult> {
+  const denied = await requireOperator();
+  if (denied) return denied;
+
   const fees = args.fees ?? 0;
   // Fees are capitalised into basis, so cash out is the whole cost.
   const cashDelta = buyCashDelta(args.quantity, args.avgCost, fees);

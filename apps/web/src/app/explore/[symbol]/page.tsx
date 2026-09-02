@@ -20,6 +20,7 @@ import {
   quoteCaption,
 } from "@/lib/market/quotes";
 import { computePriceReturns } from "@/lib/market/returns";
+import { isOperator } from "@/lib/auth/operator";
 import { getSessionUser } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
@@ -57,6 +58,7 @@ export default async function InstrumentDossierPage({
   const { symbol } = await params;
   const { edit } = await searchParams;
   const signedIn = (await getSessionUser()) != null;
+  const operator = await isOperator();
   const result = await getInstrumentDossier(symbol);
   if (!result) {
     notFound();
@@ -82,7 +84,7 @@ export default async function InstrumentDossierPage({
       : null,
   );
   const returns = computePriceReturns(points);
-  const editing = signedIn && (edit === "1" || !dossier);
+  const editing = operator && (edit === "1" || !dossier);
   const displayPrice = liveQuote?.price ?? market.lastClose;
   const priceCaption = liveQuote ? quoteCaption(liveQuote) : "Close";
 
@@ -113,7 +115,7 @@ export default async function InstrumentDossierPage({
             {instrument.notes ? ` · ${instrument.notes}` : ""}
           </p>
         </div>
-        {signedIn ? (
+        {operator ? (
           <div className="header-actions">
             {dossier && !editing ? (
               <Link className="buttonish" href={`/explore/${instrument.symbol}?edit=1`}>

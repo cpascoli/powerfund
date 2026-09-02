@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
+import { requireOperator } from "@/lib/auth/operator";
 import { bookFill } from "@/lib/actions/book-fill";
 
 export type PositionActionState = {
@@ -29,6 +30,9 @@ export async function savePosition(
   _prev: PositionActionState,
   formData: FormData,
 ): Promise<PositionActionState> {
+  const denied = await requireOperator();
+  if (denied) return { error: denied.error };
+
   const instrumentId = emptyToNull(formData.get("instrument_id"));
   const quantity = parsePositiveNumber(
     emptyToNull(formData.get("quantity")),

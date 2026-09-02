@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import type { Database } from "@powerfund/db";
 import { DECISION_TYPES, type DecisionType } from "@powerfund/domain";
 
+import { requireOperator } from "@/lib/auth/operator";
 import { AgentApiError } from "@/lib/api/agent/errors";
 import { loadJournalDossierFields } from "@/lib/dossiers/versions";
 import { createDecision } from "@/lib/journal/create-decision";
@@ -34,6 +35,9 @@ export async function saveDecision(
   _prev: DecisionActionState,
   formData: FormData,
 ): Promise<DecisionActionState> {
+  const denied = await requireOperator();
+  if (denied) return { error: denied.error };
+
   const id = emptyToNull(formData.get("id"));
   const instrumentId = emptyToNull(formData.get("instrument_id"));
   const decisionTypeRaw = String(formData.get("decision_type") ?? "");

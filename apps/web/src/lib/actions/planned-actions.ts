@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import type { Database } from "@powerfund/db";
 
+import { requireOperator } from "@/lib/auth/operator";
 import { bookFill } from "@/lib/actions/book-fill";
 import { AgentApiError } from "@/lib/api/agent/errors";
 import { createPlannedAction } from "@/lib/planned-actions/mutate";
@@ -38,6 +39,9 @@ export async function savePlannedAction(
   _prev: PlannedActionState,
   formData: FormData,
 ): Promise<PlannedActionState> {
+  const denied = await requireOperator();
+  if (denied) return { error: denied.error };
+
   const instrumentId = emptyToNull(formData.get("instrument_id"));
   const plannedUsd = parsePositiveNumber(emptyToNull(formData.get("planned_usd")));
   const windowLabel = emptyToNull(formData.get("window_label"));
@@ -94,6 +98,8 @@ async function setStatus(
   id: string,
   status: "deferred" | "cancelled" | "pending",
 ): Promise<void> {
+  const denied = await requireOperator();
+  if (denied) throw new Error(denied.error);
   const supabase = await createClient();
   const { error } = await supabase
     .from("planned_actions")
@@ -128,6 +134,9 @@ export async function confirmPlannedAction(
   _prev: PlannedActionState,
   formData: FormData,
 ): Promise<PlannedActionState> {
+  const denied = await requireOperator();
+  if (denied) return { error: denied.error };
+
   const id = emptyToNull(formData.get("id"));
   const quantity = parsePositiveNumber(emptyToNull(formData.get("quantity")));
   const price = parsePositiveNumber(emptyToNull(formData.get("price")));

@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { sellCashDelta } from "@powerfund/domain";
 import type { Database } from "@powerfund/db";
 
+import { requireOperator } from "@/lib/auth/operator";
 import { loadJournalDossierFields } from "@/lib/dossiers/versions";
 import { createClient } from "@/lib/supabase/server";
 
@@ -37,6 +38,9 @@ export async function sellPosition(
   _prev: SellActionState,
   formData: FormData,
 ): Promise<SellActionState> {
+  const denied = await requireOperator();
+  if (denied) return { error: denied.error };
+
   const positionId = emptyToNull(formData.get("position_id"));
   const quantity = parsePositive(emptyToNull(formData.get("quantity")));
   const price = parsePositive(emptyToNull(formData.get("price")));

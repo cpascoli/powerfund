@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { DecisionForm } from "@/components/decision-form";
+import { isOperator } from "@/lib/auth/operator";
 import { getDecision } from "@/lib/data/decisions";
 import { listInstrumentsWithThemes } from "@/lib/data/research";
 
@@ -54,7 +55,8 @@ export default async function DecisionDetailPage({
     notFound();
   }
 
-  const editing = edit === "1";
+  const operator = await isOperator();
+  const editing = operator && edit === "1";
 
   return (
     <>
@@ -85,14 +87,14 @@ export default async function DecisionDetailPage({
             <Link className="buttonish subtle" href={`/decisions/${decision.id}`}>
               Cancel
             </Link>
-          ) : (
+          ) : operator ? (
             <Link
               className="buttonish"
               href={`/decisions/${decision.id}?edit=1`}
             >
               Edit
             </Link>
-          )}
+          ) : null}
           {decision.symbol ? (
             <Link
               className="buttonish subtle"

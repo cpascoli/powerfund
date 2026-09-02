@@ -25,6 +25,7 @@ import {
   buildDeploymentQueue,
   listOpenPlannedActions,
 } from "@/lib/data/planned-actions";
+import { isOperator } from "@/lib/auth/operator";
 import { getOpenPortfolioBook, withLiveMarks } from "@/lib/data/portfolio";
 import { listInstrumentsWithThemes } from "@/lib/data/research";
 import {
@@ -113,8 +114,18 @@ export default async function PortfolioPage({
     confirm,
     sell,
   } = await searchParams;
-  const [rawBook, instruments, rawQueue, ledger, snapshots, flows, diagnosticRecords] =
+  const [
+    operator,
+    rawBook,
+    instruments,
+    rawQueue,
+    ledger,
+    snapshots,
+    flows,
+    diagnosticRecords,
+  ] =
     await Promise.all([
+      isOperator(),
       getOpenPortfolioBook(),
       listInstrumentsWithThemes(),
       listOpenPlannedActions(),
@@ -148,15 +159,18 @@ export default async function PortfolioPage({
       diagnosticRecords,
     ),
   ];
-  const showForm = add === "1";
-  const showCash = cashEdit === "1";
-  const showPlan = plan === "1";
+  // Viewers get the book read-only. Hiding the controls is not the security
+  // boundary — RLS and requireOperator() are — but it is the difference between
+  // a read-only guest and one who clicks "Add fill" and gets a Postgres error.
+  const showForm = operator && add === "1";
+  const showCash = operator && cashEdit === "1";
+  const showPlan = operator && plan === "1";
   const confirmAction =
-    confirm != null
+    operator && confirm != null
       ? (queue.actions.find((row) => row.id === confirm) ?? null)
       : null;
   const sellPositionRow =
-    sell != null
+    operator && sell != null
       ? (book.positions.find((row) => row.id === sell) ?? null)
       : null;
   const busy =
@@ -288,9 +302,11 @@ export default async function PortfolioPage({
                     {signedMoney(position.unrealizedPnl)} (
                     {pct(position.unrealizedPnlPct, true)}) vs cost
                   </span>
-                  <Link href={href({ sell: position.id, tab: "book" })}>
-                    Sell or close
-                  </Link>
+                  {operator ? (
+                    <Link href={href({ sell: position.id, tab: "book" })}>
+                      Sell or close
+                    </Link>
+                  ) : null}
                 </div>
               </li>
             );
@@ -353,24 +369,29 @@ export default async function PortfolioPage({
                 ) : null}
               </div>
               <div className="queue-actions">
-                <Link href={href({ confirm: action.id, tab: "queue" })}>
-                  Confirm
-                </Link>
-                {action.status === "deferred" ? (
+                {operator ? (
+                  <Link href={href({ confirm: action.id, tab: "queue" })}>
+                    Confirm
+                  </Link>
+                ) : null}
+                {operator && action.status === "deferred" ? (
                   <form action={restorePlannedAction}>
                     <input type="hidden" name="id" value={action.id} />
                     <button type="submit">Restore</button>
                   </form>
-                ) : (
+                ) : null}
+                {operator && action.status !== "deferred" ? (
                   <form action={deferPlannedAction}>
                     <input type="hidden" name="id" value={action.id} />
                     <button type="submit">Defer</button>
                   </form>
-                )}
-                <form action={cancelPlannedAction}>
-                  <input type="hidden" name="id" value={action.id} />
-                  <button type="submit">Cancel</button>
-                </form>
+                ) : null}
+                {operator ? (
+                  <form action={cancelPlannedAction}>
+                    <input type="hidden" name="id" value={action.id} />
+                    <button type="submit">Cancel</button>
+                  </form>
+                ) : null}
               </div>
             </li>
           ))}
@@ -587,7 +608,9 @@ export default async function PortfolioPage({
           </p>
         </div>
         <div className="header-actions">
-          {busy ? (
+          {!operator ? (
+            <span className="muted">Read-only access</span>
+          ) : busy ? (
             <Link
               className="buttonish subtle"
               href={href({})}
