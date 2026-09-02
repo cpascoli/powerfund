@@ -6,6 +6,7 @@ export * from "./mandate";
 export * from "./crowding";
 export * from "./correlation";
 export * from "./performance";
+export * from "./snapshots";
 export * from "./dates";
 export * from "./holdings";
 export * from "./decision-outcomes";

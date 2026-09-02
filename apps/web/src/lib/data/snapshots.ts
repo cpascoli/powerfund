@@ -1,11 +1,13 @@
 import {
   RISK_DEFAULTS,
   accumulateLedgerFlows,
+  buildPerformancePoints,
   drawdownFromPeakPct,
   shouldHaltNewRiskForKillSwitch,
   unitizedDeployedIndex,
   utcDay,
   type DailyFlows,
+  type PerformanceMark,
   type PerformancePoint,
 } from "@powerfund/domain";
 import type { Database } from "@powerfund/db";
@@ -103,24 +105,15 @@ export async function listLedgerFlows(
   );
 }
 
-function toPoint(
-  date: string,
-  nav: number,
-  invested: number,
-  positionsValue: number,
-  flows: Map<string, DailyFlows>,
-): PerformancePoint {
-  const flow = flows.get(date) ?? { external: 0, sleeve: 0 };
-  return {
-    date,
-    nav,
-    invested,
-    positionsValue,
-    externalFlow: flow.external,
-    sleeveFlow: flow.sleeve,
-  };
-}
-
+/**
+ * EOD marks plus the live book as the final point.
+ *
+ * The live mark is keyed on the session it belongs to, not the UTC calendar
+ * day: before the close it is still the previous session's row that it replaces,
+ * and `buildPerformancePoints` then folds every flow since the last snapshot
+ * into it. Keying the live point on the UTC day while flows key on the session
+ * is what produced the phantom fill-day loss.
+ */
 function livePerformancePoints(
   history: SnapshotRow[],
   current: {
@@ -131,30 +124,27 @@ function livePerformancePoints(
   },
   flows: Map<string, DailyFlows>,
 ): PerformancePoint[] {
-  const points: PerformancePoint[] = history.map((row) =>
-    toPoint(
-      utcDay(row.asOf),
-      row.nav,
-      row.invested,
-      row.positionsValue,
-      flows,
-    ),
-  );
+  const marks: PerformanceMark[] = history.map((row) => ({
+    date: utcDay(row.asOf),
+    nav: row.nav,
+    invested: row.invested,
+    positionsValue: row.positionsValue,
+  }));
   const liveDate = utcDay(current.asOf ?? new Date().toISOString());
-  const livePoint = toPoint(
-    liveDate,
-    current.nav,
-    current.invested,
-    current.positionsValue,
-    flows,
-  );
-  const last = points.at(-1);
+  const liveMark: PerformanceMark = {
+    date: liveDate,
+    nav: current.nav,
+    invested: current.invested,
+    positionsValue: current.positionsValue,
+  };
+  const last = marks.at(-1);
   if (last == null || last.date < liveDate) {
-    points.push(livePoint);
-  } else if (last.date === liveDate) {
-    points[points.length - 1] = livePoint;
+    marks.push(liveMark);
+  } else {
+    // The live book supersedes any mark stamped on or after it.
+    marks[marks.length - 1] = { ...liveMark, date: last.date };
   }
-  return points;
+  return buildPerformancePoints(marks, flows, { openEndedFinalMark: true });
 }
 
 export function computeDrawdown(

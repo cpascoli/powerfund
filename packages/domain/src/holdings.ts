@@ -4,7 +4,7 @@ import {
   factorExposures,
   type FactorKey,
 } from "./risk";
-import { utcDay } from "./performance";
+import { utcDay } from "./dates";
 import type { TransactionKind } from "./types";
 
 export type HoldingLedgerRow = {

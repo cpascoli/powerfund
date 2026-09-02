@@ -7,9 +7,21 @@
  * proceeds on a sell, which is the correct treatment for UK CGT.
  */
 
+/**
+ * The single currency the book is denominated in. Positions, cash, NAV and every
+ * mandate cap assume it; there is no FX conversion anywhere in the system, so a
+ * listing in any other currency cannot be booked.
+ */
+export const BOOK_CURRENCY = "USD";
+
 /** Rounds to whole cents, avoiding the float error in naive `toFixed` chains. */
 export function toCents(value: number): number {
   return Math.round((value + Number.EPSILON) * 100) / 100;
+}
+
+/** Rounds to the 8 decimals `positions.quantity` and `transactions.quantity` store. */
+export function roundQuantity(value: number): number {
+  return Math.round((value + Number.EPSILON) * 1e8) / 1e8;
 }
 
 /**

@@ -1,3 +1,4 @@
+import { fillSessionDate } from "./dates";
 import type { TransactionKind } from "./types";
 
 /** Mandate benchmarks. Do not blend these into a policy portfolio. */
@@ -49,9 +50,9 @@ export type PerformancePoint = {
   nav: number;
   invested: number;
   positionsValue: number;
-  /** Deposits and withdrawals posted that UTC day. */
+  /** Deposits and withdrawals attributed to this mark. */
   externalFlow: number;
-  /** Cash deployed into (or returned from) stocks that UTC day. */
+  /** Cash deployed into (or returned from) stocks, attributed to this mark. */
   sleeveFlow: number;
 };
 
@@ -76,15 +77,18 @@ function chainTwr(returns: number[]): number | null {
   return returns.reduce((product, value) => product * (1 + value), 1) - 1;
 }
 
-export function utcDay(iso: string): string {
-  return new Date(iso).toISOString().slice(0, 10);
-}
-
 export type DailyFlows = {
   external: number;
   sleeve: number;
 };
 
+/**
+ * Bucket ledger rows by the **session they mark on** (see `fillSessionDate`),
+ * not by their UTC calendar day. A fill booked at 16:31 ET is still that
+ * session's trade, but it is already the next day in UTC — and bucketing it
+ * there puts the flow on a snapshot taken before the position existed, which
+ * fabricates a loss on the fill day and a matching gain after it.
+ */
 export function accumulateLedgerFlows(
   rows: Array<{
     occurredAt: string;
@@ -92,19 +96,70 @@ export function accumulateLedgerFlows(
     cashDelta: number;
   }>,
 ): Map<string, DailyFlows> {
-  const byDay = new Map<string, DailyFlows>();
+  const bySession = new Map<string, DailyFlows>();
   for (const row of rows) {
-    const day = utcDay(row.occurredAt);
-    const current = byDay.get(day) ?? { external: 0, sleeve: 0 };
+    const session = fillSessionDate(row.occurredAt);
+    const current = bySession.get(session) ?? { external: 0, sleeve: 0 };
     if (isExternalFlowKind(row.kind)) {
       current.external += row.cashDelta;
     }
     if (isSleeveFlowKind(row.kind)) {
       current.sleeve += -row.cashDelta;
     }
-    byDay.set(day, current);
+    bySession.set(session, current);
   }
-  return byDay;
+  return bySession;
+}
+
+export type PerformanceMark = {
+  date: string;
+  nav: number;
+  invested: number;
+  positionsValue: number;
+};
+
+/**
+ * Attach flows to marks so that no flow is ever dropped and none lands on a
+ * mark taken before it.
+ *
+ * Each mark absorbs every flow in `(previous mark, this mark]`, so a fill on a
+ * day with no snapshot (a holiday, a missed nightly run) folds into the next
+ * mark rather than vanishing.
+ *
+ * Set `openEndedFinalMark` when the last mark is the **live book** rather than a
+ * stored snapshot: the live book always contains every fill booked so far, so it
+ * must also carry their flows. Leave it off for a pure history — a fill booked
+ * after the last snapshot has not marked yet, and folding its flow into a mark
+ * that predates it is exactly the phantom-loss bug.
+ */
+export function buildPerformancePoints(
+  marks: readonly PerformanceMark[],
+  flows: ReadonlyMap<string, DailyFlows>,
+  options?: { openEndedFinalMark?: boolean },
+): PerformancePoint[] {
+  if (marks.length === 0) return [];
+  const openEnded = options?.openEndedFinalMark ?? false;
+  const dated = [...flows.entries()].sort(([a], [b]) => (a < b ? -1 : 1));
+  return marks.map((mark, index) => {
+    const previous = index === 0 ? null : marks[index - 1]?.date ?? null;
+    const isLast = openEnded && index === marks.length - 1;
+    let external = 0;
+    let sleeve = 0;
+    for (const [date, flow] of dated) {
+      if (previous != null && date <= previous) continue;
+      if (!isLast && date > mark.date) continue;
+      external += flow.external;
+      sleeve += flow.sleeve;
+    }
+    return {
+      date: mark.date,
+      nav: mark.nav,
+      invested: mark.invested,
+      positionsValue: mark.positionsValue,
+      externalFlow: external,
+      sleeveFlow: sleeve,
+    };
+  });
 }
 
 function dailyReturn(end: number, start: number, flow: number): number | null {

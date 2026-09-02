@@ -3,12 +3,14 @@ import {
   INCEPTION_DATE,
   PERFORMANCE_REVIEWS,
   accumulateLedgerFlows,
+  buildPerformancePoints,
   excessReturn,
   indexReturn,
   slicePointsInRange,
   slicePointsOnOrAfter,
   utcDay,
   windowReturn,
+  type PerformanceMark,
   type PerformancePoint,
 } from "@powerfund/domain";
 import type { Database } from "@powerfund/db";
@@ -114,23 +116,6 @@ function flowsByDay(rows: FlowDbRow[]) {
   );
 }
 
-function toPoint(
-  date: string,
-  nav: number,
-  invested: number,
-  positionsValue: number,
-  flows: Map<string, { external: number; sleeve: number }>,
-): PerformancePoint {
-  const flow = flows.get(date) ?? { external: 0, sleeve: 0 };
-  return {
-    date,
-    nav,
-    invested,
-    positionsValue,
-    externalFlow: flow.external,
-    sleeveFlow: flow.sleeve,
-  };
-}
 
 export async function buildPerformanceReport(
   db: Db,
@@ -167,33 +152,35 @@ export async function buildPerformanceReport(
 
   const flows = flowsByDay((flowData as FlowDbRow[] | null) ?? []);
   const snapshots = (snapshotData as SnapshotDbRow[] | null) ?? [];
-  const points: PerformancePoint[] = snapshots.map((row) =>
-    toPoint(
-      row.snapshot_date ?? utcDay(row.as_of),
-      Number(row.nav),
-      Number(row.invested),
-      Number(row.positions_value),
-      flows,
-    ),
-  );
+  const marks: PerformanceMark[] = snapshots.map((row) => ({
+    date: row.snapshot_date ?? utcDay(row.as_of),
+    nav: Number(row.nav),
+    invested: Number(row.invested),
+    positionsValue: Number(row.positions_value),
+  }));
 
   const liveDate = utcDay(live.asOf);
   const includeLive = range?.to == null || liveDate <= range.to;
   if (includeLive) {
-    const last = points.at(-1);
-    const livePoint = toPoint(
-      liveDate,
-      live.nav,
-      live.invested,
-      live.positionsValue,
-      flows,
-    );
+    const last = marks.at(-1);
+    const liveMark: PerformanceMark = {
+      date: liveDate,
+      nav: live.nav,
+      invested: live.invested,
+      positionsValue: live.positionsValue,
+    };
     if (last == null || last.date < liveDate) {
-      points.push(livePoint);
-    } else if (last.date === liveDate) {
-      points[points.length - 1] = livePoint;
+      marks.push(liveMark);
+    } else {
+      marks[marks.length - 1] = { ...liveMark, date: last.date };
     }
   }
+
+  // Flows attach by interval, so a fill booked after the last snapshot lands on
+  // the live mark instead of on a mark that predates it.
+  const points: PerformancePoint[] = buildPerformancePoints(marks, flows, {
+    openEndedFinalMark: includeLive,
+  });
 
   const benchmarks = (benchmarkData as BenchmarkDbRow[] | null) ?? [];
   const instrumentIds = benchmarks.map((row) => row.instrument_id);

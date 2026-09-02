@@ -1,4 +1,5 @@
-import { excessReturn, indexReturn, utcDay } from "./performance";
+import { utcDay } from "./dates";
+import { excessReturn, indexReturn } from "./performance";
 import type { DecisionType, TransactionKind } from "./types";
 
 export const DECISION_HORIZONS_DAYS = [30, 90, 180] as const;

@@ -13,6 +13,7 @@ Usage:
   pnpm --filter @powerfund/worker ingest:all
   pnpm --filter @powerfund/worker score:inflection
   pnpm --filter @powerfund/worker snapshot:portfolio
+  pnpm --filter @powerfund/worker snapshot:verify   (dry run — rebuild and diff, write nothing)
 
 Env:
   SUPABASE_URL or NEXT_PUBLIC_SUPABASE_URL
@@ -71,12 +72,18 @@ async function main() {
       if (score.failed.length > 0) process.exitCode = 1;
       break;
     }
-    case "snapshot":
-      console.log(
-        "[snapshot:portfolio]",
-        JSON.stringify(await snapshotPortfolio()),
-      );
+    case "snapshot": {
+      const result = await snapshotPortfolio();
+      console.log("[snapshot:portfolio]", JSON.stringify(result));
+      if (result.alignmentIssues.length > 0) process.exitCode = 1;
       break;
+    }
+    case "snapshot:verify": {
+      const result = await snapshotPortfolio({ dryRun: true });
+      console.log("[snapshot:verify]", JSON.stringify(result, null, 2));
+      if (result.alignmentIssues.length > 0) process.exitCode = 1;
+      break;
+    }
     case "help":
     case "--help":
     case "-h":

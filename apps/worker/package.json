@@ -14,7 +14,8 @@
     "build": "tsc -p tsconfig.json",
     "start": "node dist/index.js",
     "typecheck": "tsc --noEmit",
-    "lint": "echo \"no lint configured\""
+    "lint": "echo \"no lint configured\"",
+    "snapshot:verify": "tsx src/index.ts snapshot:verify"
   },
   "dependencies": {
     "@powerfund/data-clients": "workspace:*",
