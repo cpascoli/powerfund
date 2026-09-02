@@ -9,7 +9,7 @@ function usage() {
 
 Usage:
   pnpm --filter @powerfund/worker ingest:bars [-- --days=365 --symbols=SPY,QQQ]
-  pnpm --filter @powerfund/worker ingest:fundamentals
+  pnpm --filter @powerfund/worker ingest:fundamentals [-- --symbols=SKHY,TSM]
   pnpm --filter @powerfund/worker ingest:all
   pnpm --filter @powerfund/worker score:inflection
   pnpm --filter @powerfund/worker snapshot:portfolio
@@ -49,7 +49,7 @@ async function main() {
       break;
     }
     case "fundamentals": {
-      const result = await ingestFundamentals({ pauseMs });
+      const result = await ingestFundamentals({ pauseMs, symbols });
       console.log("[ingest:fundamentals]", JSON.stringify(result));
       if (result.failed.length > 0) process.exitCode = 1;
       const score = await scoreInflectionUniverse();

@@ -303,6 +303,7 @@ describe("upcoming filters", () => {
 const clsInstrument: InstrumentWithTheme = {
   id: "inst-cls",
   symbol: "CLS",
+  data_symbol: null,
   name: "Celestica",
   asset_class: "equity",
   status: "watchlist",

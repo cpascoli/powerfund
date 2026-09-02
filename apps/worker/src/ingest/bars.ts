@@ -1,4 +1,5 @@
 import { fetchDailyBars, fetchYahooMarketCap, sleep } from "@powerfund/data-clients";
+import { vendorSymbol } from "@powerfund/domain";
 
 import { createAdminDb, listWatchInstruments } from "../db";
 
@@ -39,8 +40,9 @@ export async function ingestBars(options: {
 
   for (const instrument of instruments) {
     try {
+      const listing = vendorSymbol(instrument.symbol, instrument.dataSymbol);
       const { bars, source } = await fetchDailyBars({
-        symbol: instrument.symbol,
+        symbol: listing,
         startDate,
         tiingoApiKey: tiingoKey,
       });
@@ -76,7 +78,11 @@ export async function ingestBars(options: {
 
       let mcapLabel = "";
       try {
-        const mcap = await fetchYahooMarketCap(instrument.symbol);
+        const mcap =
+          (await fetchYahooMarketCap(instrument.symbol)) ??
+          (listing === instrument.symbol
+            ? null
+            : await fetchYahooMarketCap(listing));
         if (mcap) {
           const { error: mcapError } = await (
             db as unknown as {

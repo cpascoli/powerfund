@@ -60,6 +60,9 @@ export async function fetchYahooMarketCap(
   const quote = await yahooFinance.quote(symbol);
   const marketCap = num(quote.marketCap);
   if (marketCap == null) return null;
+  const currency =
+    typeof quote.currency === "string" ? quote.currency.toUpperCase() : null;
+  if (currency != null && currency !== "USD") return null;
 
   return {
     asOfDate: toDateOnly(quote.regularMarketTime) ?? toDateOnly(new Date())!,
@@ -218,6 +221,70 @@ export async function fetchYahooQuotes(
 
 type FundamentalsRow = Record<string, unknown> & { date?: Date | string };
 
+function firstNumber(
+  row: Record<string, unknown>,
+  keys: string[],
+): number | null {
+  for (const key of keys) {
+    const value = num(row[key]);
+    if (value != null) return value;
+  }
+  return null;
+}
+
+/** Map one Yahoo fundamentalsTimeSeries row onto PowerFund quarterly fields. */
+export function fundamentalsFromYahooRow(
+  row: FundamentalsRow,
+  existing?: QuarterlyFundamentals,
+): QuarterlyFundamentals | null {
+  const periodEnd = toDateOnly(row.date) ?? existing?.periodEnd ?? null;
+  if (!periodEnd) return null;
+
+  const revenue = firstNumber(row, [
+    "quarterlyTotalRevenue",
+    "quarterlyOperatingRevenue",
+    "totalRevenue",
+    "operatingRevenue",
+  ]);
+  const fcf = firstNumber(row, ["quarterlyFreeCashFlow", "freeCashFlow"]);
+  const capexRaw = firstNumber(row, [
+    "quarterlyCapitalExpenditure",
+    "quarterlyPurchaseOfPPE",
+    "capitalExpenditure",
+    "purchaseOfPPE",
+  ]);
+  const capex = capexRaw == null ? null : Math.abs(capexRaw);
+  const totalDebt = firstNumber(row, ["quarterlyTotalDebt", "totalDebt"]);
+  const cash = firstNumber(row, [
+    "quarterlyCashAndCashEquivalents",
+    "quarterlyCashCashEquivalentsAndShortTermInvestments",
+    "cashAndCashEquivalents",
+    "cashCashEquivalentsAndShortTermInvestments",
+  ]);
+  const netDebt =
+    totalDebt != null && cash != null ? totalDebt - cash : null;
+  const shares = firstNumber(row, [
+    "quarterlyShareIssued",
+    "quarterlyOrdinarySharesNumber",
+    "shareIssued",
+    "ordinarySharesNumber",
+    "dilutedAverageShares",
+  ]);
+
+  return {
+    periodEnd,
+    fiscalPeriod: existing?.fiscalPeriod ?? null,
+    revenue: revenue ?? existing?.revenue ?? null,
+    freeCashFlow: fcf ?? existing?.freeCashFlow ?? null,
+    capex: capex ?? existing?.capex ?? null,
+    netDebt: netDebt ?? existing?.netDebt ?? null,
+    sharesDiluted: shares ?? existing?.sharesDiluted ?? null,
+    currency: existing?.currency ?? "USD",
+    source: "yahoo",
+    raw: { ...(existing?.raw ?? {}), ...row },
+  };
+}
+
 export async function fetchYahooQuarterlyFundamentals(
   symbol: string,
   startDate = "2018-01-01",
@@ -233,40 +300,8 @@ export async function fetchYahooQuarterlyFundamentals(
   for (const row of rows) {
     const periodEnd = toDateOnly(row.date);
     if (!periodEnd) continue;
-
-    const revenue =
-      num(row.quarterlyTotalRevenue) ??
-      num(row.quarterlyOperatingRevenue) ??
-      null;
-    const fcf = num(row.quarterlyFreeCashFlow);
-    const capexRaw =
-      num(row.quarterlyCapitalExpenditure) ??
-      num(row.quarterlyPurchaseOfPPE);
-    const capex = capexRaw == null ? null : Math.abs(capexRaw);
-    const totalDebt = num(row.quarterlyTotalDebt);
-    const cash =
-      num(row.quarterlyCashAndCashEquivalents) ??
-      num(row.quarterlyCashCashEquivalentsAndShortTermInvestments);
-    const netDebt =
-      totalDebt != null && cash != null ? totalDebt - cash : null;
-    const shares =
-      num(row.quarterlyShareIssued) ??
-      num(row.quarterlyOrdinarySharesNumber) ??
-      null;
-
-    const existing = byPeriod.get(periodEnd);
-    byPeriod.set(periodEnd, {
-      periodEnd,
-      fiscalPeriod: null,
-      revenue: revenue ?? existing?.revenue ?? null,
-      freeCashFlow: fcf ?? existing?.freeCashFlow ?? null,
-      capex: capex ?? existing?.capex ?? null,
-      netDebt: netDebt ?? existing?.netDebt ?? null,
-      sharesDiluted: shares ?? existing?.sharesDiluted ?? null,
-      currency: "USD",
-      source: "yahoo",
-      raw: { ...(existing?.raw ?? {}), ...row },
-    });
+    const next = fundamentalsFromYahooRow(row, byPeriod.get(periodEnd));
+    if (next) byPeriod.set(periodEnd, next);
   }
 
   return [...byPeriod.values()].sort((a, b) =>

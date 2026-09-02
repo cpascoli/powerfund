@@ -579,6 +579,7 @@ export type Database = {
           asset_class: Database["public"]["Enums"]["asset_class"]
           created_at: string
           currency: string
+          data_symbol: string | null
           exchange: string | null
           id: string
           is_benchmark: boolean
@@ -592,6 +593,7 @@ export type Database = {
           asset_class?: Database["public"]["Enums"]["asset_class"]
           created_at?: string
           currency?: string
+          data_symbol?: string | null
           exchange?: string | null
           id?: string
           is_benchmark?: boolean
@@ -605,6 +607,7 @@ export type Database = {
           asset_class?: Database["public"]["Enums"]["asset_class"]
           created_at?: string
           currency?: string
+          data_symbol?: string | null
           exchange?: string | null
           id?: string
           is_benchmark?: boolean

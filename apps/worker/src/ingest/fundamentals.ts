@@ -2,6 +2,7 @@ import {
   fetchQuarterlyFundamentals,
   sleep,
 } from "@powerfund/data-clients";
+import { vendorSymbol } from "@powerfund/domain";
 
 import { createAdminDb, listWatchInstruments } from "../db";
 
@@ -13,9 +14,16 @@ export type IngestFundamentalsResult = {
 
 export async function ingestFundamentals(options: {
   pauseMs: number;
+  symbols?: string[];
 }): Promise<IngestFundamentalsResult> {
   const db = createAdminDb();
-  const instruments = await listWatchInstruments(db, { researchOnly: true });
+  const wanted = options.symbols?.map((symbol) => symbol.toUpperCase());
+  const instruments = (await listWatchInstruments(db, { researchOnly: true })).filter(
+    (instrument) =>
+      wanted == null || wanted.length === 0
+        ? true
+        : wanted.includes(instrument.symbol.toUpperCase()),
+  );
   const failed: string[] = [];
   let succeeded = 0;
 
@@ -26,7 +34,7 @@ export async function ingestFundamentals(options: {
   for (const instrument of instruments) {
     try {
       const { rows, source } = await fetchQuarterlyFundamentals({
-        symbol: instrument.symbol,
+        symbol: vendorSymbol(instrument.symbol, instrument.dataSymbol),
       });
 
       const payload = rows.map((row) => ({

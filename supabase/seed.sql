@@ -62,7 +62,7 @@ with starter (symbol, name, asset_class, theme_slug, notes) as (
     ('MRVL', 'Marvell Technology', 'equity', 'ai-infrastructure', 'Custom AI silicon / optical'),
     ('NVT', 'nVent Electric', 'equity', 'ai-infrastructure', 'Liquid cooling / rack power infrastructure'),
     ('MU', 'Micron Technology', 'equity', 'ai-infrastructure', 'HBM / DRAM / AI memory'),
-    ('SKHY', 'SK hynix', 'equity', 'ai-infrastructure', 'HBM / DRAM ADR — AI memory leader'),
+    ('SKHY', 'SK hynix', 'equity', 'ai-infrastructure', 'HBM / DRAM — house ticker SKHY; Yahoo/KRX listing 000660.KS'),
     ('SNDK', 'Sandisk', 'equity', 'ai-infrastructure', 'NAND / AI storage / HBF optionality'),
     ('LITE', 'Lumentum', 'equity', 'ai-infrastructure', 'Optical interconnect — watch after correction'),
     ('COHR', 'Coherent', 'equity', 'ai-infrastructure', 'Optical / photonics — watch after correction'),
@@ -121,6 +121,10 @@ join starter s on s.symbol = u.symbol
 join public.themes t on t.slug = s.theme_slug
 on conflict (instrument_id, theme_id) do update
   set is_primary = excluded.is_primary;
+
+update public.instruments
+set data_symbol = '000660.KS'
+where symbol = 'SKHY';
 
 -- Stub dossiers from OpenAI research review (Aug 2026). Verify before capital.
 insert into public.dossiers (

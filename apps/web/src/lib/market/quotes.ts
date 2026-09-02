@@ -1,4 +1,5 @@
 import { fetchYahooQuotes, type LiveQuote } from "@powerfund/data-clients";
+import { vendorSymbol } from "@powerfund/domain";
 
 import type { PricePoint } from "@/lib/market/returns";
 
@@ -23,6 +24,27 @@ export async function getLiveQuote(symbol: string): Promise<LiveQuote | null> {
     console.error(`Live quote unavailable for ${symbol}`, error);
     return null;
   }
+}
+
+/** Live quote for a house ticker. Prefers the house symbol so USD ADRs win over local listings. */
+export async function getLiveQuoteForInstrument(args: {
+  symbol: string;
+  dataSymbol?: string | null;
+}): Promise<LiveQuote | null> {
+  const house = args.symbol.toUpperCase();
+  const listing = vendorSymbol(args.symbol, args.dataSymbol);
+  const quote =
+    (await getLiveQuote(house)) ??
+    (listing === house ? null : await getLiveQuote(listing));
+  if (quote == null) return null;
+  return { ...quote, symbol: house };
+}
+
+export function canOverlayLiveQuote(args: {
+  symbol: string;
+  dataSymbol?: string | null;
+}): boolean {
+  return vendorSymbol(args.symbol, args.dataSymbol) === args.symbol;
 }
 
 export function quoteCaption(quote: LiveQuote | null): string {

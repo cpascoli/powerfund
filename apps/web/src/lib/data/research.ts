@@ -14,6 +14,7 @@ export type ThemeRow = {
 export type InstrumentWithTheme = {
   id: string;
   symbol: string;
+  data_symbol: string | null;
   name: string;
   asset_class: string;
   status: string;
@@ -49,6 +50,7 @@ export type InstrumentDossier = {
 type InstrumentRow = {
   id: string;
   symbol: string;
+  data_symbol: string | null;
   name: string;
   asset_class: string;
   status: string;
@@ -90,7 +92,7 @@ export async function listInstrumentsWithThemes(
     await Promise.all([
       supabase
         .from("instruments")
-        .select("id, symbol, name, asset_class, status, notes")
+        .select("id, symbol, data_symbol, name, asset_class, status, notes")
         .neq("status", "archived")
         .eq("is_benchmark", false)
         .order("symbol", { ascending: true }),
@@ -144,6 +146,7 @@ export async function listInstrumentsWithThemes(
       return {
         id: instrument.id,
         symbol: instrument.symbol,
+        data_symbol: instrument.data_symbol,
         name: instrument.name,
         asset_class: instrument.asset_class,
         status: instrument.status,

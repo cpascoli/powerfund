@@ -14,6 +14,7 @@ export function createAdminDb(): AdminDb {
 export type WatchInstrument = {
   id: string;
   symbol: string;
+  dataSymbol: string | null;
   isBenchmark: boolean;
 };
 
@@ -23,7 +24,7 @@ export async function listWatchInstruments(
 ): Promise<WatchInstrument[]> {
   const { data, error } = await db
     .from("instruments")
-    .select("id, symbol, is_benchmark")
+    .select("id, symbol, data_symbol, is_benchmark")
     .neq("status", "archived")
     .order("symbol", { ascending: true });
 
@@ -34,10 +35,12 @@ export async function listWatchInstruments(
   const rows = ((data as Array<{
     id: string;
     symbol: string;
+    data_symbol: string | null;
     is_benchmark: boolean;
   }> | null) ?? []).map((row) => ({
     id: row.id,
     symbol: row.symbol,
+    dataSymbol: row.data_symbol,
     isBenchmark: row.is_benchmark,
   }));
 

@@ -23,6 +23,7 @@ export {
   fetchYahooMarketCap,
   fetchYahooQuarterlyFundamentals,
   fetchYahooQuotes,
+  fundamentalsFromYahooRow,
   liveQuoteFromYahoo,
 } from "./yahoo";
 
@@ -120,7 +121,10 @@ function nearestQuarter(
 
 function isSparseQuarter(row: QuarterlyFundamentals): boolean {
   return (
-    row.freeCashFlow == null || row.capex == null || row.netDebt == null
+    row.revenue == null ||
+    row.freeCashFlow == null ||
+    row.capex == null ||
+    row.netDebt == null
   );
 }
 
@@ -129,6 +133,7 @@ function fillSparseQuarter(
   filler: QuarterlyFundamentals,
 ): QuarterlyFundamentals {
   const filled =
+    (primary.revenue == null && filler.revenue != null) ||
     (primary.freeCashFlow == null && filler.freeCashFlow != null) ||
     (primary.capex == null && filler.capex != null) ||
     (primary.netDebt == null && filler.netDebt != null) ||
@@ -136,6 +141,7 @@ function fillSparseQuarter(
   if (!filled) return primary;
   return {
     ...primary,
+    revenue: primary.revenue ?? filler.revenue,
     freeCashFlow: primary.freeCashFlow ?? filler.freeCashFlow,
     capex: primary.capex ?? filler.capex,
     netDebt: primary.netDebt ?? filler.netDebt,

@@ -13,7 +13,12 @@ import {
   getInstrumentMarketSnapshot,
   getInstrumentPriceHistory,
 } from "@/lib/data/research";
-import { getLiveQuote, overlayLiveQuote, quoteCaption } from "@/lib/market/quotes";
+import {
+  canOverlayLiveQuote,
+  getLiveQuoteForInstrument,
+  overlayLiveQuote,
+  quoteCaption,
+} from "@/lib/market/quotes";
 import { computePriceReturns } from "@/lib/market/returns";
 import { getSessionUser } from "@/lib/supabase/server";
 
@@ -61,10 +66,21 @@ export default async function InstrumentDossierPage({
   const [market, priceHistory, liveQuote, reviews] = await Promise.all([
     getInstrumentMarketSnapshot(instrument.id),
     getInstrumentPriceHistory(instrument.id),
-    getLiveQuote(instrument.symbol),
+    getLiveQuoteForInstrument({
+      symbol: instrument.symbol,
+      dataSymbol: instrument.data_symbol,
+    }),
     listCompletedPublicReviewsForSymbol(instrument.symbol),
   ]);
-  const { points, live } = overlayLiveQuote(priceHistory, liveQuote);
+  const { points, live } = overlayLiveQuote(
+    priceHistory,
+    canOverlayLiveQuote({
+      symbol: instrument.symbol,
+      dataSymbol: instrument.data_symbol,
+    })
+      ? liveQuote
+      : null,
+  );
   const returns = computePriceReturns(points);
   const editing = signedIn && (edit === "1" || !dossier);
   const displayPrice = liveQuote?.price ?? market.lastClose;
