@@ -595,3 +595,85 @@ Production evidently received the `data_symbol` change under a version the repo 
 3. `db push --include-all` — applied `20260901034006` and `20260902220000`. The copy-invalidation migration was **allowed to run rather than marked applied**: it is idempotent (`create or replace function`, `drop trigger if exists`, and a backfill guarded on blank invalidation), so running it removes the uncertainty about whether the trigger existed in production instead of recording a guess. `--include-all` was required because it predates the last remote version.
 
 Verified after: 23 versions, **0 mismatched**; ledger reconciliation 17/17; SKHY's 1,340 bars intact; all 8 open positions still carry kill criteria. Repo and production are in sync for the first time since 1 September.
+
+---
+
+## 14. DATA-1 closed, and the first honest read on the scorer — 2026-09-03
+
+### 14.1 Fundamentals are vintaged
+
+`fundamentals_vintages` is append-only: one observation per quarter per filing,
+with `filed_at`, a never-null `knowable_at` and a `knowable_basis` of `filing`
+or `estimated`. `fundamentals_quarterly` remains the trigger-maintained
+latest-known projection, so no read path changed.
+`fundamentals_as_of(instrument, date)` returns the newest observation of each
+period already filed by then.
+
+**The table was not the hard part.** Backfilling filing dates from the stored
+payloads gave a median lag of **397 days**. companyfacts reports a period again
+in every later filing that carries it as a comparative, and the client kept only
+the most recently filed unit — so NVIDIA's July 2025 quarter came back stamped
+26 Aug 2026, the FY27 Q2 10-Q, rather than the 27 Aug 2025 filing that first
+disclosed it. That would have told a backtest we knew nothing for a year: a
+different flavour of the same disease.
+
+The client now emits one vintage per filing, resolving each measure to the
+newest fact filed by that date and dropping filings that merely repeat the
+previous numbers.
+
+| Period year | Median filing lag before | After |
+|---|---:|---:|
+| 2015 | ~398d | 35d |
+| 2020 | ~400d | 34d |
+| 2025 | ~388d | 33d |
+
+Production holds **3,247 vintages**, 92% with a real filing date, and **144
+quarters were genuinely revised after first disclosure**. The projection grew
+from 1,491 to 2,019 quarters, because per-filing ingest recovers periods the
+collapse-to-one-row path never stored. Yahoo rows carry `period_end + 90 days`
+flagged `estimated` — late on purpose — and a strict run can drop them.
+
+### 14.2 The scorer can be asked what it knew
+
+`sliceScorerInputsAsOf` assembles a scorer's inputs as they stood on a date. The
+live run and a replay use that one function, so today is just the last slice.
+Hysteresis carries forward through a replay rather than being seeded from stored
+state. `score:replay` grades each setup on forward returns.
+
+### 14.3 First replay — 53 names, 63 monthly dates, 2021-06 → 2026-08
+
+2,619 observations. Raw returns are enormous because this universe over this
+window was an AI bull market, so only the excess column means anything.
+
+| Setup | n | 12m mean | 12m vs universe |
+|---|---:|---:|---:|
+| Insufficient data | 477 | 128.3% | **+58.4%** |
+| Improving — extended | 488 | 89.0% | **+17.0%** |
+| Correction candidate | 231 | 96.9% | +10.5% |
+| Avoid / late-cycle | 409 | 57.9% | −18.9% |
+| **Improving — research now** | **203** | **16.0%** | **−4.2%** |
+| Watch | 438 | 33.2% | −36.3% |
+| Falling fundamentals | 265 | 57.3% | −35.5% |
+
+**The flagship state is the worst of the informative ones.** `improving_research`
+— the "buy this now" setup — underperforms the universe at 3m (−0.7%), 6m
+(−4.0%) and 12m (−4.2%), on a 203-observation sample. The two states that beat
+the universe are `insufficient_data`, which is not a signal but a selection
+artifact (names with no fundamentals are the recent hypergrowth listings that
+happened to moon), and `improving_extended`, which by its own definition means
+the price has already run — momentum, not earliness.
+
+**Read this against a hard caveat.** The 53 names are *today's* watchlist,
+assembled partly because they already worked. Replaying it over 2021–2026 is
+exactly the survivorship contamination `goals.md` warns about, and the universe
+baseline is drawn from the same survivor set, so even the excess column is
+flattered. What the replay can support is the *relative* statement: within the
+same contaminated universe, the setup meant to say "buy" ranks below the setup
+meant to say "too late".
+
+**Conclusion: do not wire `fundamental_inflection_v1` into Briefing or the buy
+gate.** It has not earned it. Keeping it shadow was the right call. The
+constructive next step is not to tune thresholds against this sample — that is
+how you fit noise — but to build the universe survivorship fix (a point-in-time
+watchlist, names as they were added, including ones since dropped) so the
+question can be asked properly.
