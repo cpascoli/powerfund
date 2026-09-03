@@ -634,7 +634,7 @@ from (
       $$Priority 13/23. Durable interconnection compounder and lower-beta AI infrastructure, but still crowded: 97th percentile and ~15% above the 200-day average. Q2 revenue was $2.63B (+16%); normalized AFFO/share +18%.$$,
       $$Dense interconnection ecosystems create switching costs. Global footprint benefits from hybrid cloud and distributed inference; xScale JVs share hyperscaler development capital.$$,
       $$Record interconnection adds; double-digit recurring revenue; xScale growth; raised 2026/2029 outlook; easing financing costs.$$,
-      $$$5–6B annual capex and rate sensitivity; one-time xScale fees flattered Q2; power/construction constraints; hyperscaler self-build; REIT financing dependence.$$,
+      $risk$$5–6B annual capex and rate sensitivity; one-time xScale fees flattered Q2; power/construction constraints; hyperscaler self-build; REIT financing dependence.$risk$,
       $$Invalidate if normalized MRR growth <6%; AFFO/share declines two quarters; churn rises or interconnection adds turn negative; development yields fall below cost of capital; leverage rises as occupancy/bookings weaken.$$,
       $$Digital Realty is the closest global peer; hyperscalers dominate wholesale campuses. EQIX differentiates through interconnection density, not lowest-cost bulk capacity.$$,
       $$Strip one-time xScale fees; same-store occupancy/churn/power pass-through; JV guarantees; AFFO after recurring maintenance capex and stock compensation.$$,

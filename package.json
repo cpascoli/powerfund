@@ -16,7 +16,7 @@
     "db:stop": "supabase stop",
     "db:reset": "supabase db reset",
     "db:types": "pnpm --filter @powerfund/db db:types",
-    "db:test": "docker exec -i $(docker ps --format '{{.Names}}' | grep supabase_db) psql -U postgres -d postgres -v ON_ERROR_STOP=1 < supabase/tests/ledger.sql && docker exec -i $(docker ps --format '{{.Names}}' | grep supabase_db) psql -U postgres -d postgres -v ON_ERROR_STOP=1 < supabase/tests/dossier_versions.sql",
+    "db:test": "for f in supabase/tests/*.sql; do echo \"-- $f\"; docker exec -i $(docker ps --format '{{.Names}}' | grep supabase_db) psql -U postgres -d postgres -v ON_ERROR_STOP=1 < \"$f\" || exit 1; done",
     "db:status": "supabase status",
     "deploy": "netlify deploy --build --filter @powerfund/web",
     "deploy:prod": "netlify deploy --build --prod --filter @powerfund/web",
