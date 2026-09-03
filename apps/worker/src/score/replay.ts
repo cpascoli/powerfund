@@ -1,13 +1,16 @@
 import {
   INFLECTION_SCORER_KEY,
+  aggregateReplay,
   forwardReturn,
   inflectionHysteresisFrom,
   inflectionSetupLabel,
   scoreInflection,
   sliceScorerInputsAsOf,
   type InflectionHysteresis,
-  type InflectionSetup,
   type InstrumentHistory,
+  type ReplayHorizon,
+  type ReplayObservation,
+  type SetupStats,
 } from "@powerfund/domain";
 
 import { createAdminDb, listWatchInstruments } from "../db";
@@ -27,35 +30,11 @@ import { loadInstrumentHistory, loadSessionCalendar } from "./history";
  * for reasons that have nothing to do with the setup.
  */
 
-export type ReplayHorizon = { label: string; sessions: number };
-
 export const DEFAULT_HORIZONS: ReplayHorizon[] = [
   { label: "3m", sessions: 63 },
   { label: "6m", sessions: 126 },
   { label: "12m", sessions: 252 },
 ];
-
-type Observation = {
-  symbol: string;
-  date: string;
-  setup: InflectionSetup;
-  stale: boolean;
-  forward: Map<string, number | null>;
-};
-
-export type SetupStats = {
-  setup: InflectionSetup;
-  label: string;
-  observations: number;
-  byHorizon: Array<{
-    label: string;
-    graded: number;
-    meanReturn: number | null;
-    medianReturn: number | null;
-    meanExcess: number | null;
-    hitRate: number | null;
-  }>;
-};
 
 export type ReplayResult = {
   from: string;
@@ -64,23 +43,10 @@ export type ReplayResult = {
   instruments: number;
   observations: number;
   skippedStale: number;
+  baselineObservations: number;
+  excludedFromBaseline: number;
   stats: SetupStats[];
 };
-
-function mean(values: number[]): number | null {
-  if (values.length === 0) return null;
-  return values.reduce((sum, value) => sum + value, 0) / values.length;
-}
-
-function median(values: number[]): number | null {
-  if (values.length === 0) return null;
-  const sorted = [...values].sort((a, b) => a - b);
-  const mid = Math.floor(sorted.length / 2);
-  if (sorted.length % 2 === 1) return sorted[mid] ?? null;
-  const low = sorted[mid - 1];
-  const high = sorted[mid];
-  return low == null || high == null ? null : (low + high) / 2;
-}
 
 export async function replayInflection(options?: {
   from?: string;
@@ -120,7 +86,7 @@ export async function replayInflection(options?: {
       `(${dates[0]} → ${dates.at(-1)}, every ${step} sessions)`,
   );
 
-  const observations: Observation[] = [];
+  const observations: ReplayObservation[] = [];
   let skippedStale = 0;
 
   for (const instrument of instruments) {
@@ -174,64 +140,12 @@ export async function replayInflection(options?: {
         symbol: instrument.symbol,
         date,
         setup: snapshot.setup,
-        stale: snapshot.stale,
         forward,
       });
     }
   }
 
-  // The universe's own move on each date, so a setup is graded against what
-  // simply being invested that day would have returned.
-  const universe = new Map<string, Map<string, number[]>>();
-  for (const observation of observations) {
-    const byDate = universe.get(observation.date) ?? new Map<string, number[]>();
-    for (const horizon of horizons) {
-      const value = observation.forward.get(horizon.label);
-      if (value == null) continue;
-      const list = byDate.get(horizon.label) ?? [];
-      list.push(value);
-      byDate.set(horizon.label, list);
-    }
-    universe.set(observation.date, byDate);
-  }
-
-  const bySetup = new Map<InflectionSetup, Observation[]>();
-  for (const observation of observations) {
-    const list = bySetup.get(observation.setup) ?? [];
-    list.push(observation);
-    bySetup.set(observation.setup, list);
-  }
-
-  const stats: SetupStats[] = [...bySetup.entries()]
-    .map(([setup, rows]) => ({
-      setup,
-      label: inflectionSetupLabel(setup),
-      observations: rows.length,
-      byHorizon: horizons.map((horizon) => {
-        const returns: number[] = [];
-        const excess: number[] = [];
-        for (const row of rows) {
-          const value = row.forward.get(horizon.label);
-          if (value == null) continue;
-          returns.push(value);
-          const peers = universe.get(row.date)?.get(horizon.label) ?? [];
-          const baseline = mean(peers);
-          if (baseline != null) excess.push(value - baseline);
-        }
-        return {
-          label: horizon.label,
-          graded: returns.length,
-          meanReturn: mean(returns),
-          medianReturn: median(returns),
-          meanExcess: mean(excess),
-          hitRate:
-            returns.length === 0
-              ? null
-              : returns.filter((value) => value > 0).length / returns.length,
-        };
-      }),
-    }))
-    .sort((a, b) => b.observations - a.observations);
+  const aggregate = aggregateReplay(observations, horizons);
 
   return {
     from: dates[0] ?? "",
@@ -240,7 +154,9 @@ export async function replayInflection(options?: {
     instruments: instruments.length,
     observations: observations.length,
     skippedStale,
-    stats,
+    baselineObservations: aggregate.baselineObservations,
+    excludedFromBaseline: aggregate.excludedFromBaseline,
+    stats: aggregate.stats,
   };
 }
 
@@ -252,12 +168,12 @@ export function printReplay(result: ReplayResult): void {
   console.log(
     `\n[score:replay] ${INFLECTION_SCORER_KEY} · ${result.observations} observations ` +
       `over ${result.dates} dates (${result.from} → ${result.to}), ` +
-      `${result.skippedStale} skipped as stale\n`,
+      `${result.skippedStale} skipped as stale. Baseline: ${result.baselineObservations} ` +
+      `scoreable, ${result.excludedFromBaseline} excluded as unscoreable\n`,
   );
-  const width = Math.max(
-    24,
-    ...result.stats.map((row) => row.label.length + 2),
-  );
+  const label = (row: { setup: Parameters<typeof inflectionSetupLabel>[0] }) =>
+    inflectionSetupLabel(row.setup);
+  const width = Math.max(24, ...result.stats.map((row) => label(row).length + 2));
   console.log(
     `${"setup".padEnd(width)}${"n".padStart(6)}${"horizon".padStart(9)}` +
       `${"graded".padStart(8)}${"mean".padStart(9)}${"median".padStart(9)}` +
@@ -267,7 +183,7 @@ export function printReplay(result: ReplayResult): void {
     let first = true;
     for (const horizon of row.byHorizon) {
       console.log(
-        `${(first ? row.label : "").padEnd(width)}` +
+        `${(first ? label(row) : "").padEnd(width)}` +
           `${(first ? String(row.observations) : "").padStart(6)}` +
           `${horizon.label.padStart(9)}${String(horizon.graded).padStart(8)}` +
           `${pct(horizon.meanReturn).padStart(9)}${pct(horizon.medianReturn).padStart(9)}` +
@@ -277,7 +193,10 @@ export function printReplay(result: ReplayResult): void {
     }
   }
   console.log(
-    "\n`vs univ` is the mean return less the average across every name scored " +
-      "on the same date, so a setup that only fires in rising markets shows no edge.",
+    "\n`vs univ` is the return less the average of the other *scoreable* names on " +
+      "the same date. Names the scorer could not score are excluded from that " +
+      "baseline: they are the recent listings and foreign issuers with no quarterly " +
+      "disclosure, and leaving them in flattered the comparison every real setup " +
+      "was measured against.",
   );
 }

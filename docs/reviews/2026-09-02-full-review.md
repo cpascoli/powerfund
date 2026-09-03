@@ -647,17 +647,28 @@ window was an AI bull market, so only the excess column means anything.
 
 | Setup | n | 12m mean | 12m vs universe |
 |---|---:|---:|---:|
-| Insufficient data | 477 | 128.3% | **+58.4%** |
-| Improving — extended | 488 | 89.0% | **+17.0%** |
-| Correction candidate | 231 | 96.9% | +10.5% |
-| Avoid / late-cycle | 409 | 57.9% | −18.9% |
-| **Improving — research now** | **203** | **16.0%** | **−4.2%** |
-| Watch | 438 | 33.2% | −36.3% |
-| Falling fundamentals | 265 | 57.3% | −35.5% |
+| Insufficient data | 477 | 128.3% | **+71.2%** |
+| Improving — extended | 488 | 89.0% | **+32.1%** |
+| Correction candidate | 231 | 96.9% | **+30.2%** |
+| Avoid / late-cycle | 409 | 57.9% | −2.0% |
+| **Improving — research now** | **203** | **16.0%** | **−6.4%** |
+| Falling fundamentals | 265 | 57.3% | −17.3% |
+| Watch | 438 | 33.2% | −24.3% |
+| Needs thesis check | 108 | 41.7% | −35.5% |
+
+Excess is measured against the other *scoreable* names on the same date,
+leave-one-out. Names the scorer could not score are excluded from the baseline:
+they are the recent listings and foreign issuers with no quarterly disclosure,
+and while they sat in the average every genuine setup was being compared against
+their own outperformance.
 
 **The flagship state is the worst of the informative ones.** `improving_research`
-— the "buy this now" setup — underperforms the universe at 3m (−0.7%), 6m
-(−4.0%) and 12m (−4.2%), on a 203-observation sample. The two states that beat
+— the "buy this now" setup — underperforms the universe at 3m (−1.0%), 6m
+(−5.2%) and 12m (−6.4%), on a 203-observation sample. The two states that do
+work are `improving_extended` (+32.1%), which by definition means the price has
+already run, and `correction_candidate` (+30.2%), which means it has already
+fallen. The scorer is being paid for momentum and mean reversion, not for the
+fundamental inflection it claims to detect at the moment it claims to detect it. The two states that beat
 the universe are `insufficient_data`, which is not a signal but a selection
 artifact (names with no fundamentals are the recent hypergrowth listings that
 happened to moon), and `improving_extended`, which by its own definition means
