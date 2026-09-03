@@ -5,14 +5,13 @@ import {
   inflectionSetupLabel,
   inflectionTransitionCause,
   scoreInflection,
-  type FundamentalQuarter,
+  sliceScorerInputsAsOf,
   type InflectionHysteresis,
   type InflectionSnapshot,
 } from "@powerfund/domain";
 
 import { createAdminDb, listWatchInstruments, type AdminDb } from "../db";
-
-const BAR_WINDOW = 400;
+import { loadInstrumentHistory } from "./history";
 
 export type ScoreInflectionResult = {
   instruments: number;
@@ -59,136 +58,6 @@ function asHysteresis(value: unknown): InflectionHysteresis | null {
     return null;
   }
   return value as InflectionHysteresis;
-}
-
-async function loadQuarters(
-  db: AdminDb,
-  instrumentId: string,
-): Promise<FundamentalQuarter[]> {
-  const { data, error } = (await (
-    table(db, "fundamentals_quarterly").select(
-      "period_end, revenue, capex, free_cash_flow, net_debt, shares_diluted, ingested_at",
-    ) as {
-      eq: (column: string, value: string) => {
-        order: (
-          column: string,
-          opts: { ascending: boolean },
-        ) => {
-          limit: (count: number) => QueryResult<
-            Array<{
-              period_end: string;
-              revenue: number | null;
-              capex: number | null;
-              free_cash_flow: number | null;
-              net_debt: number | null;
-              shares_diluted: number | null;
-              ingested_at: string | null;
-            }> | null
-          >;
-        };
-      };
-    }
-  )
-    .eq("instrument_id", instrumentId)
-    .order("period_end", { ascending: true })
-    .limit(40)) as Awaited<
-    QueryResult<
-      Array<{
-        period_end: string;
-        revenue: number | null;
-        capex: number | null;
-        free_cash_flow: number | null;
-        net_debt: number | null;
-        shares_diluted: number | null;
-        ingested_at: string | null;
-      }> | null
-    >
-  >;
-  if (error) throw new Error(error.message);
-  return (data ?? []).map((row) => ({
-    periodEnd: row.period_end,
-    revenue: row.revenue,
-    capex: row.capex,
-    freeCashFlow: row.free_cash_flow,
-    netDebt: row.net_debt,
-    sharesDiluted: row.shares_diluted,
-    ingestedAt: row.ingested_at,
-  }));
-}
-
-async function loadCloses(
-  db: AdminDb,
-  instrumentId: string,
-): Promise<{ closes: number[]; lastBarDate: string | null }> {
-  const { data, error } = (await (
-    table(db, "market_bars").select("bar_date, close, adj_close") as {
-      eq: (column: string, value: string) => {
-        order: (
-          column: string,
-          opts: { ascending: boolean },
-        ) => {
-          limit: (count: number) => QueryResult<
-            Array<{
-              bar_date: string;
-              close: number | null;
-              adj_close: number | null;
-            }> | null
-          >;
-        };
-      };
-    }
-  )
-    .eq("instrument_id", instrumentId)
-    .order("bar_date", { ascending: false })
-    .limit(BAR_WINDOW)) as Awaited<
-    QueryResult<
-      Array<{
-        bar_date: string;
-        close: number | null;
-        adj_close: number | null;
-      }> | null
-    >
-  >;
-  if (error) throw new Error(error.message);
-  const rows = [...(data ?? [])].reverse();
-  const closes: number[] = [];
-  for (const row of rows) {
-    const close = row.adj_close ?? row.close;
-    if (close == null) continue;
-    closes.push(Number(close));
-  }
-  return {
-    closes,
-    lastBarDate: rows[rows.length - 1]?.bar_date ?? null,
-  };
-}
-
-async function loadMarketCap(
-  db: AdminDb,
-  instrumentId: string,
-): Promise<number | null> {
-  const { data, error } = (await (
-    table(db, "market_caps").select("market_cap") as {
-      eq: (column: string, value: string) => {
-        order: (
-          column: string,
-          opts: { ascending: boolean },
-        ) => {
-          limit: (count: number) => QueryResult<
-            Array<{ market_cap: number }> | null
-          >;
-        };
-      };
-    }
-  )
-    .eq("instrument_id", instrumentId)
-    .order("as_of_date", { ascending: false })
-    .limit(1)) as Awaited<
-    QueryResult<Array<{ market_cap: number }> | null>
-  >;
-  if (error) throw new Error(error.message);
-  const row = data?.[0];
-  return row == null ? null : Number(row.market_cap);
 }
 
 async function loadPrevious(
@@ -239,7 +108,16 @@ async function loadCalendarThrough(db: AdminDb): Promise<string | null> {
   return (bar as { bar_date: string } | null)?.bar_date ?? null;
 }
 
-export async function scoreInflectionUniverse(): Promise<ScoreInflectionResult> {
+/**
+ * Score the research universe as it stands at the last completed session.
+ *
+ * Inputs come from `sliceScorerInputsAsOf`, the same function a replay uses, so
+ * "today" is just the last slice and a backtest cannot silently be measuring a
+ * different scorer. Passing `asOf` scores an earlier date without writing.
+ */
+export async function scoreInflectionUniverse(options?: {
+  asOf?: string;
+}): Promise<ScoreInflectionResult> {
   const db = createAdminDb();
   const instruments = await listWatchInstruments(db, { researchOnly: true });
   const failed: string[] = [];
@@ -247,6 +125,10 @@ export async function scoreInflectionUniverse(): Promise<ScoreInflectionResult> 
   let transitions = 0;
   const calculatedAt = new Date().toISOString();
   const calendarThrough = await loadCalendarThrough(db);
+  // Bound every read at the session being scored. Without an override that is
+  // the newest session on the benchmark calendar, which is what the live job
+  // has always used.
+  const runAsOf = options?.asOf ?? calendarThrough ?? calculatedAt.slice(0, 10);
 
   console.log(
     `[score:inflection] ${instruments.length} research names (${INFLECTION_SCORER_KEY})`,
@@ -254,20 +136,19 @@ export async function scoreInflectionUniverse(): Promise<ScoreInflectionResult> 
 
   for (const instrument of instruments) {
     try {
-      const [quarters, price, marketCap, previous] = await Promise.all([
-        loadQuarters(db, instrument.id),
-        loadCloses(db, instrument.id),
-        loadMarketCap(db, instrument.id),
+      const [history, previous] = await Promise.all([
+        loadInstrumentHistory(db, instrument.id),
         loadPrevious(db, instrument.id),
       ]);
-      const asOf = price.lastBarDate ?? calculatedAt.slice(0, 10);
+      const inputs = sliceScorerInputsAsOf(history, runAsOf);
+      const asOf = inputs.lastBarDate ?? runAsOf;
       const snapshot = scoreInflection({
-        quarters,
-        closes: price.closes,
-        marketCap,
+        quarters: inputs.quarters,
+        closes: inputs.closes,
+        marketCap: inputs.marketCap,
         asOf,
         calculatedAt,
-        priceThrough: price.lastBarDate,
+        priceThrough: inputs.lastBarDate,
         calendarThrough,
         previous:
           previous.hysteresis ??

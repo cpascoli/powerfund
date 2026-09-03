@@ -1,6 +1,7 @@
 import { ingestBars } from "./ingest/bars";
 import { ingestFundamentals } from "./ingest/fundamentals";
 import { scoreInflectionUniverse } from "./score/inflection";
+import { printReplay, replayInflection } from "./score/replay";
 import { snapshotPortfolio } from "./snapshot/portfolio";
 import "./env";
 
@@ -11,7 +12,8 @@ Usage:
   pnpm --filter @powerfund/worker ingest:bars [-- --days=365 --symbols=SPY,QQQ]
   pnpm --filter @powerfund/worker ingest:fundamentals [-- --symbols=SKHY,TSM]
   pnpm --filter @powerfund/worker ingest:all
-  pnpm --filter @powerfund/worker score:inflection
+  pnpm --filter @powerfund/worker score:inflection [-- --asOf=2026-06-30]
+  pnpm --filter @powerfund/worker score:replay [-- --from=2022-01-01 --every=21 --symbols=NVDA,VRT]
   pnpm --filter @powerfund/worker snapshot:portfolio
   pnpm --filter @powerfund/worker snapshot:verify   (dry run — rebuild and diff, write nothing)
 
@@ -68,8 +70,22 @@ async function main() {
       break;
     }
     case "score": {
-      const score = await scoreInflectionUniverse();
+      const asOf = readFlag("asOf", "");
+      const score = await scoreInflectionUniverse(
+        asOf ? { asOf } : undefined,
+      );
       if (score.failed.length > 0) process.exitCode = 1;
+      break;
+    }
+    case "replay": {
+      const result = await replayInflection({
+        from: readFlag("from", "") || undefined,
+        to: readFlag("to", "") || undefined,
+        everyNSessions: Number(readFlag("every", "21")),
+        symbols,
+        includeStale: process.argv.includes("--includeStale"),
+      });
+      printReplay(result);
       break;
     }
     case "snapshot": {

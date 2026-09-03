@@ -16,7 +16,8 @@
     "typecheck": "tsc --noEmit",
     "lint": "echo \"no lint configured\"",
     "snapshot:verify": "tsx src/index.ts snapshot:verify",
-    "smoke:vintages": "tsx src/smoke-vintages.ts"
+    "smoke:vintages": "tsx src/smoke-vintages.ts",
+    "score:replay": "tsx src/index.ts replay"
   },
   "dependencies": {
     "@powerfund/data-clients": "workspace:*",
