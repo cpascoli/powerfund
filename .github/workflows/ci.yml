@@ -50,9 +50,15 @@ jobs:
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
+      # Pinned, not `latest`: resolving "latest" queries the GitHub releases API,
+      # which is rate-limited on shared runners and took the job down before it
+      # ran anything. A pin also means the CLI cannot change under CI silently.
+      # The token authenticates the download against a much higher limit.
       - uses: supabase/setup-cli@v1
         with:
-          version: latest
+          version: 2.113.0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       # Postgres only — the full stack is not needed to apply migrations.
       - run: supabase db start
       # Applies every migration in order, then the seed, from scratch. A
