@@ -15,7 +15,8 @@
     "start": "node dist/index.js",
     "typecheck": "tsc --noEmit",
     "lint": "echo \"no lint configured\"",
-    "snapshot:verify": "tsx src/index.ts snapshot:verify"
+    "snapshot:verify": "tsx src/index.ts snapshot:verify",
+    "smoke:vintages": "tsx src/smoke-vintages.ts"
   },
   "dependencies": {
     "@powerfund/data-clients": "workspace:*",

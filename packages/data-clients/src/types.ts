@@ -39,6 +39,12 @@ export type LiveQuote = {
 export type QuarterlyFundamentals = {
   periodEnd: string;
   fiscalPeriod: string | null;
+  /**
+   * Filing date reported by the vendor, when there is one. SEC companyfacts
+   * carries `filed` per fact; Yahoo publishes period ends only. Null means the
+   * date must be estimated — see `resolveKnowableAt` in @powerfund/domain.
+   */
+  filedAt: string | null;
   revenue: number | null;
   freeCashFlow: number | null;
   capex: number | null;

@@ -317,7 +317,10 @@ export async function saveDossierVersioned(
     p_fields: fields as unknown as Json,
     p_snapshot: snapshot as unknown as Json,
     p_change_reason: reason,
-    p_expected_version: input.expected_version ?? null,
+    // The function defaults this to null, so omitting it and passing null are
+    // the same call. `undefined` satisfies both the older and newer generated
+    // signatures for the argument.
+    p_expected_version: input.expected_version ?? undefined,
   });
 
   if (error) {

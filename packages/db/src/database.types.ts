@@ -7,11 +7,6 @@ export type Json =
   | Json[]
 
 export type Database = {
-  // Allows to automatically instantiate createClient with right options
-  // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
-  __InternalSupabase: {
-    PostgrestVersion: "14.15"
-  }
   graphql_public: {
     Tables: {
       [_ in never]: never
@@ -39,24 +34,6 @@ export type Database = {
   }
   public: {
     Tables: {
-      app_users: {
-        Row: {
-          created_at: string
-          role: Database["public"]["Enums"]["app_role"]
-          user_id: string
-        }
-        Insert: {
-          created_at?: string
-          role?: Database["public"]["Enums"]["app_role"]
-          user_id: string
-        }
-        Update: {
-          created_at?: string
-          role?: Database["public"]["Enums"]["app_role"]
-          user_id?: string
-        }
-        Relationships: []
-      }
       agent_idempotency_keys: {
         Row: {
           created_at: string
@@ -87,6 +64,24 @@ export type Database = {
           request_hash?: string
           response?: Json
           status_code?: number
+        }
+        Relationships: []
+      }
+      app_users: {
+        Row: {
+          created_at: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id?: string
         }
         Relationships: []
       }
@@ -424,11 +419,87 @@ export type Database = {
         Row: {
           capex: number | null
           currency: string
+          filed_at: string | null
           fiscal_period: string | null
           free_cash_flow: number | null
           ingested_at: string
           instrument_id: string
+          knowable_at: string | null
+          knowable_basis: string | null
           net_debt: number | null
+          period_end: string
+          raw: Json
+          revenue: number | null
+          shares_diluted: number | null
+          source: string
+          vintage_id: string | null
+        }
+        Insert: {
+          capex?: number | null
+          currency?: string
+          filed_at?: string | null
+          fiscal_period?: string | null
+          free_cash_flow?: number | null
+          ingested_at?: string
+          instrument_id: string
+          knowable_at?: string | null
+          knowable_basis?: string | null
+          net_debt?: number | null
+          period_end: string
+          raw?: Json
+          revenue?: number | null
+          shares_diluted?: number | null
+          source: string
+          vintage_id?: string | null
+        }
+        Update: {
+          capex?: number | null
+          currency?: string
+          filed_at?: string | null
+          fiscal_period?: string | null
+          free_cash_flow?: number | null
+          ingested_at?: string
+          instrument_id?: string
+          knowable_at?: string | null
+          knowable_basis?: string | null
+          net_debt?: number | null
+          period_end?: string
+          raw?: Json
+          revenue?: number | null
+          shares_diluted?: number | null
+          source?: string
+          vintage_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fundamentals_quarterly_instrument_id_fkey"
+            columns: ["instrument_id"]
+            isOneToOne: false
+            referencedRelation: "instruments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fundamentals_quarterly_vintage_id_fkey"
+            columns: ["vintage_id"]
+            isOneToOne: false
+            referencedRelation: "fundamentals_vintages"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      fundamentals_vintages: {
+        Row: {
+          capex: number | null
+          currency: string
+          filed_at: string | null
+          fiscal_period: string | null
+          free_cash_flow: number | null
+          id: string
+          instrument_id: string
+          knowable_at: string
+          knowable_basis: string
+          net_debt: number | null
+          observed_at: string
           period_end: string
           raw: Json
           revenue: number | null
@@ -438,11 +509,15 @@ export type Database = {
         Insert: {
           capex?: number | null
           currency?: string
+          filed_at?: string | null
           fiscal_period?: string | null
           free_cash_flow?: number | null
-          ingested_at?: string
+          id?: string
           instrument_id: string
+          knowable_at: string
+          knowable_basis: string
           net_debt?: number | null
+          observed_at?: string
           period_end: string
           raw?: Json
           revenue?: number | null
@@ -452,11 +527,15 @@ export type Database = {
         Update: {
           capex?: number | null
           currency?: string
+          filed_at?: string | null
           fiscal_period?: string | null
           free_cash_flow?: number | null
-          ingested_at?: string
+          id?: string
           instrument_id?: string
+          knowable_at?: string
+          knowable_basis?: string
           net_debt?: number | null
+          observed_at?: string
           period_end?: string
           raw?: Json
           revenue?: number | null
@@ -465,7 +544,7 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "fundamentals_quarterly_instrument_id_fkey"
+            foreignKeyName: "fundamentals_vintages_instrument_id_fkey"
             columns: ["instrument_id"]
             isOneToOne: false
             referencedRelation: "instruments"
@@ -1219,11 +1298,46 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      fundamentals_as_of: {
+        Args: {
+          p_as_of: string
+          p_include_estimated?: boolean
+          p_instrument_id: string
+        }
+        Returns: {
+          capex: number | null
+          currency: string
+          filed_at: string | null
+          fiscal_period: string | null
+          free_cash_flow: number | null
+          id: string
+          instrument_id: string
+          knowable_at: string
+          knowable_basis: string
+          net_debt: number | null
+          observed_at: string
+          period_end: string
+          raw: Json
+          revenue: number | null
+          shares_diluted: number | null
+          source: string
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "fundamentals_vintages"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
+      fundamentals_filed_at: {
+        Args: { p_period_end: string; p_raw: Json }
+        Returns: string
+      }
       is_operator: { Args: never; Returns: boolean }
       save_dossier_versioned: {
         Args: {
           p_change_reason: string
-          p_expected_version?: number | null
+          p_expected_version?: number
           p_fields: Json
           p_instrument_id: string
           p_snapshot: Json
@@ -1265,6 +1379,7 @@ export type Database = {
       planned_action_status: "pending" | "deferred" | "confirmed" | "cancelled"
       planned_action_type: "buy" | "add" | "reduce" | "sell"
       position_side: "long" | "short"
+      position_status: "open" | "closed"
       review_output_kind: "dossier_version" | "decision" | "planned_action"
       review_task_priority: "low" | "normal" | "high" | "urgent"
       review_task_scope: "company" | "theme" | "portfolio" | "macro"
@@ -1275,7 +1390,6 @@ export type Database = {
         | "completed"
         | "deferred"
         | "cancelled"
-      position_status: "open" | "closed"
       signal_source: "manual" | "scorer"
       signal_status: "new" | "reviewing" | "acted" | "dismissed"
       transaction_kind:
@@ -1443,6 +1557,7 @@ export const Constants = {
       planned_action_status: ["pending", "deferred", "confirmed", "cancelled"],
       planned_action_type: ["buy", "add", "reduce", "sell"],
       position_side: ["long", "short"],
+      position_status: ["open", "closed"],
       review_output_kind: ["dossier_version", "decision", "planned_action"],
       review_task_priority: ["low", "normal", "high", "urgent"],
       review_task_scope: ["company", "theme", "portfolio", "macro"],
@@ -1454,7 +1569,6 @@ export const Constants = {
         "deferred",
         "cancelled",
       ],
-      position_status: ["open", "closed"],
       signal_source: ["manual", "scorer"],
       signal_status: ["new", "reviewing", "acted", "dismissed"],
       transaction_kind: [
@@ -1470,3 +1584,4 @@ export const Constants = {
     },
   },
 } as const
+

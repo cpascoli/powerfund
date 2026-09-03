@@ -155,7 +155,21 @@ function mergeSecAndYahoo(
   secRows: QuarterlyFundamentals[],
   yahooRows: QuarterlyFundamentals[],
 ): QuarterlyFundamentals[] {
+  // SEC now returns a vintage per filing. Yahoo has no filing dates and only
+  // ever reports the current figures, so it may fill holes in the newest
+  // observation of a quarter — never in the historical ones. Backfilling
+  // today's Yahoo numbers into a two-year-old vintage would rewrite what we
+  // knew then, which is the bias this whole table exists to remove.
+  const newestByPeriod = new Map<string, QuarterlyFundamentals>();
+  for (const row of secRows) {
+    const current = newestByPeriod.get(row.periodEnd);
+    if (current == null || (row.filedAt ?? "") >= (current.filedAt ?? "")) {
+      newestByPeriod.set(row.periodEnd, row);
+    }
+  }
+
   const merged = secRows.map((row) => {
+    if (newestByPeriod.get(row.periodEnd) !== row) return row;
     if (!isSparseQuarter(row)) return row;
     const yahoo = nearestQuarter(row.periodEnd, yahooRows);
     return yahoo ? fillSparseQuarter(row, yahoo) : row;

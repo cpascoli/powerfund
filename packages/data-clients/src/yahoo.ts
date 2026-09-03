@@ -274,6 +274,9 @@ export function fundamentalsFromYahooRow(
   return {
     periodEnd,
     fiscalPeriod: existing?.fiscalPeriod ?? null,
+    // Yahoo publishes period ends, never filing dates. Keep an SEC filing date
+    // if this row is filling holes in one; otherwise the date must be estimated.
+    filedAt: existing?.filedAt ?? null,
     revenue: revenue ?? existing?.revenue ?? null,
     freeCashFlow: fcf ?? existing?.freeCashFlow ?? null,
     capex: capex ?? existing?.capex ?? null,
