@@ -65,7 +65,7 @@ async function loadTickerCiks(): Promise<Map<string, number>> {
 function collectUnits(
   facts: SecCompanyFacts,
   keys: string[],
-  unitName: "USD" | "shares",
+  unitName: string,
 ): SecFactUnit[] {
   const gaap = facts.facts?.["us-gaap"] ?? {};
   const out: SecFactUnit[] = [];
@@ -74,6 +74,36 @@ function collectUnits(
     if (units?.length) out.push(...units);
   }
   return out;
+}
+
+/**
+ * Currency the filer actually reports in.
+ *
+ * Reading `units.USD` unconditionally and stamping the row `USD` was wrong for
+ * anyone who does not report in dollars — Nebius files `Revenues` in RUB — and
+ * silently produced figures a thousand times off with a label saying otherwise.
+ * Pick the unit carrying the most revenue facts and use it for every monetary
+ * concept, so one row is never assembled from two currencies.
+ */
+function reportingCurrency(facts: SecCompanyFacts, revenueKeys: string[]): string {
+  const gaap = facts.facts?.["us-gaap"] ?? {};
+  const counts = new Map<string, number>();
+  for (const key of revenueKeys) {
+    for (const [unit, values] of Object.entries(gaap[key]?.units ?? {})) {
+      if (unit === "shares" || unit.includes("/")) continue;
+      counts.set(unit, (counts.get(unit) ?? 0) + (values?.length ?? 0));
+    }
+  }
+  let best = "USD";
+  let bestCount = 0;
+  for (const [unit, count] of counts) {
+    // Prefer USD on a tie: a convenience translation is still dollars.
+    if (count > bestCount || (count === bestCount && unit === "USD")) {
+      best = unit;
+      bestCount = count;
+    }
+  }
+  return best;
 }
 
 function daySpan(start: string | undefined, end: string | undefined): number | null {
@@ -254,6 +284,7 @@ function buildRow(
   periodEnd: string,
   filedAt: string | null,
   cik: number,
+  currency: string,
   units: PeriodUnits,
 ): QuarterlyFundamentals | null {
   if (units.revenue == null && units.ocf == null && units.capex == null) {
@@ -281,7 +312,7 @@ function buildRow(
     netDebt,
     sharesDiluted:
       units.sharesDiluted?.val ?? units.sharesOutstanding?.val ?? null,
-    currency: "USD",
+    currency,
     source: "sec",
     raw: {
       cik,
@@ -318,24 +349,23 @@ export async function fetchSecQuarterlyFundamentals(
 
   const facts = (await response.json()) as SecCompanyFacts;
 
+  const REVENUE_KEYS = [
+    "RevenueFromContractWithCustomerExcludingAssessedTax",
+    "Revenues",
+    "SalesRevenueNet",
+    "RevenueFromContractWithCustomerIncludingAssessedTax",
+  ];
+  const currency = reportingCurrency(facts, REVENUE_KEYS);
+
   const revenue = unitsByPeriod(
-    collectUnits(
-      facts,
-      [
-        "RevenueFromContractWithCustomerExcludingAssessedTax",
-        "Revenues",
-        "SalesRevenueNet",
-        "RevenueFromContractWithCustomerIncludingAssessedTax",
-      ],
-      "USD",
-    ),
+    collectUnits(facts, REVENUE_KEYS, currency),
     "duration",
   );
   const ocf = unitsByPeriod(
     collectUnits(
       facts,
       ["NetCashProvidedByUsedInOperatingActivities"],
-      "USD",
+      currency,
     ),
     "duration",
   );
@@ -346,19 +376,19 @@ export async function fetchSecQuarterlyFundamentals(
         "PaymentsToAcquireProductiveAssets",
         "PaymentsToAcquirePropertyPlantAndEquipment",
       ],
-      "USD",
+      currency,
     ),
     "duration",
   );
   const longDebt = unitsByPeriod(
-    collectUnits(facts, ["LongTermDebt", "LongTermDebtNoncurrent"], "USD"),
+    collectUnits(facts, ["LongTermDebt", "LongTermDebtNoncurrent"], currency),
     "instant",
   );
   const shortDebt = unitsByPeriod(
     collectUnits(
       facts,
       ["ShortTermBorrowings", "LongTermDebtCurrent", "CommercialPaper"],
-      "USD",
+      currency,
     ),
     "instant",
   );
@@ -369,7 +399,7 @@ export async function fetchSecQuarterlyFundamentals(
         "CashAndCashEquivalentsAtCarryingValue",
         "CashCashEquivalentsAndShortTermInvestments",
       ],
-      "USD",
+      currency,
     ),
     "instant",
   );
@@ -413,7 +443,7 @@ export async function fetchSecQuarterlyFundamentals(
     // No filing dates at all — emit the single best view and let the caller
     // estimate when it became knowable.
     if (filings.length === 0) {
-      const row = buildRow(periodEnd, null, cik, {
+      const row = buildRow(periodEnd, null, cik, currency, {
         revenue: unitAsOf(revenue.get(periodEnd), "9999-12-31"),
         ocf: unitAsOf(ocf.get(periodEnd), "9999-12-31"),
         capex: unitAsOf(capex.get(periodEnd), "9999-12-31"),
@@ -429,7 +459,7 @@ export async function fetchSecQuarterlyFundamentals(
 
     let previous: string | null = null;
     for (const filed of filings) {
-      const row = buildRow(periodEnd, filed, cik, {
+      const row = buildRow(periodEnd, filed, cik, currency, {
         revenue: unitAsOf(revenue.get(periodEnd), filed),
         ocf: unitAsOf(ocf.get(periodEnd), filed),
         capex: unitAsOf(capex.get(periodEnd), filed),

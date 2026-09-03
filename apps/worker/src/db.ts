@@ -16,6 +16,8 @@ export type WatchInstrument = {
   symbol: string;
   dataSymbol: string | null;
   isBenchmark: boolean;
+  /** Currency the shares trade in — the currency a market cap is quoted in. */
+  currency: string | null;
 };
 
 export async function listWatchInstruments(
@@ -24,7 +26,7 @@ export async function listWatchInstruments(
 ): Promise<WatchInstrument[]> {
   const { data, error } = await db
     .from("instruments")
-    .select("id, symbol, data_symbol, is_benchmark")
+    .select("id, symbol, data_symbol, is_benchmark, currency")
     .neq("status", "archived")
     .order("symbol", { ascending: true });
 
@@ -37,11 +39,13 @@ export async function listWatchInstruments(
     symbol: string;
     data_symbol: string | null;
     is_benchmark: boolean;
+    currency: string | null;
   }> | null) ?? []).map((row) => ({
     id: row.id,
     symbol: row.symbol,
     dataSymbol: row.data_symbol,
     isBenchmark: row.is_benchmark,
+    currency: row.currency,
   }));
 
   return options?.researchOnly

@@ -46,6 +46,7 @@ type VintageRow = {
   free_cash_flow: number | null;
   net_debt: number | null;
   shares_diluted: number | null;
+  currency: string | null;
 };
 
 type BarRow = {
@@ -66,7 +67,7 @@ export async function loadInstrumentHistory(
         db
           .from("fundamentals_vintages")
           .select(
-            "period_end, knowable_at, observed_at, revenue, capex, free_cash_flow, net_debt, shares_diluted",
+            "period_end, knowable_at, observed_at, revenue, capex, free_cash_flow, net_debt, shares_diluted, currency",
           )
           .eq("instrument_id", instrumentId)
           .order("period_end", { ascending: true })
@@ -116,6 +117,7 @@ export async function loadInstrumentHistory(
     sharesDiluted:
       row.shares_diluted == null ? null : Number(row.shares_diluted),
     ingestedAt: row.observed_at,
+    currency: row.currency,
   }));
 
   const bars: HistoricalBar[] = [];

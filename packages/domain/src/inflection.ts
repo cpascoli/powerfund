@@ -100,6 +100,63 @@ export type InflectionInput = {
   thresholds?: InflectionThresholds;
 };
 
+
+/**
+ * Why the scorer had nothing to say, and what it is waiting for.
+ *
+ * `insufficient_data` on its own conflates two very different situations: a name
+ * we started following recently and will be able to score once a few more prints
+ * land, and one where nothing we ingest publishes quarterly figures at all. The
+ * first resolves itself on a predictable schedule; the second never does. An
+ * operator reading a watchlist needs to know which.
+ */
+export type DataGapReason =
+  | "no_fundamentals"
+  | "short_fundamentals"
+  | "short_price_history";
+
+export type DataGap = {
+  reasons: DataGapReason[];
+  /** Year-on-year comparisons available, and how many the growth flag needs. */
+  yoyHeld: number;
+  yoyNeeded: number;
+  yoyShort: number;
+  closesHeld: number;
+  closesNeeded: number;
+  closesShort: number;
+  /**
+   * Rough wait before the gap closes, assuming prints keep arriving quarterly
+   * and the name keeps trading. Null when nothing is accumulating — no
+   * fundamentals reach us at all, and waiting will not help.
+   */
+  estimatedMonthsToResolve: number | null;
+};
+
+/** One line for a watchlist: what is missing and roughly how long it takes. */
+export function dataGapLabel(gap: DataGap | null): string | null {
+  if (gap == null) return null;
+  if (gap.reasons.includes("no_fundamentals")) {
+    return "No quarterly financials from any source — waiting will not fix this";
+  }
+  const parts: string[] = [];
+  if (gap.yoyShort > 0) {
+    parts.push(
+      `${gap.yoyShort} more quarterly print${gap.yoyShort === 1 ? "" : "s"}`,
+    );
+  }
+  if (gap.closesShort > 0) {
+    parts.push(
+      `${gap.closesShort} more session${gap.closesShort === 1 ? "" : "s"} of price history`,
+    );
+  }
+  if (parts.length === 0) return "Inputs are stale rather than missing";
+  const eta =
+    gap.estimatedMonthsToResolve == null
+      ? ""
+      : ` (about ${gap.estimatedMonthsToResolve} month${gap.estimatedMonthsToResolve === 1 ? "" : "s"})`;
+  return `Needs ${parts.join(" and ")}${eta}`;
+}
+
 export type InflectionSnapshot = {
   scorerKey: typeof INFLECTION_SCORER_KEY;
   scorerVersion: typeof INFLECTION_SCORER_VERSION;
@@ -115,6 +172,8 @@ export type InflectionSnapshot = {
   daysSincePeriodEnd: number | null;
   missing: string[];
   closesCount: number;
+  /** Set only when the setup is `insufficient_data`. */
+  dataGap: DataGap | null;
   growth: {
     flag: TrendFlag;
     latestYoyPct: number | null;
@@ -387,6 +446,55 @@ function triadRationale(
   return "Flags are relative to this name's own recent history, not a cross-sectional rank.";
 }
 
+
+/**
+ * What the scorer is short of, and roughly how long until it is not.
+ *
+ * Each new quarterly print adds one year-on-year comparison once five quarters
+ * exist, so the shortfall converts directly into prints and from there into
+ * months. A name with no fundamentals at all is a different case: nothing is
+ * accumulating, so no wait is quoted.
+ */
+function buildDataGap(args: {
+  quarters: FundamentalQuarter[];
+  yoyHeld: number;
+  closesHeld: number;
+  crowdingUnknown: boolean;
+  growthUnknown: boolean;
+  thresholds: InflectionThresholds;
+}): DataGap {
+  const t = args.thresholds;
+  const withRevenue = args.quarters.filter((row) => row.revenue != null).length;
+  const yoyNeeded = t.priorYoyCount + 1;
+  const yoyShort = args.growthUnknown
+    ? Math.max(0, yoyNeeded - args.yoyHeld)
+    : 0;
+  const closesShort = args.crowdingUnknown
+    ? Math.max(0, t.minClosesForPrice - args.closesHeld)
+    : 0;
+
+  const reasons: DataGapReason[] = [];
+  if (withRevenue === 0) reasons.push("no_fundamentals");
+  else if (yoyShort > 0) reasons.push("short_fundamentals");
+  if (closesShort > 0) reasons.push("short_price_history");
+
+  // Prints land about a quarter apart; sessions about 21 a month.
+  const monthsForQuarters = yoyShort * 3;
+  const monthsForCloses = Math.ceil(closesShort / 21);
+  const months = Math.max(monthsForQuarters, monthsForCloses);
+  return {
+    reasons,
+    yoyHeld: args.yoyHeld,
+    yoyNeeded,
+    yoyShort,
+    closesHeld: args.closesHeld,
+    closesNeeded: t.minClosesForPrice,
+    closesShort,
+    estimatedMonthsToResolve:
+      withRevenue === 0 || months === 0 ? null : months,
+  };
+}
+
 function classifySetup(args: {
   completeness: Completeness;
   fundamental: FundamentalState;
@@ -616,6 +724,17 @@ export function scoreInflection(input: InflectionInput): InflectionSnapshot {
     leverage: balanceSheet.flag,
   });
 
+  const dataGap = setup === "insufficient_data"
+    ? buildDataGap({
+        quarters,
+        yoyHeld: yoyRows.length,
+        closesHeld: input.closes.length,
+        crowdingUnknown: crowding.band === "unknown",
+        growthUnknown: growth.flag === "unknown",
+        thresholds: t,
+      })
+    : null;
+
   const bits = [triadRationale(growth.flag, intensity.flag, fcf.flag)];
   if (dilution.warning) {
     bits.push(
@@ -635,6 +754,10 @@ export function scoreInflection(input: InflectionInput): InflectionSnapshot {
   if (completeness === "insufficient") {
     bits.push(`Missing: ${missing.join(", ") || "core series"}.`);
   }
+  // Say what is missing *and* whether waiting fixes it, so a name nothing
+  // publishes quarterly is not left looking like one we merely started late on.
+  const gapLine = dataGapLabel(dataGap);
+  if (gapLine) bits.push(`${gapLine}.`);
 
   return {
     scorerKey: INFLECTION_SCORER_KEY,
@@ -651,6 +774,7 @@ export function scoreInflection(input: InflectionInput): InflectionSnapshot {
     daysSincePeriodEnd,
     missing,
     closesCount: input.closes.length,
+    dataGap,
     growth,
     intensity,
     fcf,

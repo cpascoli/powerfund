@@ -282,21 +282,48 @@ export function fundamentalsFromYahooRow(
     capex: capex ?? existing?.capex ?? null,
     netDebt: netDebt ?? existing?.netDebt ?? null,
     sharesDiluted: shares ?? existing?.sharesDiluted ?? null,
-    currency: existing?.currency ?? "USD",
+    currency: existing?.currency ?? null,
     source: "yahoo",
     raw: { ...(existing?.raw ?? {}), ...row },
   };
+}
+
+/**
+ * Currency a company reports its financials in, which is not always the currency
+ * its shares trade in: SK hynix quotes on Nasdaq in USD and reports in KRW, TSMC
+ * in USD and TWD, Cameco in USD and CAD. Stamping every row `USD` made those
+ * figures a thousand times off with a label claiming otherwise.
+ */
+export async function fetchYahooFinancialCurrency(
+  symbol: string,
+): Promise<string | null> {
+  try {
+    const quote = await yahooFinance.quote(symbol, {}, { validateResult: false });
+    const row = (Array.isArray(quote) ? quote[0] : quote) as
+      | { financialCurrency?: unknown }
+      | undefined;
+    const value = row?.financialCurrency;
+    return typeof value === "string" && value.trim().length > 0
+      ? value.trim().toUpperCase()
+      : null;
+  } catch {
+    return null;
+  }
 }
 
 export async function fetchYahooQuarterlyFundamentals(
   symbol: string,
   startDate = "2018-01-01",
 ): Promise<QuarterlyFundamentals[]> {
-  const rows = (await yahooFinance.fundamentalsTimeSeries(symbol, {
-    period1: startDate,
-    type: "quarterly",
-    module: "all",
-  })) as FundamentalsRow[];
+  const [rows, financialCurrency] = await Promise.all([
+    yahooFinance.fundamentalsTimeSeries(symbol, {
+      period1: startDate,
+      type: "quarterly",
+      module: "all",
+    }) as Promise<FundamentalsRow[]>,
+    // The timeseries rows carry no currency of their own.
+    fetchYahooFinancialCurrency(symbol),
+  ]);
 
   const byPeriod = new Map<string, QuarterlyFundamentals>();
 
@@ -304,7 +331,12 @@ export async function fetchYahooQuarterlyFundamentals(
     const periodEnd = toDateOnly(row.date);
     if (!periodEnd) continue;
     const next = fundamentalsFromYahooRow(row, byPeriod.get(periodEnd));
-    if (next) byPeriod.set(periodEnd, next);
+    if (next) {
+      byPeriod.set(periodEnd, {
+        ...next,
+        currency: next.currency ?? financialCurrency ?? "USD",
+      });
+    }
   }
 
   return [...byPeriod.values()].sort((a, b) =>

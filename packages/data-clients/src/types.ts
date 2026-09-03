@@ -50,7 +50,12 @@ export type QuarterlyFundamentals = {
   capex: number | null;
   netDebt: number | null;
   sharesDiluted: number | null;
-  currency: string;
+  /**
+   * Currency the figures are reported in — not the currency the shares trade
+   * in. Null when the vendor does not say; the ingest falls back to the book
+   * currency and the row should be treated with suspicion.
+   */
+  currency: string | null;
   source: string;
   raw: Record<string, unknown>;
 };

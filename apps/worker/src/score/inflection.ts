@@ -140,7 +140,9 @@ export async function scoreInflectionUniverse(options?: {
         loadInstrumentHistory(db, instrument.id),
         loadPrevious(db, instrument.id),
       ]);
-      const inputs = sliceScorerInputsAsOf(history, runAsOf);
+      const inputs = sliceScorerInputsAsOf(history, runAsOf, {
+        quoteCurrency: instrument.currency,
+      });
       const asOf = inputs.lastBarDate ?? runAsOf;
       const snapshot = scoreInflection({
         quarters: inputs.quarters,

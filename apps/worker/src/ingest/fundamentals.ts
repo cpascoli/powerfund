@@ -13,6 +13,10 @@ export type IngestFundamentalsResult = {
   newVintages: number;
   /** Quarters whose filing date had to be assumed because the vendor gives none. */
   estimatedFilings: number;
+  /** Rows the vendor gave no currency for; they fall back to the book currency. */
+  unknownCurrency: number;
+  /** Symbols reporting in something other than the book currency. */
+  foreignCurrency: Record<string, string>;
   failed: string[];
 };
 
@@ -32,6 +36,8 @@ export async function ingestFundamentals(options: {
   let succeeded = 0;
   let newVintages = 0;
   let estimatedFilings = 0;
+  let unknownCurrency = 0;
+  const foreignCurrency = new Map<string, string>();
 
   console.log(
     `[ingest:fundamentals] ${instruments.length} instruments (chain: sec+yahoo holes)`,
@@ -60,7 +66,9 @@ export async function ingestFundamentals(options: {
           capex: row.capex,
           net_debt: row.netDebt,
           shares_diluted: row.sharesDiluted,
-          currency: row.currency,
+          // A row whose currency the vendor never stated falls back to the book
+          // currency; `unknownCurrency` counts those so it stays visible.
+          currency: row.currency ?? "USD",
           source: row.source,
           raw: row.raw,
         };
@@ -77,6 +85,10 @@ export async function ingestFundamentals(options: {
       if (error) {
         throw new Error(error.message);
       }
+
+      const reported = payload.find((row) => row.currency !== "USD")?.currency;
+      if (reported) foreignCurrency.set(instrument.symbol, reported);
+      unknownCurrency += rows.filter((row) => row.currency == null).length;
 
       const added = data?.length ?? 0;
       const estimated = payload.filter(
@@ -107,6 +119,8 @@ export async function ingestFundamentals(options: {
     succeeded,
     newVintages,
     estimatedFilings,
+    unknownCurrency,
+    foreignCurrency: Object.fromEntries(foreignCurrency),
     failed,
   };
 }

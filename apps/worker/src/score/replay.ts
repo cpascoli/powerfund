@@ -108,7 +108,9 @@ export async function replayInflection(options?: {
     let previous: InflectionHysteresis | null = null;
 
     for (const date of dates) {
-      const inputs = sliceScorerInputsAsOf(history, date);
+      const inputs = sliceScorerInputsAsOf(history, date, {
+        quoteCurrency: instrument.currency,
+      });
       if (inputs.closes.length === 0) continue;
 
       const snapshot = scoreInflection({

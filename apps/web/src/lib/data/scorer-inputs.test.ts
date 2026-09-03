@@ -16,6 +16,7 @@ function quarter(
     periodEnd,
     knowableAt,
     observedAt,
+    currency: "USD",
     revenue,
     capex: null,
     freeCashFlow: null,
@@ -111,5 +112,43 @@ describe("forwardReturn", () => {
 
   it("returns null before the first bar", () => {
     expect(forwardReturn(HISTORY.bars, "2026-01-01", 1)).toBeNull();
+  });
+});
+
+describe("market cap comparability", () => {
+  const krwHistory: InstrumentHistory = {
+    ...HISTORY,
+    vintages: HISTORY.vintages.map((row) => ({ ...row, currency: "KRW" })),
+  };
+
+  it("withholds a market cap quoted in a different currency from the financials", () => {
+    // SK hynix trades on Nasdaq in USD and reports in KRW: net debt over market
+    // cap would be out by three orders of magnitude.
+    const inputs = sliceScorerInputsAsOf(krwHistory, "2026-09-01", {
+      quoteCurrency: "USD",
+    });
+    expect(inputs.fundamentalsCurrency).toBe("KRW");
+    expect(inputs.marketCapComparable).toBe(false);
+    expect(inputs.marketCap).toBeNull();
+  });
+
+  it("keeps the market cap when both are the same currency", () => {
+    const inputs = sliceScorerInputsAsOf(HISTORY, "2026-09-01", {
+      quoteCurrency: "usd",
+    });
+    expect(inputs.marketCapComparable).toBe(true);
+    expect(inputs.marketCap).toBe(900);
+  });
+
+  it("does not withhold when the reporting currency is unknown", () => {
+    const unknown: InstrumentHistory = {
+      ...HISTORY,
+      vintages: HISTORY.vintages.map((row) => ({ ...row, currency: null })),
+    };
+    const inputs = sliceScorerInputsAsOf(unknown, "2026-09-01", {
+      quoteCurrency: "USD",
+    });
+    expect(inputs.marketCapComparable).toBe(true);
+    expect(inputs.marketCap).toBe(900);
   });
 });
