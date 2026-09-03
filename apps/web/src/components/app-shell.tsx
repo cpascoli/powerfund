@@ -18,6 +18,13 @@ type NavGroup = {
   items: readonly NavItem[];
 };
 
+/**
+ * Surfaces built on the book. A viewer cannot read positions, cash, the ledger
+ * or the queue — RLS refuses — so linking them would only offer a zeroed book,
+ * which reads as "the fund is empty" rather than "this is not yours to see".
+ */
+const OPERATOR_ONLY_HREFS = new Set(["/briefing", "/portfolio"]);
+
 const NAV_GROUPS: readonly NavGroup[] = [
   {
     label: "Playbook",
@@ -54,8 +61,20 @@ function isCurrent(pathname: string, item: NavItem): boolean {
   return pathname === item.href || pathname.startsWith(`${item.href}/`);
 }
 
-export function AppShell({ children }: { children: ReactNode }) {
+export function AppShell({
+  operator,
+  children,
+}: {
+  operator: boolean;
+  children: ReactNode;
+}) {
   const pathname = usePathname();
+  const groups = operator
+    ? NAV_GROUPS
+    : NAV_GROUPS.map((group) => ({
+        ...group,
+        items: group.items.filter((item) => !OPERATOR_ONLY_HREFS.has(item.href)),
+      })).filter((group) => group.items.length > 0);
 
   if (pathname === "/login") {
     return <>{children}</>;
@@ -65,13 +84,13 @@ export function AppShell({ children }: { children: ReactNode }) {
     <div className="app-shell">
       <aside className="sidebar">
         <div className="brand">
-          <Link href="/briefing">
+          <Link href={operator ? "/briefing" : "/explore"}>
             <strong>Power Fund</strong>
             <span>Investment intelligence</span>
           </Link>
         </div>
         <nav className="nav" aria-label="Primary">
-          {NAV_GROUPS.map((group) => (
+          {groups.map((group) => (
             <div className="nav-group" key={group.label}>
               <p className="nav-group-label">{group.label}</p>
               {group.items.map((item) => {

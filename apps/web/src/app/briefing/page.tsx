@@ -23,6 +23,8 @@ import {
   type UpcomingItem,
   type UpcomingKindFilter,
 } from "@/lib/data/briefing";
+import { OperatorOnly } from "@/components/operator-only";
+import { isOperator } from "@/lib/auth/operator";
 import { listDecisions } from "@/lib/data/decisions";
 import { listSleeveDiagnosticRecords } from "@/lib/data/drawdown-diagnostic";
 import {
@@ -139,6 +141,12 @@ export default async function BriefingPage({
   const activeTab = parseTab(tab) ?? "dated";
   const kind = parseUpcomingKindFilter(kindRaw);
   const horizon = parseUpcomingHorizonFilter(whenRaw);
+
+  // Briefing is the operator's work inbox: NAV, mandate flags, the deployment
+  // queue and kill criteria all read the book, which a viewer cannot.
+  if (!(await isOperator())) {
+    return <OperatorOnly surface="Briefing" />;
+  }
 
   const [
     instruments,

@@ -25,6 +25,7 @@ import {
   buildDeploymentQueue,
   listOpenPlannedActions,
 } from "@/lib/data/planned-actions";
+import { OperatorOnly } from "@/components/operator-only";
 import { isOperator } from "@/lib/auth/operator";
 import { getOpenPortfolioBook, withLiveMarks } from "@/lib/data/portfolio";
 import { listInstrumentsWithThemes } from "@/lib/data/research";
@@ -114,6 +115,12 @@ export default async function PortfolioPage({
     confirm,
     sell,
   } = await searchParams;
+  // RLS returns no rows for a viewer, so every figure below would be zero.
+  // Refuse the surface instead of rendering an empty book as if it were real.
+  if (!(await isOperator())) {
+    return <OperatorOnly surface="Portfolio" />;
+  }
+
   const [
     operator,
     rawBook,

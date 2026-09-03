@@ -8,9 +8,11 @@ import { PublicShell } from "@/components/public-shell";
 
 export function SiteChrome({
   signedIn,
+  operator,
   children,
 }: {
   signedIn: boolean;
+  operator: boolean;
   children: ReactNode;
 }) {
   const pathname = usePathname();
@@ -23,5 +25,5 @@ export function SiteChrome({
     return <PublicShell signedIn={signedIn}>{children}</PublicShell>;
   }
 
-  return <AppShell>{children}</AppShell>;
+  return <AppShell operator={operator}>{children}</AppShell>;
 }

@@ -1,0 +1,68 @@
+# Gate on every push and pull request.
+#
+# Netlify builds and deploys straight from main, so until now the only thing
+# standing between a broken commit and production was remembering to run the
+# checks by hand. The SQL suite is a separate job because it needs a database:
+# it is the suite that has caught the real defects — the WHERE-less UPDATE that
+# broke every ledger write in production, and the vintage projection.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    name: Typecheck, tests, build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9.1.1
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm typecheck
+      - run: pnpm test
+      # The web build is what Netlify runs, and it typechecks the app a second
+      # way. A green build here means a push cannot break the deploy.
+      - run: pnpm --filter @powerfund/web build
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: https://example.supabase.co
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: build-only-placeholder
+
+  database:
+    name: Migrations and SQL suite
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: supabase/setup-cli@v1
+        with:
+          version: latest
+      # Postgres only — the full stack is not needed to apply migrations.
+      - run: supabase db start
+      # Applies every migration in order, then the seed, from scratch. A
+      # migration that only works against the current production schema fails
+      # here, which is what a fresh reset is for.
+      - run: supabase db reset
+      - name: Run SQL suites
+        run: |
+          for file in supabase/tests/*.sql; do
+            echo "-- $file"
+            docker exec -i "$(docker ps --format '{{.Names}}' | grep supabase_db)" \
+              psql -U postgres -d postgres -v ON_ERROR_STOP=1 < "$file" || exit 1
+          done

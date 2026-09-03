@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import { DM_Sans, Space_Grotesk } from "next/font/google";
 
 import { SiteChrome } from "@/components/site-chrome";
+import { isOperator } from "@/lib/auth/operator";
 import { getSessionUser } from "@/lib/supabase/server";
 
 import "./globals.css";
@@ -32,6 +33,7 @@ export default async function RootLayout({
   children: ReactNode;
 }>) {
   const user = await getSessionUser();
+  const operator = user != null && (await isOperator());
 
   return (
     <html lang="en" className={`${dmSans.variable} ${spaceGrotesk.variable}`}>
@@ -43,7 +45,9 @@ export default async function RootLayout({
           } as CSSProperties
         }
       >
-        <SiteChrome signedIn={user != null}>{children}</SiteChrome>
+        <SiteChrome signedIn={user != null} operator={operator}>
+          {children}
+        </SiteChrome>
       </body>
     </html>
   );

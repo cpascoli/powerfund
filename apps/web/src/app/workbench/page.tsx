@@ -8,6 +8,7 @@ import {
   isReturnWindow,
   type ReturnWindow,
 } from "@/lib/market/returns";
+import { isOperator } from "@/lib/auth/operator";
 import { getSessionUser } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
@@ -19,7 +20,11 @@ type PageProps = {
 export default async function WorkbenchPage({ searchParams }: PageProps) {
   const params = await searchParams;
   const signedIn = (await getSessionUser()) != null;
-  const view = params.view === "risk" && signedIn ? "risk" : "map";
+  // Risk reads the book — factor exposure, correlation and the capex stress are
+  // all computed from open positions. A viewer would get an empty matrix that
+  // looks like a fund holding nothing, so the map is the whole surface for them.
+  const operator = signedIn && (await isOperator());
+  const view = params.view === "risk" && operator ? "risk" : "map";
   const universe = await getWorkbenchUniverse();
   const initialTheme =
     params.theme &&
@@ -41,14 +46,14 @@ export default async function WorkbenchPage({ searchParams }: PageProps) {
           <p>
             Comparative views over the research universe. The map sizes by
             market cap
-            {signedIn
+            {operator
               ? "; Risk is the pulled-forward software Phase 3 slice — factor exposure, crowding, correlation, and the capex-pause stress."
               : "."}
           </p>
         </div>
       </header>
 
-      {signedIn ? (
+      {operator ? (
         <nav className="tab-nav" aria-label="Workbench views">
           <Link
             href="/workbench"
