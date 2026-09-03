@@ -234,6 +234,58 @@ begin
   raise notice 'PASS a quarter cannot be knowable before it ends';
 
   ---------------------------------------------------------------------------
+  -- Removing a vintage re-projects rather than stranding the projection
+  ---------------------------------------------------------------------------
+  -- Drop the newest observation of the March quarter; the projection must fall
+  -- back to the previous one instead of keeping a value nothing supports.
+  select id into v_vintage
+    from public.fundamentals_vintages
+   where instrument_id = v_nvda
+     and period_end = date '2026-03-31'
+   order by knowable_at desc
+   limit 1;
+  delete from public.fundamentals_vintages where id = v_vintage;
+
+  select revenue, vintage_id into v_rev, v_vintage
+    from public.fundamentals_quarterly
+   where instrument_id = v_nvda and period_end = date '2026-03-31';
+  if v_rev <> 95 then
+    raise exception
+      'FAIL reproject: after removing the newest vintage the projection shows %, expected 95', v_rev;
+  end if;
+  if v_vintage is null then
+    raise exception 'FAIL reproject: projection lost its link to a live vintage';
+  end if;
+
+  -- Remove every observation of the quarter: the projection row must go too.
+  delete from public.fundamentals_vintages
+   where instrument_id = v_nvda and period_end = date '2026-03-31';
+  select count(*) into v_count
+    from public.fundamentals_quarterly
+   where instrument_id = v_nvda and period_end = date '2026-03-31';
+  if v_count <> 0 then
+    raise exception 'FAIL reproject: projection kept a quarter with no observations';
+  end if;
+  raise notice 'PASS removing a vintage re-projects instead of stranding the row';
+
+  ---------------------------------------------------------------------------
+  -- reproject_fundamentals rebuilds the table from the vintages
+  ---------------------------------------------------------------------------
+  update public.fundamentals_quarterly
+     set revenue = 1, knowable_at = date '2099-01-01', vintage_id = null
+   where instrument_id = v_nvda and period_end = date '2026-06-30';
+  perform public.reproject_fundamentals();
+  select revenue, knowable_at into v_rev, v_filed
+    from public.fundamentals_quarterly
+   where instrument_id = v_nvda and period_end = date '2026-06-30';
+  if v_rev <> 50 or v_filed <> date '2026-09-28' then
+    raise exception
+      'FAIL reproject: rebuild left revenue % knowable %, expected 50 / 2026-09-28',
+      v_rev, v_filed;
+  end if;
+  raise notice 'PASS reproject_fundamentals rebuilds the projection from the vintages';
+
+  ---------------------------------------------------------------------------
   -- The backfill left no quarter without provenance
   ---------------------------------------------------------------------------
   select count(*) into v_count
