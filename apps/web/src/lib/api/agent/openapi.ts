@@ -206,6 +206,26 @@ const reviewQueueOk = jsonOkBody({
   properties: {
     as_of: { type: "string", format: "date-time" },
     marked_due: { type: "integer" },
+    filter: {
+      type: "object",
+      description: "The filter actually applied, echoed back.",
+      properties: {
+        status: { type: "string" },
+        scope: { type: "string" },
+        symbols: { type: "array", items: { type: "string" } },
+        themes: { type: "array", items: { type: "string" } },
+        completed_since: { type: "string" },
+        completed_before: { type: "string" },
+        limit: { type: "integer" },
+        order: { type: "string" },
+      },
+    },
+    returned: { type: "integer" },
+    truncated: {
+      type: "boolean",
+      description:
+        "More rows match than were returned. Raise limit or narrow the filter — a truncated history is a partial chain of reasoning.",
+    },
     tasks: { type: "array", items: reviewTaskSchema },
   },
 });
@@ -824,7 +844,7 @@ export function agentOpenApiDocument(origin: string) {
           operationId: "getReviewQueue",
           summary: "Review obligation queue",
           description:
-            "Lists review tasks, not trades. Evaluates pending triggers first and marks due. Use status=due or status=open. Distinct from planned_actions.",
+            "Review tasks and their history, not trades. status=open (default) is the work queue; status=completed is the record of what the book concluded. Filter by symbol, theme, scope, completed_since to load prior beliefs before a comparable review. Distinct from planned_actions.",
           scope: "powerfund:reviews:read",
           mutating: false,
           parameters: [
@@ -832,7 +852,7 @@ export function agentOpenApiDocument(origin: string) {
               name: "status",
               in: "query",
               description:
-                "Filter. due, pending, in_progress, completed, deferred, cancelled, open, or all. Default open.",
+                "due, pending, in_progress, completed, deferred, cancelled, open, or all. Comma-separate to combine. Default open.",
               schema: {
                 type: "string",
                 enum: [
@@ -848,10 +868,63 @@ export function agentOpenApiDocument(origin: string) {
               },
             },
             {
+              name: "scope",
+              in: "query",
+              description:
+                "Restrict to company, theme, macro or portfolio reviews. Portfolio is the book-level record: monthly passes, quarterly reviews, stress diagnostics and capital-phase gates.",
+              schema: {
+                type: "string",
+                enum: ["company", "theme", "macro", "portfolio"],
+              },
+            },
+            {
+              name: "symbol",
+              in: "query",
+              description:
+                "Ticker, or comma-separated tickers. Matches any review linked to the name, including a macro or theme review that merely listed it — those carry prior beliefs a company review should inherit.",
+              schema: { type: "string" },
+            },
+            {
+              name: "theme",
+              in: "query",
+              description:
+                "Theme slug or name, or a comma-separated list. Matches any review linked to the theme.",
+              schema: { type: "string" },
+            },
+            {
+              name: "completed_since",
+              in: "query",
+              description:
+                "Only reviews completed at or after this ISO date or datetime. A bare date means the start of that UTC day. Use the previous comparable review's completion date to read forward from it.",
+              schema: { type: "string" },
+            },
+            {
+              name: "completed_before",
+              in: "query",
+              description:
+                "Only reviews completed before this ISO date or datetime.",
+              schema: { type: "string" },
+            },
+            {
+              name: "limit",
+              in: "query",
+              description:
+                "Maximum tasks to return. Default 100, maximum 500. The response sets truncated when more exist.",
+              schema: { type: "integer", minimum: 1, maximum: 500, default: 100 },
+            },
+            {
+              name: "order",
+              in: "query",
+              description:
+                "asc or desc. Defaults to desc for a completed-only query (newest first, so limit gives you the most recent) and asc otherwise.",
+              schema: { type: "string", enum: ["asc", "desc"] },
+            },
+            {
               name: "evaluate",
               in: "query",
-              description: "If true, mark satisfied pending tasks due before listing. Default true.",
-              schema: { type: "boolean", default: true },
+              description:
+                "If true, mark satisfied pending tasks due before listing. Defaults to true, except on a completed-only query where it defaults to false because reading history should not mutate the queue.",
+              schema: { type: "boolean" },
             },
           ],
           responses: {

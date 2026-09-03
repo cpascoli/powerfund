@@ -1,23 +1,19 @@
-import {
-  OPEN_REVIEW_TASK_STATUSES,
-  isReviewTaskStatus,
-  type ReviewTaskStatus,
-} from "@powerfund/domain";
+import { type ReviewTaskStatus } from "@powerfund/domain";
 
-import { validationError } from "@/lib/api/agent/errors";
 import type { DbClient } from "@/lib/supabase/db";
 
 import { evaluateStoredReviewTriggers } from "./evaluate";
 import {
+  describeReviewQueueFilter,
+  parseReviewQueueFilter,
+  type ReviewQueueFilter,
+} from "./filter";
+import {
   hydrateReviewTasks,
   listReviewTaskRows,
+  reviewTaskIdsFor,
   type ReviewTaskRecord,
 } from "./records";
-
-export type ReviewQueueQuery = {
-  status?: string | null;
-  evaluate?: boolean;
-};
 
 export type ReviewRadarItem = {
   id: string;
@@ -51,40 +47,63 @@ function toRadar(task: ReviewTaskRecord): ReviewRadarItem {
   };
 }
 
-function parseStatuses(value: string | null | undefined): ReviewTaskStatus[] {
-  if (value == null || value.trim().length === 0 || value === "open") {
-    return [...OPEN_REVIEW_TASK_STATUSES];
-  }
-  if (value === "all") {
-    return [];
-  }
-  if (!isReviewTaskStatus(value)) {
-    throw validationError("Invalid status filter.");
-  }
-  return [value];
-}
-
+/**
+ * Read the queue, or read its history.
+ *
+ * Completed outcomes are the record of what the book believed at each point —
+ * the 30 August diagnostic concluding that 81% of losses sat in one factor, the
+ * September pass holding the baseline, the ranking that deployed nothing. The
+ * operating process requires loading the relevant ones before completing a
+ * comparable review, so this has to answer "the last five touching CRDO"
+ * without returning every row ever written.
+ */
 export async function getReviewQueue(
   supabase: DbClient,
-  query: ReviewQueueQuery = {},
+  filter: ReviewQueueFilter,
 ) {
   const asOf = new Date();
-  const markedDue =
-    query.evaluate === false
-      ? 0
-      : await evaluateStoredReviewTriggers(supabase, asOf);
-  const statuses = parseStatuses(query.status);
+  const markedDue = filter.evaluate
+    ? await evaluateStoredReviewTriggers(supabase, asOf)
+    : 0;
+
+  const linkedIds = await reviewTaskIdsFor(supabase, {
+    symbols: filter.symbols,
+    themes: filter.themes,
+  });
+
+  // Ask for one more than requested so the caller learns there is more history
+  // rather than silently seeing a truncated chain of reasoning.
   const rows = await listReviewTaskRows(
     supabase,
-    statuses.length > 0 ? statuses : undefined,
+    filter.statuses.length > 0 ? filter.statuses : undefined,
+    {
+      scope: filter.scope,
+      ids: linkedIds ?? undefined,
+      completedSince: filter.completedSince,
+      completedBefore: filter.completedBefore,
+      limit: filter.limit + 1,
+      order: filter.order,
+      orderBy: filter.historical ? "completed_at" : "queue",
+    },
   );
-  const tasks = await hydrateReviewTasks(supabase, rows);
+
+  const truncated = rows.length > filter.limit;
+  const tasks = await hydrateReviewTasks(
+    supabase,
+    truncated ? rows.slice(0, filter.limit) : rows,
+  );
+
   return {
     as_of: asOf.toISOString(),
     marked_due: markedDue,
+    filter: describeReviewQueueFilter(filter),
+    returned: tasks.length,
+    truncated,
     tasks,
   };
 }
+
+export { parseReviewQueueFilter };
 
 export async function getReviewRadar(supabase: DbClient) {
   const asOf = new Date();

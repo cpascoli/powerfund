@@ -3,6 +3,7 @@ import {
   agentJson,
   handleAgentRequest,
 } from "@/lib/api/agent/http";
+import { parseReviewQueueFilter } from "@/lib/reviews/filter";
 import { getReviewQueue } from "@/lib/reviews/queue";
 
 export const dynamic = "force-dynamic";
@@ -14,14 +15,10 @@ export async function GET(request: Request) {
     operationId: "getReviewQueue",
     handler: async (ctx) => {
       const url = new URL(request.url);
-      const evaluate = url.searchParams.get("evaluate");
-      const body = await getReviewQueue(ctx.supabase, {
-        status: url.searchParams.get("status"),
-        evaluate:
-          evaluate == null
-            ? undefined
-            : evaluate !== "false" && evaluate !== "0",
-      });
+      const body = await getReviewQueue(
+        ctx.supabase,
+        parseReviewQueueFilter(url.searchParams),
+      );
       return agentJson(body, { remaining: ctx.remaining });
     },
   });

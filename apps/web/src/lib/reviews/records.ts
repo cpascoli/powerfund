@@ -326,22 +326,113 @@ export async function loadReviewTask(
   return hydrateReviewTask(supabase, row);
 }
 
+export type ListReviewTaskOptions = {
+  scope?: ReviewTaskScope | null;
+  /** Restrict to these task ids — used after resolving symbol/theme links. */
+  ids?: readonly string[];
+  completedSince?: string | null;
+  completedBefore?: string | null;
+  limit?: number;
+  /**
+   * Order history newest-first. Completed work is read backwards from now
+   * ("the last five reviews touching CRDO"); the open queue is read forwards,
+   * in the order it has to be worked.
+   */
+  order?: "asc" | "desc";
+  orderBy?: "completed_at" | "queue";
+};
+
 export async function listReviewTaskRows(
   supabase: DbClient,
   statuses?: readonly ReviewTaskStatus[],
+  options: ListReviewTaskOptions = {},
 ): Promise<ReviewTaskRow[]> {
-  let query = supabase
-    .from("review_tasks")
-    .select(TASK_COLUMNS)
-    .order("became_due_at", { ascending: true, nullsFirst: false })
-    .order("scheduled_for", { ascending: true, nullsFirst: false })
-    .order("created_at", { ascending: true });
+  let query = supabase.from("review_tasks").select(TASK_COLUMNS);
+
   if (statuses && statuses.length > 0) {
     query = query.in("status", [...statuses]);
   }
+  if (options.scope) {
+    query = query.eq("scope", options.scope);
+  }
+  if (options.ids) {
+    if (options.ids.length === 0) return [];
+    query = query.in("id", [...options.ids]);
+  }
+  if (options.completedSince) {
+    query = query.gte("completed_at", options.completedSince);
+  }
+  if (options.completedBefore) {
+    query = query.lt("completed_at", options.completedBefore);
+  }
+
+  const ascending = (options.order ?? "asc") === "asc";
+  if (options.orderBy === "completed_at") {
+    query = query
+      .order("completed_at", { ascending, nullsFirst: false })
+      .order("created_at", { ascending });
+  } else {
+    query = query
+      .order("became_due_at", { ascending, nullsFirst: false })
+      .order("scheduled_for", { ascending, nullsFirst: false })
+      .order("created_at", { ascending });
+  }
+  if (options.limit != null) {
+    query = query.limit(options.limit);
+  }
+
   const { data, error } = await query;
   if (error) {
     throw new Error(`Failed to list review tasks: ${error.message}`);
   }
   return (data ?? []) as ReviewTaskRow[];
+}
+
+/**
+ * Task ids linked to any of these symbols or themes.
+ *
+ * A macro review that named CRDO among eight tickers is exactly the kind of
+ * prior belief a company review should inherit, so link membership — not scope —
+ * decides relevance. `null` means no filter was asked for.
+ */
+export async function reviewTaskIdsFor(
+  supabase: DbClient,
+  args: { symbols: readonly string[]; themes: readonly string[] },
+): Promise<string[] | null> {
+  if (args.symbols.length === 0 && args.themes.length === 0) return null;
+  const ids = new Set<string>();
+
+  if (args.symbols.length > 0) {
+    const instruments = await loadInstrumentIdsBySymbol(supabase, [
+      ...args.symbols,
+    ]);
+    const { data, error } = await supabase
+      .from("review_task_instruments")
+      .select("review_task_id")
+      .in(
+        "instrument_id",
+        instruments.map((row) => row.id),
+      );
+    if (error) {
+      throw new Error(`Failed to load review instruments: ${error.message}`);
+    }
+    for (const row of data ?? []) ids.add(row.review_task_id);
+  }
+
+  if (args.themes.length > 0) {
+    const themes = await loadThemeIdsBySlug(supabase, [...args.themes]);
+    const { data, error } = await supabase
+      .from("review_task_themes")
+      .select("review_task_id")
+      .in(
+        "theme_id",
+        themes.map((row) => row.id),
+      );
+    if (error) {
+      throw new Error(`Failed to load review themes: ${error.message}`);
+    }
+    for (const row of data ?? []) ids.add(row.review_task_id);
+  }
+
+  return [...ids];
 }

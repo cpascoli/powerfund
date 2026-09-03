@@ -12,6 +12,7 @@ Hard rules:
 - User approval before `updateDossier`, `createDecision`, `recordDecisionOutcome`, `createPlannedAction`, `createReviewTask`, and `addWatchlistCompany`.
 - A capital Phase-1 15% deployed-sleeve drawdown is a **diagnostic**, not an automatic trim or buy halt. Per-name invalidation still forces reduce/exit.
 - Do not treat software phases and capital phases as one ladder. The PM implements the **capital** plan.
+- **Historical review gate.** Before completing any company, theme, macro, portfolio, stress, or capital-phase review, load the completed review outcomes relevant to it since the last comparable review or decision, and treat them as prior beliefs to confirm, update, or invalidate. Chat history is not the durable record — `getReviewQueue?status=completed` is. See [Historical review gate](#historical-review-gate).
 
 Machine contract: `GET /api/v1/agent/openapi.json`.
 
@@ -27,6 +28,78 @@ Same phase numbers, different objects. Always say **software Phase N** or **capi
 **Current capital phase:** Phase 1 (authorized invested-cost cap **$75k**). Immediate objective is process evidence, not racing to the cap. $150k / ~$225k are **proposals** for later reviews, not live gates. Capital Phase 4 (outside money) is out of scope for this agent.
 
 Playbook links: mandate (cash, size caps, capital phases), goals, themes, software plan.
+
+## Historical review gate
+
+PowerFund has three memories, and a review that reads only two is working from a
+partial record:
+
+| Memory | Where it lives | What it holds |
+|--------|----------------|---------------|
+| **Company** | live dossier + `getDossierVersions` | what we believe about a name, and what we believed before |
+| **Decision** | `getJournal` + `recordDecisionOutcome` | what we did, why, and how it turned out |
+| **Portfolio** | **completed `review_tasks`** | what the *book* concluded at each point |
+
+The third is the one most often skipped, because its conclusions were in a recent
+conversation or partly reflected in a dossier. They are not the same thing.
+Portfolio-level beliefs frequently live nowhere else: that roughly 81% of the
+drawdown sat in AI infrastructure and we would not average down on price alone
+(30 Aug diagnostic); that September keeps the ~$10k baseline and does not
+accelerate (1 Sep monthly pass); that no candidate cleared both the evidence and
+entry gates (1 Sep ranking); that CRDO then passed its earnings gate (2 Sep);
+that AVGO strengthened the AI-capex read (3 Sep). Those are sequential beliefs,
+and the next decision should know the chain.
+
+**The rule.** Before completing any review, fetch the relevant completed
+outcomes since the last comparable review or decision. Read them as **prior
+beliefs**, then say explicitly:
+
+> previous belief → new evidence → updated belief
+
+An outcome informs the next decision; it does not dictate it. If August
+concluded "AI demand intact, valuation and rates are the problem" and a
+hyperscaler later cuts capex, do not inherit the old conclusion mechanically —
+name it, then supersede it. What makes this history valuable is that it is
+*contemporaneous*: it records what we thought at the time, not what we would like
+to have thought.
+
+### What to load, by ritual
+
+| Ritual | Context pack |
+|--------|--------------|
+| **Weekly holding review** (2) | Live dossier · `getJournal?symbol=` · completed **company** reviews for the name since the last decision · recent **theme/macro** outcomes that list the name · the latest **portfolio** conclusion |
+| **Company / catalyst review** (1) | The same, plus the pinned `getDossierVersion` when the thesis has moved |
+| **Theme review** (10) | Previous **theme** outcomes for that theme · **macro** outcomes over the same window · company outcomes for its larger holdings. Read a print in context: AVGO after NVIDIA, Marvell and Jackson Hole, not in isolation |
+| **Monthly book pass** (6, 9) | Previous **monthly** outcome · any **stress diagnostic** since · major macro/theme outcomes since · `getPortfolio` + `getPerformance` · `recordDecisionOutcome` grades where they exist |
+| **Stress / kill-switch** (11) | Every prior **drawdown diagnostic** · the last monthly pass · per-name journal since |
+| **Quarterly review** (10, 12) | Previous **quarterly** outcome · all **monthly** portfolio outcomes since · stress diagnostics since |
+| **Capital-phase gate** (13, 14) | Every **portfolio** outcome for the phase · the quarterly record · decision grades |
+
+### Fetching it
+
+`getReviewQueue` filters history so you pull the chain, not the archive:
+
+```
+# the last five completed reviews touching a name — company, theme or macro
+getReviewQueue?status=completed&symbol=CRDO&limit=5
+
+# every book-level conclusion since the previous monthly pass
+getReviewQueue?status=completed&scope=portfolio&completed_since=2026-09-01
+
+# what the theme concluded, newest first
+getReviewQueue?status=completed&theme=ai-infrastructure&limit=8
+```
+
+`symbol` matches any review **linked** to the name, so a macro review that listed
+CRDO among eight tickers is returned — that is deliberate, because it carries a
+prior belief about the name. Completed queries default to newest-first and do
+**not** evaluate triggers, so reading history never mutates the queue. If the
+response sets `truncated: true`, raise `limit` or narrow the window: a truncated
+history is a partial chain of reasoning.
+
+Cite what you read in the new `outcome` — name the prior belief and say whether
+it held. A reader six months from now should be able to follow the chain without
+the conversation that produced it.
 
 ## Cadence
 
@@ -114,7 +187,7 @@ Purpose: action what is due; leave the rest of the calendar alone.
 1. `getFundState` (due reviews, upcoming reviews, planned actions, flags, holdings).
 2. Optionally `getReviewQueue?status=due` and `getPlannedActions` if the snapshot is thin.
 3. For each **due review task**:
-   - `scope: company` / `theme` — read `instructions` and the dossier. Reassess. Write dossier/journal/planned trade only if the conclusion changed. Then `completeReviewTask` with `outcome` (link existing `dossier_version` / `decision` / `planned_action` ids if you created them).
+   - `scope: company` / `theme` — read `instructions`, the prior completed reviews for that name or theme (`getReviewQueue?status=completed&symbol=…` / `&theme=…`), and the dossier. Reassess. Write dossier/journal/planned trade only if the conclusion changed. Then `completeReviewTask` with `outcome` (link existing `dossier_version` / `decision` / `planned_action` ids if you created them).
    - `scope: portfolio` — this **is** a book ritual, not a catalyst. Match the title: monthly → rituals 6 and 9; quarterly → 10 and 12; drawdown diagnostic → 11; capital-phase → 13 or 14. Do not treat it as “read a company dossier.”
 4. For each **due / overdue planned action**: say whether the window still holds. If yes, stop — the human confirms the fill in `/portfolio?confirm=…`. If no, `updatePlannedAction` to `deferred` or `cancelled` with a reason.
 5. For **flags** and **missing invalidation**: handle as in the table above. Do not invent review tasks for them. **Research** (no dossier / review date / 14-day diligence) is on the Research tab — not part of the daily sweep.
@@ -141,6 +214,7 @@ Due shows `thesis_review` when the latest `enter` / `add` / `hold` without `revi
 
 For each open holding:
 
+0. **Prior beliefs** — `getReviewQueue?status=completed&symbol=<SYM>&limit=5`, plus the latest `scope=portfolio` outcome. Research does not start from the dossier; it starts from what we believed last week, what happened since, and what the reviews of those events concluded.
 1. `getCompanyDossier` — thesis, invalidation, next diligence, current version.
 2. `getPortfolio` — size, weight, whether kill criteria are close.
 3. `getJournal?symbol=` — last enter / hold / add. Optionally `getDossierVersion` on the pinned snapshot (“what we believed then”).
@@ -228,13 +302,14 @@ Purpose: cash and concentration are decisions, not drift. Numbers live in [manda
 
 This ritual is a **portfolio review task**. Find the open `Monthly book pass — YYYY-MM` (`getReviewQueue`) or `createReviewTask` (`scope: portfolio`, `scheduled`) before working. Do not leave the month’s conclusions only in chat.
 
-1. `getFundState` + `getPortfolio` — flags, cash % NAV, largest weight, AI-capex factor, open planned dollars, `invested_cost_usd` vs the **authorized** phase cap. `getPerformance` for NAV/deployed vs SPY/QQQ, drawdowns, and dollar contribution by ticker/theme/factor.
-2. State the current **capital** phase and remaining room under the authorized cap. While in capital Phase 1, the month’s job is evidence (selection, sizing, anti-chase, volatility behavior, journal grades, workflow through PowerFund) — not filling the $75k cap as a quota.
-3. If cash is above plan for a second consecutive monthly pass: either queue deployment per the ladder or write why not in this task’s `outcome` (and a `hold` / mandate note if the reason must live on a name).
-4. If a **size / theme / cash / AI-capex cap** flag is on: queue `reduce` / `sell` or halt new `buy`s. If the flag is the **15% deployed diagnostic**, run ritual 11 — do not treat it as a cap during capital Phase 1. Do not edit the mandate file via the API.
-5. Check the baseline tranche vs the authorized cap. Continuing past $75k cost is ritual 13, not creep. Past a later authorized cap is ritual 14.
-6. Run ritual 9 (opportunity ranking) as a **section of this same task** before queuing the month’s tranche. Do not open a second review task for the ranking.
-7. `completeReviewTask` with the written conclusions in `outcome` (capital phase, cash decision, flags, next-dollar ranking, planned-action ids). Then `createReviewTask` for next month unless that row already exists. Human still fills queued trades.
+1. **Prior beliefs first** — `getReviewQueue?status=completed&scope=portfolio&limit=5` for the previous monthly pass and any stress diagnostic since, then `getReviewQueue?status=completed&completed_since=<previous pass>` for the macro and theme conclusions of the month. State what the book believed going in.
+2. `getFundState` + `getPortfolio` — flags, cash % NAV, largest weight, AI-capex factor, open planned dollars, `invested_cost_usd` vs the **authorized** phase cap. `getPerformance` for NAV/deployed vs SPY/QQQ, drawdowns, and dollar contribution by ticker/theme/factor.
+3. State the current **capital** phase and remaining room under the authorized cap. While in capital Phase 1, the month’s job is evidence (selection, sizing, anti-chase, volatility behavior, journal grades, workflow through PowerFund) — not filling the $75k cap as a quota.
+4. If cash is above plan for a second consecutive monthly pass: either queue deployment per the ladder or write why not in this task’s `outcome` (and a `hold` / mandate note if the reason must live on a name).
+5. If a **size / theme / cash / AI-capex cap** flag is on: queue `reduce` / `sell` or halt new `buy`s. If the flag is the **15% deployed diagnostic**, run ritual 11 — do not treat it as a cap during capital Phase 1. Do not edit the mandate file via the API.
+6. Check the baseline tranche vs the authorized cap. Continuing past $75k cost is ritual 13, not creep. Past a later authorized cap is ritual 14.
+7. Run ritual 9 (opportunity ranking) as a **section of this same task** before queuing the month’s tranche. Do not open a second review task for the ranking.
+8. `completeReviewTask` with the written conclusions in `outcome` (capital phase, cash decision, flags, next-dollar ranking, planned-action ids). Then `createReviewTask` for next month unless that row already exists. Human still fills queued trades.
 
 | Step | Tool |
 |------|------|
@@ -292,7 +367,7 @@ There is no separate integrity API. The agent compares dossier text to `getPortf
 
 Purpose: the fund succeeds by answering “given everything else we could own, is this the best use of the next $1 of risk?” — not “is this company good?” Corrections are an expected source of return only when price fell more than intrinsic value.
 
-1. `getFundState?include_watchlist=true` — holdings, watchlist with `has_dossier`, cash, open planned dollars, factor flags.
+1. `getFundState?include_watchlist=true` — holdings, watchlist with `has_dossier`, cash, open planned dollars, factor flags. For each name you intend to rank, load its completed reviews (`getReviewQueue?status=completed&symbol=…&limit=3`): a name deferred last month for a stated reason has not become buyable because the reason was forgotten.
 2. For each decision-grade name (live dossier + kill criteria): `getCompanyDossier`. Refresh price vs the scenario anchor (ritual 8). Note probability-weighted 24/60m return, downside case, thesis quality, factor overlap, evidence status.
 3. Classify each name into a **correction-readiness** state. Scenario values drive the state, not a raw % drawdown:
 
@@ -328,13 +403,14 @@ Purpose: theme labels are not diversification. Mandate and [themes.md](./themes.
 
 This ritual shares **one** portfolio review task with ritual 12: `Quarterly book review — YYYY-Qn`. Find or create it before working. Do not open a separate “theme review” task.
 
-1. `getFundState` + `getPortfolio` — weight by theme, AI-capex and memory flags, largest names.
-2. Operator opens **Workbench → Risk** (pairwise correlation, standing hyperscaler-capex −20% stress). The agent API cannot read that surface yet; paste or describe the stress result in chat **and** in the task `outcome`.
-3. Rank each core theme (AI infrastructure, energy, robotics/AI, defence, other) by thesis health, valuation, evidence trend, portfolio weight, and shared-factor exposure. Name the **next under-obsessed bottleneck** ([themes.md](./themes.md)).
-4. Identify hidden correlation (e.g. cooling + power + EMS as one AI-capex trade).
-5. Conclude **more / same / less capital** for each theme next quarter. Update dossiers and, if the map changed, say so — factor weights live in code (`FACTOR_EXPOSURES`), not the agent API.
-6. Optional: `createReviewTask` on a **theme** scope for the next dated catalyst; `createPlannedAction` only for size changes that survived rituals 8–9.
-7. Continue with ritual 12 on the **same** task, then `completeReviewTask` and roll the next quarter.
+1. **Prior beliefs first** — the previous `Quarterly book review`, every monthly portfolio outcome since, and the theme's own completed reviews (`getReviewQueue?status=completed&theme=<slug>`). A print is read in the context of the chain, not alone.
+2. `getFundState` + `getPortfolio` — weight by theme, AI-capex and memory flags, largest names.
+3. Operator opens **Workbench → Risk** (pairwise correlation, standing hyperscaler-capex −20% stress). The agent API cannot read that surface yet; paste or describe the stress result in chat **and** in the task `outcome`.
+4. Rank each core theme (AI infrastructure, energy, robotics/AI, defence, other) by thesis health, valuation, evidence trend, portfolio weight, and shared-factor exposure. Name the **next under-obsessed bottleneck** ([themes.md](./themes.md)).
+5. Identify hidden correlation (e.g. cooling + power + EMS as one AI-capex trade).
+6. Conclude **more / same / less capital** for each theme next quarter. Update dossiers and, if the map changed, say so — factor weights live in code (`FACTOR_EXPOSURES`), not the agent API.
+7. Optional: `createReviewTask` on a **theme** scope for the next dated catalyst; `createPlannedAction` only for size changes that survived rituals 8–9.
+8. Continue with ritual 12 on the **same** task, then `completeReviewTask` and roll the next quarter.
 
 | Step | Tool |
 |------|------|
@@ -349,7 +425,7 @@ This ritual shares **one** portfolio review task with ritual 12: `Quarterly book
 
 Purpose: when the 15% deployed-sleeve diagnostic fires (or a major factor shock hits), stop and classify. Do not improvise a de-risk. Briefing Due shows this until a **covering book-level write** exists for the current breach.
 
-1. `getFundState` + `getPortfolio` — sleeve drawdown flag, NAV, cash %, holdings. `getPerformance` for NAV/deployed vs QQQ/SPY and max drawdown. A kill-switch flag with `due: false` is monitoring, not a request to re-run this ritual.
+1. **Prior beliefs first** — every earlier drawdown diagnostic (`getReviewQueue?status=completed&scope=portfolio`) and the last monthly pass. If a previous diagnostic already classified this factor, say whether that classification still holds. Then `getFundState` + `getPortfolio` — sleeve drawdown flag, NAV, cash %, holdings. `getPerformance` for NAV/deployed vs QQQ/SPY and max drawdown. A kill-switch flag with `due: false` is monitoring, not a request to re-run this ritual.
 2. Freeze **new correlated buys** until the classification is written. During capital Phase 1 do **not** freeze the whole ladder and do **not** raise cash just to “do something.”
 3. For each open name: `getCompanyDossier` + `getJournal?symbol=`. Has invalidation triggered? Have estimates/backlog/guidance changed, or only the multiple?
 4. Classify the book move as **valuation / factor / earnings / thesis failure** ([mandate.md](./mandate.md) rule 8).

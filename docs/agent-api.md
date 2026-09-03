@@ -21,7 +21,7 @@ Private agent API: `/api/v1/agent/*` — Bearer token, scoped permissions, dolla
 | `recordDecisionOutcome` | child row | Structured grade. Does **not** set `reviewed_at` or complete a weekly hold |
 | `getPlannedActions` | no | Open deployment queue |
 | `createPlannedAction` / `updatePlannedAction` | queue only | Never books a fill |
-| `getReviewQueue` | may mark due | Evaluates triggers; never writes the ledger |
+| `getReviewQueue` | may mark due | Open queue **and** completed history. Evaluates triggers; never writes the ledger. A completed-only query does not evaluate, so reading history cannot mutate the queue |
 | `createReviewTask` / `updateReviewTask` | review queue | Not a planned trade |
 | `completeReviewTask` | review row + links | Does not create dossiers, decisions, or fills |
 | `addWatchlistCompany` | `instruments` + primary theme | Status is always `watchlist`. No dossier, queue, or fill |
@@ -179,6 +179,15 @@ curl -sS -X PATCH -H "Authorization: Bearer $TOKEN" \
 curl -sS -H "Authorization: Bearer $TOKEN" \
   "$ORIGIN/api/v1/agent/review-queue?status=due"
 
+# Review history — the prior beliefs the historical review gate requires.
+# The last five completed reviews touching a name, company/theme/macro alike:
+curl -sS -H "Authorization: Bearer $TOKEN" \
+  "$ORIGIN/api/v1/agent/review-queue?status=completed&symbol=CRDO&limit=5"
+
+# Every book-level conclusion since the previous monthly pass:
+curl -sS -H "Authorization: Bearer $TOKEN" \
+  "$ORIGIN/api/v1/agent/review-queue?status=completed&scope=portfolio&completed_since=2026-09-01"
+
 # Schedule a post-Jackson-Hole re-underwrite
 curl -sS -X POST -H "Authorization: Bearer $TOKEN" \
   -H "Content-Type: application/json" \
@@ -263,6 +272,29 @@ Triggers are declarative JSON. No JavaScript or SQL.
 v1 auto-evaluates `price` and `price_return_pct` against `market_bars`. Other metrics (for example backlog) may be stored with `evaluable: false` and wait for an agent. Operators: `lt`, `lte`, `gt`, `gte`, `eq`.
 
 `GET /review-queue` and `GET /state` evaluate pending tasks first. Only `pending` → `due`. PATCH cannot set `due` or `completed`.
+
+## Review history filters
+
+Completed outcomes are the book's portfolio memory — the conclusions that live
+nowhere else, unlike company memory (dossiers and their versions) and decision
+memory (the journal). [gpt-agent-process.md](./gpt-agent-process.md#historical-review-gate)
+requires loading the relevant ones before completing a comparable review, so
+`getReviewQueue` filters rather than returning the whole archive.
+
+| Parameter | Meaning |
+|-----------|---------|
+| `status` | `open` (default), `all`, or one or more of `pending`, `due`, `in_progress`, `completed`, `deferred`, `cancelled`, comma-separated |
+| `scope` | `company`, `theme`, `macro`, `portfolio` |
+| `symbol` / `symbols` | Ticker or comma-separated list. Matches any review **linked** to the name — a macro review that listed it counts, because it carries a prior belief |
+| `theme` / `themes` | Theme slug or name, or a list |
+| `completed_since` / `completed_before` | ISO date or datetime on `completed_at`. A bare date is the start of that UTC day |
+| `limit` | Default 100, maximum 500 |
+| `order` | `asc` / `desc`. Defaults to `desc` for a completed-only query, `asc` otherwise |
+| `evaluate` | Defaults true, except on a completed-only query where it defaults false |
+
+The response echoes the applied `filter`, plus `returned` and `truncated`.
+`truncated: true` means more rows match than were returned — raise `limit` or
+narrow the window, because a truncated history is a partial chain of reasoning.
 
 ## Errors
 
