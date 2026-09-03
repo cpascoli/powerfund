@@ -22,6 +22,7 @@ Intelligence for managing and growing capital in the markets — starting with p
 | [2026-08-13](./reviews/2026-08-13-full-review.md) | Full audit: intent → architecture → plan → implemented features |
 | [2026-08-13 strategy second opinion](./reviews/2026-08-13-strategy-second-opinion.md) | PM/quant review of the AI strategy chat vs live book, mandate, and dossiers |
 | [2026-09-02](./reviews/2026-09-02-full-review.md) | Full review: capital + software roadmaps, process, tests, watchlist, audit trail, UX |
+| [2026-09-03 remediation log](./reviews/2026-09-03-remediation-log.md) | What was fixed on 2–3 September, what the diagnosis got wrong along the way, and what was left |
 
 ## Related
 
