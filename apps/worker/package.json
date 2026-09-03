@@ -17,7 +17,8 @@
     "lint": "echo \"no lint configured\"",
     "snapshot:verify": "tsx src/index.ts snapshot:verify",
     "smoke:vintages": "tsx src/smoke-vintages.ts",
-    "score:replay": "tsx src/index.ts replay"
+    "score:replay": "tsx src/index.ts replay",
+    "bars:audit": "tsx src/index.ts audit"
   },
   "dependencies": {
     "@powerfund/data-clients": "workspace:*",

@@ -10,6 +10,7 @@ export * from "./snapshots";
 export * from "./vintages";
 export * from "./scorer-inputs";
 export * from "./replay-stats";
+export * from "./price-rebase";
 export * from "./dates";
 export * from "./holdings";
 export * from "./decision-outcomes";

@@ -1,3 +1,4 @@
+import { auditBars, printBarAudit } from "./ingest/audit-bars";
 import { ingestBars } from "./ingest/bars";
 import { ingestFundamentals } from "./ingest/fundamentals";
 import { scoreInflectionUniverse } from "./score/inflection";
@@ -12,6 +13,7 @@ Usage:
   pnpm --filter @powerfund/worker ingest:bars [-- --days=365 --symbols=SPY,QQQ]
   pnpm --filter @powerfund/worker ingest:fundamentals [-- --symbols=SKHY,TSM]
   pnpm --filter @powerfund/worker ingest:all
+  pnpm --filter @powerfund/worker bars:audit [-- --threshold=35 --symbols=APH]
   pnpm --filter @powerfund/worker score:inflection [-- --asOf=2026-06-30]
   pnpm --filter @powerfund/worker score:replay [-- --from=2022-01-01 --every=21 --symbols=NVDA,VRT]
   pnpm --filter @powerfund/worker snapshot:portfolio
@@ -46,7 +48,12 @@ async function main() {
 
   switch (command) {
     case "bars": {
-      await ingestBars({ days, pauseMs, symbols });
+      const bars = await ingestBars({ days, pauseMs, symbols });
+      if (bars.rebased.length > 0) {
+        console.warn(
+          `[ingest:bars] re-based series refetched in full: ${bars.rebased.join(", ")}`,
+        );
+      }
       const score = await scoreInflectionUniverse();
       if (score.failed.length > 0) process.exitCode = 1;
       break;
@@ -67,6 +74,14 @@ async function main() {
       if (fundamentals.failed.length > 0) process.exitCode = 1;
       const score = await scoreInflectionUniverse();
       if (score.failed.length > 0) process.exitCode = 1;
+      break;
+    }
+    case "audit": {
+      const result = await auditBars({
+        thresholdPct: Number(readFlag("threshold", "35")),
+        symbols,
+      });
+      printBarAudit(result);
       break;
     }
     case "score": {
