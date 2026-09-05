@@ -14,7 +14,7 @@ Private agent API: `/api/v1/agent/*` — Bearer token, scoped permissions, dolla
 | `getPortfolio` | no | Private book from the ledger. Marks include `last_close_session` and `price_data_through`. Flags include the kill-switch: `due: false` means the 15% condition is live but ritual 11 is done for this breach. TWR is `getPerformance` |
 | `getPerformance` | no | NAV and deployed TWR vs SPY/QQQ, unitized drawdowns, and dollar contribution by ticker / theme / factor. Optional `from`/`to`. Percent returns. `price_data_through` is the last session, not `as_of` |
 | `getJournal` | no | Decisions + pinned `dossier_version`, fill-based 30/90/180d vs SPY, append-only outcomes. `price_data_through` is the last bar used |
-| `getResearchInbox` | no | Briefing Research tab, derived. Same clocks as the UI (`needs_dossier`, `review_due_date`, `diligence`). `updateDossier` is what clears a row |
+| `getResearchInbox` | no | Briefing Research tab, derived. Same clocks as the UI (`needs_dossier`, `review_due_date`, `diligence`). A save clears a row only if it moves the clock that kind uses |
 | `getCompanyDossier` | no | Live research object. Includes `last_close` / `last_close_session` and `price_data_stale` |
 | `getDossierVersions` / `getDossierVersion` | no | Immutable snapshots. No diff endpoint — fetch two versions and compare |
 | `updateDossier` | live dossier | New version **only if** assembled JSON changed |
@@ -106,7 +106,7 @@ curl -sS -H "Authorization: Bearer $TOKEN" \
 # Deployment queue
 curl -sS -H "Authorization: Bearer $TOKEN" "$ORIGIN/api/v1/agent/deployment-queue"
 
-# Briefing Research tab (derived; updateDossier clears a row)
+# Briefing Research tab (derived; a save clears a row only if it moves that kind's clock)
 curl -sS -H "Authorization: Bearer $TOKEN" "$ORIGIN/api/v1/agent/research"
 curl -sS -H "Authorization: Bearer $TOKEN" \
   "$ORIGIN/api/v1/agent/research?kind=needs_dossier,diligence"
@@ -358,7 +358,7 @@ Typical workflows:
 
 1. `getResearchInbox` (optional `kind=needs_dossier,diligence`)
 2. Work a name or leave it — this is not the daily sweep
-3. `updateDossier` is what clears the row. There is no complete mutation.
+3. There is no complete mutation. `updateDossier` drops a row only if it moves that kind's clock: `review_due_date` needs `next_review_at` advanced or cleared; `diligence` needs a save that actually updates `updated_at` (identical assembled JSON does not). Changing thesis text while leaving a stale `next_review_at` leaves `review_due_date` in place.
 
 **New name or live rewrite**
 

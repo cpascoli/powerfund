@@ -510,7 +510,7 @@ export function agentOpenApiDocument(origin: string) {
           operationId: "getResearchInbox",
           summary: "Briefing Research tab",
           description:
-            "The derived Research inbox the UI shows: needs_dossier, review_due_date, diligence. Same clocks. Read-only. updateDossier clears a row. Not the daily sweep and not getReviewQueue.",
+            "Briefing Research tab, derived. Same clocks as the UI. Read-only. review_due_date clears only if next_review_at is advanced or cleared; diligence needs a save that updates updated_at. Not the daily sweep.",
           scope: "powerfund:dossier:read",
           mutating: false,
           parameters: [
@@ -518,10 +518,11 @@ export function agentOpenApiDocument(origin: string) {
               name: "kind",
               in: "query",
               description:
-                "needs_dossier, review_due_date, or diligence. Comma-separate to combine. Omit for every kind.",
+                "Comma-separated kinds: needs_dossier, review_due_date, diligence. Example: needs_dossier,diligence. Omit for every kind.",
               schema: {
                 type: "string",
-                enum: ["needs_dossier", "review_due_date", "diligence"],
+                pattern:
+                  "^(needs_dossier|review_due_date|diligence)(,(needs_dossier|review_due_date|diligence))*$",
               },
             },
           ],
@@ -546,19 +547,22 @@ export function agentOpenApiDocument(origin: string) {
                       },
                       symbol: { type: "string" },
                       name: { type: "string" },
-                      next_review_at: { type: "string" },
-                      next_diligence: { type: "string" },
-                      updated_at: { type: "string", format: "date-time" },
-                      dossier_status: { type: "string" },
-                      current_version_id: { type: "string" },
-                      current_version_number: { type: "integer" },
+                      next_review_at: { type: ["string", "null"] },
+                      next_diligence: { type: ["string", "null"] },
+                      updated_at: {
+                        type: ["string", "null"],
+                        format: "date-time",
+                      },
+                      dossier_status: { type: ["string", "null"] },
+                      current_version_id: { type: ["string", "null"] },
+                      current_version_number: { type: ["integer", "null"] },
                       age_days: {
-                        type: "integer",
+                        type: ["integer", "null"],
                         description:
                           "Days since updated_at. Drives the 14-day diligence clock. Null when there is no dossier.",
                       },
                       due_since: {
-                        type: "string",
+                        type: ["string", "null"],
                         description:
                           "Calendar day the row became due. next_review_at, or updated_at + 14 days. Null for needs_dossier.",
                       },

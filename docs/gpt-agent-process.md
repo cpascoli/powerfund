@@ -195,13 +195,15 @@ Weekly holds, the daily sweep, the data-integrity gate, and post-fill notes stay
 
 ### Research tab (not Due)
 
-Fetch with `getResearchInbox` (`GET /api/v1/agent/research`). Optional `kind=` (`needs_dossier`, `review_due_date`, `diligence`, comma-separated). This is the same derived list the UI shows — do not reconstruct it from `getFundState` + N dossier reads. There is no complete mutation; `updateDossier` is what clears a row.
+Fetch with `getResearchInbox` (`GET /api/v1/agent/research`). Optional `kind=` (`needs_dossier`, `review_due_date`, `diligence`, comma-separated). This is the same derived list the UI shows — do not reconstruct it from `getFundState` + N dossier reads. There is no complete mutation.
+
+`updateDossier` drops a row only if it moves the clock that kind uses. The derivation checks a stale `next_review_at` first: reviewing AVGO and rewriting the thesis while leaving the old review date still yields `review_due_date`. Advance or clear `next_review_at` as part of that review. `diligence` is keyed on `updated_at`; a no-op save (assembled JSON unchanged) does not reset the 14-day clock.
 
 | Kind | Meaning | Agent action |
 |------|---------|--------------|
 | `needs_dossier` | Watchlist name with no dossier | Write version 1, or leave it. Not a daily sweep item. |
-| `review_due_date` | Live dossier `next_review_at` is today or past | Research, then `updateDossier`. |
-| `diligence` | Live dossier with no review date, `next_diligence` stale **14 days** | Same. One clock per name: review date if set, else 14-day save. |
+| `review_due_date` | Live dossier `next_review_at` is today or past | Research, then `updateDossier` **and** advance or clear `next_review_at`. |
+| `diligence` | Live dossier with no review date, `next_diligence` stale **14 days** | Research, then `updateDossier` with a real change so `updated_at` moves. One clock per name: review date if set, else 14-day save. |
 
 ---
 
@@ -328,7 +330,7 @@ Purpose: a ticker is not research until it has a dossier and kill criteria.
 Promote (dossier + maybe a planned buy) or leave alone. Not the daily sweep.
 
 1. `getResearchInbox` — the Briefing Research tab. Work a name, or leave it.
-2. `needs_dossier` → ritual 4 (`updateDossier` v1). `review_due_date` / `diligence` → re-read, then `updateDossier`. That save is what drops the row.
+2. `needs_dossier` → ritual 4 (`updateDossier` v1). `review_due_date` → re-read, then `updateDossier` **and** advance or clear `next_review_at`. `diligence` → re-read, then `updateDossier` with a real change so `updated_at` resets. A thesis-only save that leaves a stale review date does not drop `review_due_date`. An identical assembled JSON does not drop `diligence`.
 3. Do not `createReviewTask` to remember these. Do not archive from here.
 
 The agent **cannot** archive or delete a name. Propose drops in chat; the operator archives in the database/UI until that op exists. Do not re-add a name that is already `watchlist` or `active`.

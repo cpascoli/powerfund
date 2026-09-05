@@ -9,7 +9,7 @@ type OpenApiOp = {
   operationId?: string;
   summary?: string;
   description?: string;
-  parameters?: Array<{ name: string; description?: string }>;
+  parameters?: Array<{ name: string; description?: string; schema?: unknown }>;
   requestBody?: {
     content?: {
       "application/json"?: { schema?: unknown };
@@ -80,6 +80,25 @@ describe("API surfaces", () => {
     expect(agentDoc.paths["/api/v1/agent/research"].get.operationId).toBe(
       "getResearchInbox",
     );
+    const researchGet = agentDoc.paths["/api/v1/agent/research"].get as {
+      parameters?: Array<{ name: string; schema?: unknown }>;
+      responses: Record<string, any>;
+    };
+    const kindParam = researchGet.parameters?.find((row) => row.name === "kind");
+    expect(kindParam?.schema).toEqual({
+      type: "string",
+      pattern:
+        "^(needs_dossier|review_due_date|diligence)(,(needs_dossier|review_due_date|diligence))*$",
+    });
+    const researchItem =
+      researchGet.responses["200"].content["application/json"].schema.properties
+        .items.items.properties;
+    expect(researchItem.next_review_at.type).toEqual(["string", "null"]);
+    expect(researchItem.age_days.type).toEqual(["integer", "null"]);
+    expect(researchItem.current_version_number.type).toEqual([
+      "integer",
+      "null",
+    ]);
     expect(
       agentDoc.paths["/api/v1/agent/review-tasks/{id}/complete"].post.operationId,
     ).toBe("completeReviewTask");
