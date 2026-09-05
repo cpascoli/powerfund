@@ -123,6 +123,11 @@ nothing").
 
 ## Conventions
 
+- **Never push without asking.** Commit to the local branch freely — that is the
+  working rhythm and does not need permission. Pushing is a separate decision and
+  needs explicit confirmation each time, because a push to `main` is a production
+  deploy (Netlify builds from it) and it is what makes the work public. Do not
+  read approval of the *work* as approval to push it. Ask, then push.
 - **Commits:** one focused change, subject a full sentence saying what and why,
   body explaining the reasoning and evidence. Look at recent history for tone.
 - **Comments:** explain why, especially where a naive reading looks wrong.
