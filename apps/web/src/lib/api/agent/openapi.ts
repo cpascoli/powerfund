@@ -881,14 +881,14 @@ export function agentOpenApiDocument(origin: string) {
               name: "symbol",
               in: "query",
               description:
-                "Ticker, or comma-separated tickers. Matches any review linked to the name, including a macro or theme review that merely listed it — those carry prior beliefs a company review should inherit.",
+                "Ticker, or comma-separated tickers. Matches any review linked to the name, including a macro or theme review that merely listed it. Does NOT reach scope=portfolio reviews, which carry no symbols by design — query those separately with scope=portfolio.",
               schema: { type: "string" },
             },
             {
               name: "theme",
               in: "query",
               description:
-                "Theme slug or name, or a comma-separated list. Matches any review linked to the theme.",
+                "Theme slug or name, or a comma-separated list. Matches any review linked to the theme. Combined with symbol the two are a union, not an intersection.",
               schema: { type: "string" },
             },
             {

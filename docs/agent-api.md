@@ -271,7 +271,7 @@ Triggers are declarative JSON. No JavaScript or SQL.
 
 v1 auto-evaluates `price` and `price_return_pct` against `market_bars`. Other metrics (for example backlog) may be stored with `evaluable: false` and wait for an agent. Operators: `lt`, `lte`, `gt`, `gte`, `eq`.
 
-`GET /review-queue` and `GET /state` evaluate pending tasks first. Only `pending` → `due`. PATCH cannot set `due` or `completed`.
+`GET /state`, and `GET /review-queue` unless the query asks only for completed or cancelled work, evaluate pending tasks first. Only `pending` → `due`. Reading history does not mutate the queue; pass `evaluate=true` to force it. PATCH cannot set `due` or `completed`.
 
 ## Review history filters
 
@@ -285,8 +285,8 @@ requires loading the relevant ones before completing a comparable review, so
 |-----------|---------|
 | `status` | `open` (default), `all`, or one or more of `pending`, `due`, `in_progress`, `completed`, `deferred`, `cancelled`, comma-separated |
 | `scope` | `company`, `theme`, `macro`, `portfolio` |
-| `symbol` / `symbols` | Ticker or comma-separated list. Matches any review **linked** to the name — a macro review that listed it counts, because it carries a prior belief |
-| `theme` / `themes` | Theme slug or name, or a list |
+| `symbol` / `symbols` | Ticker or comma-separated list. Matches any review **linked** to the name — a macro review that listed it counts, because it carries a prior belief. Cannot reach `scope: portfolio` reviews, which carry no symbols by design; ask for those separately |
+| `theme` / `themes` | Theme slug or name, or a list. Combined with `symbol`, the two are a **union** — every review linked to the name *or* the theme |
 | `completed_since` / `completed_before` | ISO date or datetime on `completed_at`. A bare date is the start of that UTC day |
 | `limit` | Default 100, maximum 500 |
 | `order` | `asc` / `desc`. Defaults to `desc` for a completed-only query, `asc` otherwise |

@@ -67,7 +67,7 @@ to have thought.
 
 | Ritual | Context pack |
 |--------|--------------|
-| **Weekly holding review** (2) | Live dossier · `getJournal?symbol=` · completed **company** reviews for the name since the last decision · recent **theme/macro** outcomes that list the name · the latest **portfolio** conclusion |
+| **Weekly holding review** (2) | `getJournal?symbol=` **first** — last week's hold lives there, not in the queue · completed **company** reviews for the name since the last decision · **theme/macro** outcomes that list it · the **portfolio** chain, `scope=portfolio&limit=5`, which `symbol=` cannot reach · then the live dossier |
 | **Company / catalyst review** (1) | The same, plus the pinned `getDossierVersion` when the thesis has moved |
 | **Theme review** (10) | Previous **theme** outcomes for that theme · **macro** outcomes over the same window · company outcomes for its larger holdings. Read a print in context: AVGO after NVIDIA, Marvell and Jackson Hole, not in isolation |
 | **Monthly book pass** (6, 9) | Previous **monthly** outcome · any **stress diagnostic** since · major macro/theme outcomes since · `getPortfolio` + `getPerformance` · `recordDecisionOutcome` grades where they exist |
@@ -91,11 +91,34 @@ getReviewQueue?status=completed&theme=ai-infrastructure&limit=8
 ```
 
 `symbol` matches any review **linked** to the name, so a macro review that listed
-CRDO among eight tickers is returned — that is deliberate, because it carries a
-prior belief about the name. Completed queries default to newest-first and do
-**not** evaluate triggers, so reading history never mutates the queue. If the
-response sets `truncated: true`, raise `limit` or narrow the window: a truncated
-history is a partial chain of reasoning.
+CRDO among eight tickers is returned — deliberate, because it carries a prior
+belief about the name.
+
+**`symbol=` cannot reach portfolio memory.** By the taxonomy above, `scope:
+portfolio` tasks carry no symbols: a book-level conclusion is not about a name.
+So the monthly pass, the opportunity ranking and every stress diagnostic are
+invisible to `symbol=CRDO`, even though "no candidate cleared both gates" is
+exactly the prior belief a CRDO review should inherit. **Always ask for the
+book-level chain separately**, and ask for a few rows rather than the newest one
+— the latest portfolio row is often a diagnostic that says nothing about
+deployment:
+
+```
+getReviewQueue?status=completed&scope=portfolio&limit=5
+```
+
+An empty `symbol=` result means **no catalyst review fired for that name**. It
+does not mean there is no prior belief: the last hold is in `getJournal`, and the
+book-level chain is in the portfolio query above.
+
+`symbol` and `theme` together are a **union**, not an intersection — asking for
+both returns every review linked to the name *or* the theme. Use one at a time
+unless you deliberately want the wider net.
+
+Completed queries default to newest-first and do **not** evaluate triggers, so
+reading history never mutates the queue. If the response sets `truncated: true`,
+raise `limit` or narrow the window: a truncated history is a partial chain of
+reasoning.
 
 Cite what you read in the new `outcome` — name the prior belief and say whether
 it held. A reader six months from now should be able to follow the chain without
@@ -187,7 +210,7 @@ Purpose: action what is due; leave the rest of the calendar alone.
 1. `getFundState` (due reviews, upcoming reviews, planned actions, flags, holdings).
 2. Optionally `getReviewQueue?status=due` and `getPlannedActions` if the snapshot is thin.
 3. For each **due review task**:
-   - `scope: company` / `theme` — read `instructions`, the prior completed reviews for that name or theme (`getReviewQueue?status=completed&symbol=…` / `&theme=…`), and the dossier. Reassess. Write dossier/journal/planned trade only if the conclusion changed. Then `completeReviewTask` with `outcome` (link existing `dossier_version` / `decision` / `planned_action` ids if you created them).
+   - `scope: company` / `theme` — read `instructions`; the prior completed reviews for that name or theme (`getReviewQueue?status=completed&symbol=…` / `&theme=…`); the book-level chain (`getReviewQueue?status=completed&scope=portfolio&limit=5`, which `symbol=` cannot reach); and the dossier. Reassess. Write dossier/journal/planned trade only if the conclusion changed. Then `completeReviewTask` with `outcome` (link existing `dossier_version` / `decision` / `planned_action` ids if you created them).
    - `scope: portfolio` — this **is** a book ritual, not a catalyst. Match the title: monthly → rituals 6 and 9; quarterly → 10 and 12; drawdown diagnostic → 11; capital-phase → 13 or 14. Do not treat it as “read a company dossier.”
 4. For each **due / overdue planned action**: say whether the window still holds. If yes, stop — the human confirms the fill in `/portfolio?confirm=…`. If no, `updatePlannedAction` to `deferred` or `cancelled` with a reason.
 5. For **flags** and **missing invalidation**: handle as in the table above. Do not invent review tasks for them. **Research** (no dossier / review date / 14-day diligence) is on the Research tab — not part of the daily sweep.
@@ -214,10 +237,15 @@ Due shows `thesis_review` when the latest `enter` / `add` / `hold` without `revi
 
 For each open holding:
 
-0. **Prior beliefs** — `getReviewQueue?status=completed&symbol=<SYM>&limit=5`, plus the latest `scope=portfolio` outcome. Research does not start from the dossier; it starts from what we believed last week, what happened since, and what the reviews of those events concluded.
+0. **Prior beliefs, from all three stores.** Research starts here, not at the dossier.
+   - `getJournal?symbol=` — **last week's hold is here, not in the review queue.** Weekly holds are decisions, never `review_tasks`. This is "what we believed last week".
+   - `getReviewQueue?status=completed&symbol=<SYM>&limit=5` — dated catalysts for the name: its own company reviews, plus theme and macro reviews that listed it.
+   - `getReviewQueue?status=completed&scope=portfolio&limit=5` — the book-level chain: the monthly pass, the opportunity ranking, any stress diagnostic. **Portfolio tasks carry no symbols by design**, so `symbol=` will never return them; they have to be asked for separately, and "the latest one" is not enough — the September ranking's "no candidate cleared both gates" sits behind the diagnostic that followed it.
+
+   An empty `symbol=` result means **no catalyst review for this name**, not "no prior belief". The belief is in the journal and in the portfolio chain.
 1. `getCompanyDossier` — thesis, invalidation, next diligence, current version.
 2. `getPortfolio` — size, weight, whether kill criteria are close.
-3. `getJournal?symbol=` — last enter / hold / add. Optionally `getDossierVersion` on the pinned snapshot (“what we believed then”).
+3. Optionally `getDossierVersion` on the pinned snapshot from the journal row (“what we believed then”).
 4. Decide: **hold** (stay), **add** / **reduce** (size), or **exit**.
 5. If the written thesis changed, `updateDossier` first (new version only if assembled JSON changed).
 6. `createDecision` today with that conclusion. This completes the weekly review.
@@ -229,19 +257,24 @@ Then the next name. Do not batch several holdings into one journal row.
 
 Illustration from mid-August 2026. VRT was an open ~16.86-share position from an **enter** on 12 Aug; the last journal row was a **hold** on 15 Aug. Kill criteria in the live dossier included organic growth slipping under ~10–12%, shrinking backlog, operating margins under ~20%, and share loss in liquid cooling / power.
 
-A matching GPT pass:
+A matching GPT pass — **history first, in all three stores, before the dossier is opened**:
 
-1. `getCompanyDossier("VRT")` and `getJournal?symbol=VRT`.
-2. Say whether invalidation is intact versus the book.
-3. `updateDossier` only if the text actually changed.
-4. `createDecision` with `decision_type: "hold"` and this week’s thesis (user approves the write).
-5. Repeat for the next holding. NVIDIA earnings-style events stay on `review_tasks`, not this loop.
+1. `getJournal?symbol=VRT` — the 15 Aug `hold`. This is last week's belief; it is not in the review queue.
+2. `getReviewQueue?status=completed&symbol=VRT&limit=5` — catalysts touching VRT. On a quiet week this is empty, which means *no catalyst fired*, not *nothing was concluded*.
+3. `getReviewQueue?status=completed&scope=portfolio&limit=5` — the book-level chain. In late August that is the 30 Aug drawdown diagnostic ("~81% of losses in AI infrastructure; do not average down on price alone"), then the September monthly pass ("hold the ~$10k baseline") and ranking ("no candidate cleared both gates"). VRT is an AI-infrastructure holding, so those conclusions bear on it directly even though none names it.
+4. `getCompanyDossier("VRT")` — now read the thesis against that record.
+5. State **previous belief → new evidence → updated belief**, and say whether invalidation is intact versus the book.
+6. `updateDossier` only if the text actually changed.
+7. `createDecision` with `decision_type: "hold"` and this week’s thesis (user approves the write).
+8. Repeat for the next holding. NVIDIA earnings-style events stay on `review_tasks`, not this loop.
 
 | Step | Tool |
 |------|------|
+| Last week’s belief | `getJournal?symbol=` |
+| Catalysts for the name | `getReviewQueue?status=completed&symbol=` |
+| Book-level chain | `getReviewQueue?status=completed&scope=portfolio` |
 | Book + due items | `getFundState`, `getPortfolio` |
 | Research | `getCompanyDossier`, `getDossierVersions`, `getDossierVersion` |
-| Last thesis | `getJournal?symbol=` |
 | Rewrite if needed | `updateDossier` |
 | This week’s conclusion | `createDecision` (`hold` / `add` / `reduce` / `exit`) |
 | Queue a size change | `createPlannedAction` — never a fill |
