@@ -263,8 +263,10 @@ export type DossierReviewRow = {
   updatedAt: string;
 };
 
-export async function listDossierReviews(): Promise<DossierReviewRow[]> {
-  const supabase = await resolveDb();
+export async function listDossierReviews(
+  client?: DbClient,
+): Promise<DossierReviewRow[]> {
+  const supabase = await resolveDb(client);
   const { data, error } = await supabase
     .from("dossiers")
     .select("instrument_id, status, next_diligence, next_review_at, updated_at");

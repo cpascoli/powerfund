@@ -77,6 +77,9 @@ describe("API surfaces", () => {
     expect(agentDoc.paths["/api/v1/agent/review-queue"].get.operationId).toBe(
       "getReviewQueue",
     );
+    expect(agentDoc.paths["/api/v1/agent/research"].get.operationId).toBe(
+      "getResearchInbox",
+    );
     expect(
       agentDoc.paths["/api/v1/agent/review-tasks/{id}/complete"].post.operationId,
     ).toBe("completeReviewTask");

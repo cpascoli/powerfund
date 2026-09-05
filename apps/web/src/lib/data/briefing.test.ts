@@ -328,6 +328,9 @@ describe("research inbox", () => {
       expect.objectContaining({
         kind: "needs_dossier",
         title: "Write a dossier for CLS",
+        symbol: "CLS",
+        ageDays: null,
+        dueSince: null,
       }),
     ]);
   });
@@ -347,7 +350,14 @@ describe("research inbox", () => {
       book: emptyBook,
       today: asOf,
     });
-    expect(items.map((row) => row.kind)).toEqual(["review_due_date"]);
+    expect(items).toEqual([
+      expect.objectContaining({
+        kind: "review_due_date",
+        symbol: "CLS",
+        dueSince: "2026-08-01",
+        ageDays: 15,
+      }),
+    ]);
   });
 
   it("does not fire 14-day diligence when a future review date is set", () => {
@@ -396,6 +406,9 @@ describe("research inbox", () => {
       expect.objectContaining({
         kind: "diligence",
         title: "Next diligence on CLS",
+        symbol: "CLS",
+        ageDays: 15,
+        dueSince: "2026-08-29",
       }),
     ]);
   });

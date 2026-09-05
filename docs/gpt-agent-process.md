@@ -195,6 +195,8 @@ Weekly holds, the daily sweep, the data-integrity gate, and post-fill notes stay
 
 ### Research tab (not Due)
 
+Fetch with `getResearchInbox` (`GET /api/v1/agent/research`). Optional `kind=` (`needs_dossier`, `review_due_date`, `diligence`, comma-separated). This is the same derived list the UI shows — do not reconstruct it from `getFundState` + N dossier reads. There is no complete mutation; `updateDossier` is what clears a row.
+
 | Kind | Meaning | Agent action |
 |------|---------|--------------|
 | `needs_dossier` | Watchlist name with no dossier | Write version 1, or leave it. Not a daily sweep item. |
@@ -323,9 +325,19 @@ Purpose: a ticker is not research until it has a dossier and kill criteria.
 
 ## 5. Watchlist hygiene
 
-Promote (dossier + maybe a planned buy) or leave alone.
+Promote (dossier + maybe a planned buy) or leave alone. Not the daily sweep.
+
+1. `getResearchInbox` — the Briefing Research tab. Work a name, or leave it.
+2. `needs_dossier` → ritual 4 (`updateDossier` v1). `review_due_date` / `diligence` → re-read, then `updateDossier`. That save is what drops the row.
+3. Do not `createReviewTask` to remember these. Do not archive from here.
 
 The agent **cannot** archive or delete a name. Propose drops in chat; the operator archives in the database/UI until that op exists. Do not re-add a name that is already `watchlist` or `active`.
+
+| Step | Tool |
+|------|------|
+| Research inbox | `getResearchInbox` |
+| Write or refresh | `updateDossier` |
+| First thesis | ritual 4 |
 
 ---
 

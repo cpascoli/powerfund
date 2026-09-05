@@ -505,6 +505,73 @@ export function agentOpenApiDocument(origin: string) {
           mutating: false,
         }),
       },
+      "/api/v1/agent/research": {
+        get: op({
+          operationId: "getResearchInbox",
+          summary: "Briefing Research tab",
+          description:
+            "The derived Research inbox the UI shows: needs_dossier, review_due_date, diligence. Same clocks. Read-only. updateDossier clears a row. Not the daily sweep and not getReviewQueue.",
+          scope: "powerfund:dossier:read",
+          mutating: false,
+          parameters: [
+            {
+              name: "kind",
+              in: "query",
+              description:
+                "needs_dossier, review_due_date, or diligence. Comma-separate to combine. Omit for every kind.",
+              schema: {
+                type: "string",
+                enum: ["needs_dossier", "review_due_date", "diligence"],
+              },
+            },
+          ],
+          responses: {
+            "200": jsonOkBody({
+              type: "object",
+              properties: {
+                as_of: { type: "string", format: "date-time" },
+                returned: { type: "integer" },
+                items: {
+                  type: "array",
+                  items: {
+                    type: "object",
+                    properties: {
+                      kind: {
+                        type: "string",
+                        enum: [
+                          "needs_dossier",
+                          "review_due_date",
+                          "diligence",
+                        ],
+                      },
+                      symbol: { type: "string" },
+                      name: { type: "string" },
+                      next_review_at: { type: "string" },
+                      next_diligence: { type: "string" },
+                      updated_at: { type: "string", format: "date-time" },
+                      dossier_status: { type: "string" },
+                      current_version_id: { type: "string" },
+                      current_version_number: { type: "integer" },
+                      age_days: {
+                        type: "integer",
+                        description:
+                          "Days since updated_at. Drives the 14-day diligence clock. Null when there is no dossier.",
+                      },
+                      due_since: {
+                        type: "string",
+                        description:
+                          "Calendar day the row became due. next_review_at, or updated_at + 14 days. Null for needs_dossier.",
+                      },
+                      reason: { type: "string" },
+                    },
+                  },
+                },
+              },
+            }),
+            "422": errorResponse,
+          },
+        }),
+      },
       "/api/v1/agent/companies/{symbol}": {
         get: op({
           operationId: "getCompanyDossier",

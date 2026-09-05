@@ -56,6 +56,11 @@ export async function GET(request: Request) {
               path: "/api/v1/agent/review-tasks/{id}/complete",
             },
             {
+              operationId: "getResearchInbox",
+              method: "GET",
+              path: "/api/v1/agent/research",
+            },
+            {
               operationId: "getCompanyDossier",
               method: "GET",
               path: "/api/v1/agent/companies/{symbol}",

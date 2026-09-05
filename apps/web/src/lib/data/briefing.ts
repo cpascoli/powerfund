@@ -1,4 +1,4 @@
-import { aiCapexNavPct, aiMemoryNavPct, RISK_DEFAULTS } from "@powerfund/domain";
+import { addDays, aiCapexNavPct, aiMemoryNavPct, RISK_DEFAULTS } from "@powerfund/domain";
 
 import type { DecisionListItem } from "@/lib/data/decisions";
 import type { PlannedActionRow } from "@/lib/data/planned-actions";
@@ -63,7 +63,16 @@ export type BriefingReview = {
   trigger?: { type: "scheduled" | "event_window" | "condition" };
 };
 
-export type ResearchKind = "needs_dossier" | "review_due_date" | "diligence";
+export const RESEARCH_KINDS = [
+  "needs_dossier",
+  "review_due_date",
+  "diligence",
+] as const;
+export type ResearchKind = (typeof RESEARCH_KINDS)[number];
+
+export function isResearchKind(value: string): value is ResearchKind {
+  return (RESEARCH_KINDS as readonly string[]).includes(value);
+}
 
 export type ResearchItem = {
   id: string;
@@ -71,6 +80,19 @@ export type ResearchItem = {
   title: string;
   detail: string;
   href: string | null;
+  symbol: string;
+  name: string;
+  nextReviewAt: string | null;
+  nextDiligence: string | null;
+  updatedAt: string | null;
+  dossierStatus: DossierReviewRow["status"] | null;
+  /** Days since `updated_at`. Null when there is no dossier. Drives the 14-day clock. */
+  ageDays: number | null;
+  /**
+   * Calendar day the row became due. The written `next_review_at` date, or
+   * `updated_at` + 14 days for diligence. Null for `needs_dossier`.
+   */
+  dueSince: string | null;
 };
 
 export type UpcomingItem =
@@ -174,6 +196,39 @@ export function researchKindLabel(kind: ResearchKind): string {
       return _exhaustive;
     }
   }
+}
+
+function dateOnly(iso: string): string {
+  return iso.slice(0, 10);
+}
+
+function researchClocks(
+  dossier: DossierReviewRow | undefined,
+  today: Date,
+): Pick<
+  ResearchItem,
+  | "nextReviewAt"
+  | "nextDiligence"
+  | "updatedAt"
+  | "dossierStatus"
+  | "ageDays"
+> {
+  if (dossier == null) {
+    return {
+      nextReviewAt: null,
+      nextDiligence: null,
+      updatedAt: null,
+      dossierStatus: null,
+      ageDays: null,
+    };
+  }
+  return {
+    nextReviewAt: dossier.nextReviewAt,
+    nextDiligence: dossier.nextDiligence,
+    updatedAt: dossier.updatedAt,
+    dossierStatus: dossier.status,
+    ageDays: daysSince(dossier.updatedAt, today),
+  };
 }
 
 export function reviewIsPublicCatalyst(review: BriefingReview): boolean {
@@ -421,13 +476,19 @@ export function buildResearchItems(args: {
   for (const instrument of args.instruments) {
     if (instrument.status === "archived") continue;
     const dossier = dossierByInstrument.get(instrument.id);
+    const clocks = researchClocks(dossier, today);
+    const href = `/explore/${instrument.symbol}`;
     if (!dossier) {
       items.push({
         id: `dossier-${instrument.id}`,
         kind: "needs_dossier",
         title: `Write a dossier for ${instrument.symbol}`,
         detail: "A ticker is not research until it has a thesis and kill criteria",
-        href: `/explore/${instrument.symbol}`,
+        href,
+        symbol: instrument.symbol,
+        name: instrument.name,
+        ...clocks,
+        dueSince: null,
       });
       continue;
     }
@@ -438,7 +499,11 @@ export function buildResearchItems(args: {
         kind: "review_due_date",
         title: `Review date on ${instrument.symbol}`,
         detail: due ? `next_review_at ${due}` : "Review date is due",
-        href: `/explore/${instrument.symbol}`,
+        href,
+        symbol: instrument.symbol,
+        name: instrument.name,
+        ...clocks,
+        dueSince: due || null,
       });
       continue;
     }
@@ -455,7 +520,11 @@ export function buildResearchItems(args: {
       kind: "diligence",
       title: `Next diligence on ${instrument.symbol}`,
       detail: dossier.nextDiligence,
-      href: `/explore/${instrument.symbol}`,
+      href,
+      symbol: instrument.symbol,
+      name: instrument.name,
+      ...clocks,
+      dueSince: addDays(dateOnly(dossier.updatedAt), DILIGENCE_STALE_AFTER_DAYS),
     });
   }
 
