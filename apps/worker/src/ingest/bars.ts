@@ -31,21 +31,55 @@ export type IngestBarsResult = {
   failed: string[];
 };
 
+const PAGE = 1000;
+
+/**
+ * Every stored close from `fromDate`, paged.
+ *
+ * PostgREST caps a response at 1,000 rows and says nothing about it. Ordered
+ * ascending, the rows it drops are the most *recent* ones — precisely where a
+ * fresh split appears. A 1,900-day repair on 6 September 2026 reported
+ * "1000/1000 stored sessions disagree" for a 1,306-session series: the
+ * comparison never saw the last 306 days it was supposed to be checking.
+ */
 async function storedCloses(
   db: AdminDb,
   instrumentId: string,
   fromDate: string,
 ): Promise<StoredClose[]> {
+  const out: StoredClose[] = [];
+  for (let offset = 0; ; offset += PAGE) {
+    const { data, error } = await db
+      .from("market_bars")
+      .select("bar_date, close")
+      .eq("instrument_id", instrumentId)
+      .gte("bar_date", fromDate)
+      .order("bar_date", { ascending: true })
+      .range(offset, offset + PAGE - 1);
+    if (error) throw new Error(error.message);
+    const page = (data as Array<{ bar_date: string; close: number | null }> | null) ?? [];
+    for (const row of page) {
+      if (row.close == null) continue;
+      out.push({ date: row.bar_date, close: Number(row.close) });
+    }
+    if (page.length < PAGE) return out;
+  }
+}
+
+/** The oldest session we hold, so a repair can reach the start of the series. */
+async function earliestStoredBar(
+  db: AdminDb,
+  instrumentId: string,
+): Promise<string | null> {
   const { data, error } = await db
     .from("market_bars")
-    .select("bar_date, close")
+    .select("bar_date")
     .eq("instrument_id", instrumentId)
-    .gte("bar_date", fromDate)
-    .order("bar_date", { ascending: true });
+    .order("bar_date", { ascending: true })
+    .limit(1);
   if (error) throw new Error(error.message);
-  return ((data as Array<{ bar_date: string; close: number | null }> | null) ?? [])
-    .filter((row) => row.close != null)
-    .map((row) => ({ date: row.bar_date, close: Number(row.close) }));
+  const row = (data as Array<{ bar_date: string }> | null)?.[0];
+  return row?.bar_date ?? null;
 }
 
 export async function ingestBars(options: {
@@ -100,7 +134,14 @@ export async function ingestBars(options: {
         rebaseNote = ` — DISAGREES: ${describePriceRebase(rebase)}; history left alone`;
         console.warn(`[ingest:bars] ${instrument.symbol}${rebaseNote}`);
       } else if (rebase.rebased) {
-        const wideStart = daysAgoIso(REBASE_REFETCH_DAYS);
+        // A fixed lookback cannot reach a series older than itself. Repairing
+        // APH with --days=1900 on 6 September started at 2021-06-24 and left
+        // 2021-06-22 and -23 stranded before the window, still at twice the
+        // real price. Go back to the oldest row we actually hold.
+        const earliest = await earliestStoredBar(db, instrument.id);
+        const fixedStart = daysAgoIso(REBASE_REFETCH_DAYS);
+        const wideStart =
+          earliest != null && earliest < fixedStart ? earliest : fixedStart;
         const refetched = await fetchDailyBars({
           symbol: listing,
           startDate: wideStart,
