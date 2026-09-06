@@ -83,6 +83,8 @@ read-only audits — that is how most findings in the reviews were established.
 | `yahoo-finance2` v4 | `new YahooFinance()`, not a default instance. |
 | One-off `tsx` scripts | Must live inside a workspace to resolve `@powerfund/*`, and cannot use top-level await. |
 | PostgREST | Caps responses at 1,000 rows. Page with `.range()`. |
+| `supabase test db` | Always exits non-zero. The suites `raise exception` rather than emit TAP, so the harness reports "No plan found" even when every one passes. CI is right to run them through `psql -v ON_ERROR_STOP=1` instead; do the same locally. |
+| `market_bars.ingested_at` | `default now()` fires on INSERT only. An upsert that *updates* a row keeps the old timestamp, so it cannot tell you when a row was last written. Compare values against the vendor, not timestamps. |
 
 ## Invariants — do not regress these
 
@@ -100,8 +102,13 @@ Each was a real production defect. See the remediation log for the full story.
 - **The book is USD and there is no FX layer.** A non-USD listing cannot be
   booked (`bookCurrencyBlock` plus a trigger). The currency a company *reports*
   in differs from the one it *trades* in — store both, never divide across them.
-- **A vendor changing prices for days we already stored is a split.** Ingest
-  compares before writing and refetches the full history on disagreement.
+- **A vendor changing prices for days we already stored is *maybe* a split.**
+  Ingest compares before writing, but only overwrites history when the
+  disagreement is consistent across two or more sessions (`looksLikeSplit`) and
+  the refetched series has no discontinuity of its own. A single odd session is a
+  vendor glitch: acting on one in September 2026 overwrote five years of correct
+  APH prices. An automatic repair path with a weak trigger is more dangerous than
+  no repair path.
 - **Viewers read research, never the book.** `positions`, `portfolio_state`,
   `portfolio_snapshots`, `transactions`, `planned_actions` are operator-only.
   RLS refuses silently, so book-backed routes must say so rather than render a

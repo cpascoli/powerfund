@@ -34,12 +34,29 @@ export type PriceRebase = {
   ratio: number | null;
   /** True when every disagreeing session shares the same ratio — a split. */
   consistent: boolean;
+  /**
+   * Whether the disagreement is safe to repair by overwriting history.
+   *
+   * A split re-bases *every* overlapping session by the same factor, so it shows
+   * up as several consistent disagreements. One odd session is a vendor glitch,
+   * and on 4 September 2026 exactly that — a single session where Yahoo briefly
+   * served an unadjusted print — triggered a 1,900-day refetch that overwrote a
+   * correct APH series with a bad one. `rebased` says the vendor disagrees;
+   * only this says the disagreement looks like a split worth acting on.
+   */
+  looksLikeSplit: boolean;
   /** Earliest session where the two disagree. */
   firstDisagreement: string | null;
 };
 
 /** Vendors revise the last decimal; a split moves the price by a factor. */
 const DEFAULT_TOLERANCE_PCT = 0.5;
+
+/**
+ * How many sessions must disagree by the same factor before we believe a split
+ * rather than a bad print. Two is the minimum that can be consistent at all.
+ */
+const MIN_SPLIT_SESSIONS = 2;
 
 function median(values: number[]): number | null {
   if (values.length === 0) return null;
@@ -88,6 +105,7 @@ export function detectPriceRebase(
     disagreeingSessions: ratios.length,
     ratio,
     consistent,
+    looksLikeSplit: consistent && ratios.length >= MIN_SPLIT_SESSIONS,
     firstDisagreement,
   };
 }
@@ -96,9 +114,9 @@ export function detectPriceRebase(
 export function describePriceRebase(rebase: PriceRebase): string {
   if (!rebase.rebased) return "series agrees with the vendor";
   const factor = rebase.ratio == null ? "?" : rebase.ratio.toFixed(4);
-  const shape = rebase.consistent
+  const shape = rebase.looksLikeSplit
     ? `consistent ${factor}x — looks like a split`
-    : `inconsistent (median ${factor}x) — vendor revision`;
+    : `median ${factor}x over ${rebase.disagreeingSessions} session(s) — not a split signature`;
   return (
     `${rebase.disagreeingSessions}/${rebase.comparedSessions} stored sessions ` +
     `disagree from ${rebase.firstDisagreement}; ${shape}`

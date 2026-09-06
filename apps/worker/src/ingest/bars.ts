@@ -2,6 +2,7 @@ import { fetchDailyBars, fetchYahooMarketCap, sleep } from "@powerfund/data-clie
 import {
   describePriceRebase,
   detectPriceRebase,
+  findSeriesDiscontinuities,
   vendorSymbol,
   type StoredClose,
 } from "@powerfund/domain";
@@ -92,18 +93,41 @@ export async function ingestBars(options: {
           .filter((bar): bar is typeof bar & { close: number } => bar.close != null)
           .map((bar) => ({ date: bar.date, close: bar.close })),
       );
-      if (rebase.rebased) {
+      if (rebase.rebased && !rebase.looksLikeSplit) {
+        // One odd session is a bad print, not a split. Overwriting five years of
+        // history on that evidence is how a correct APH series was destroyed on
+        // 4 September 2026. Keep the narrow window and say so.
+        rebaseNote = ` — DISAGREES: ${describePriceRebase(rebase)}; history left alone`;
+        console.warn(`[ingest:bars] ${instrument.symbol}${rebaseNote}`);
+      } else if (rebase.rebased) {
         const wideStart = daysAgoIso(REBASE_REFETCH_DAYS);
         const refetched = await fetchDailyBars({
           symbol: listing,
           startDate: wideStart,
           tiingoApiKey: tiingoKey,
         });
-        bars = refetched.bars;
-        source = refetched.source;
-        rebased.push(instrument.symbol);
-        rebaseNote = ` — REBASED: ${describePriceRebase(rebase)}; refetched from ${wideStart}`;
-        console.warn(`[ingest:bars] ${instrument.symbol}${rebaseNote}`);
+        // The vendor was wrong once already — that is why we are here. A series
+        // it serves with a split-shaped hole in it is not a repair, so refuse
+        // it rather than writing five years of spliced prices over good ones.
+        const broken = findSeriesDiscontinuities(
+          refetched.bars
+            .filter((bar): bar is typeof bar & { close: number } => bar.close != null)
+            .map((bar) => ({ date: bar.date, close: bar.close })),
+        );
+        if (broken.length > 0) {
+          const first = broken[0];
+          rebaseNote =
+            ` — REFETCH REJECTED: ${describePriceRebase(rebase)}, but the ${wideStart} series` +
+            ` still jumps ${first?.changePct.toFixed(1)}% on ${first?.date}` +
+            ` (${broken.length} discontinuit${broken.length === 1 ? "y" : "ies"}); history left alone`;
+          console.warn(`[ingest:bars] ${instrument.symbol}${rebaseNote}`);
+        } else {
+          bars = refetched.bars;
+          source = refetched.source;
+          rebased.push(instrument.symbol);
+          rebaseNote = ` — REBASED: ${describePriceRebase(rebase)}; refetched from ${wideStart}`;
+          console.warn(`[ingest:bars] ${instrument.symbol}${rebaseNote}`);
+        }
       }
 
       const rows = bars.map((bar) => ({

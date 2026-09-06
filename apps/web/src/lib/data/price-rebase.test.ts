@@ -44,6 +44,7 @@ describe("detectPriceRebase", () => {
     expect(result.disagreeingSessions).toBe(2);
     expect(result.ratio).toBeCloseTo(2, 3);
     expect(result.consistent).toBe(true);
+    expect(result.looksLikeSplit).toBe(true);
     expect(result.firstDisagreement).toBe("2026-09-01");
     expect(describePriceRebase(result)).toContain("looks like a split");
   });
@@ -64,7 +65,25 @@ describe("detectPriceRebase", () => {
     expect(result.rebased).toBe(true);
     expect(result.disagreeingSessions).toBe(1);
     expect(result.consistent).toBe(false);
-    expect(describePriceRebase(result)).toContain("vendor revision");
+    expect(result.looksLikeSplit).toBe(false);
+    expect(describePriceRebase(result)).toContain("not a split signature");
+  });
+
+  it("will not call a single 2x session a split", () => {
+    // 4 September 2026, exactly: our series was correct and Yahoo served one
+    // unadjusted print for 31 August. `rebased` was true and `ratio` was a
+    // clean 0.5, so the old gate refetched 1,900 days and overwrote five years
+    // of good prices with the vendor's bad ones. A split moves every session.
+    const stored = APH_FETCHED.map((row, i) =>
+      i === 1 ? { ...row, close: row.close / 2 } : row,
+    );
+    const result = detectPriceRebase(stored, APH_FETCHED);
+    expect(result.rebased).toBe(true);
+    expect(result.disagreeingSessions).toBe(1);
+    expect(result.ratio).toBeCloseTo(0.5, 4);
+    // A single session is trivially "consistent" with itself. That is the trap.
+    expect(result.consistent).toBe(false);
+    expect(result.looksLikeSplit).toBe(false);
   });
 
   it("handles a reverse split", () => {
@@ -72,6 +91,7 @@ describe("detectPriceRebase", () => {
     const result = detectPriceRebase(stored, APH_FETCHED);
     expect(result.ratio).toBeCloseTo(0.1, 4);
     expect(result.consistent).toBe(true);
+    expect(result.looksLikeSplit).toBe(true);
   });
 
   it("ignores sessions it cannot compare", () => {

@@ -627,7 +627,7 @@ previous numbers.
 | 2020 | ~400d | 34d |
 | 2025 | ~388d | 33d |
 
-Production holds **3,247 vintages**, 92% with a real filing date, and **144
+Production holds **2,342 vintages**, 92% with a real filing date, and **144
 quarters were genuinely revised after first disclosure**. The projection grew
 from 1,491 to 2,019 quarters, because per-filing ingest recovers periods the
 collapse-to-one-row path never stored. Yahoo rows carry `period_end + 90 days`
@@ -668,11 +668,10 @@ their own outperformance.
 work are `improving_extended` (+32.1%), which by definition means the price has
 already run, and `correction_candidate` (+30.2%), which means it has already
 fallen. The scorer is being paid for momentum and mean reversion, not for the
-fundamental inflection it claims to detect at the moment it claims to detect it. The two states that beat
-the universe are `insufficient_data`, which is not a signal but a selection
-artifact (names with no fundamentals are the recent hypergrowth listings that
-happened to moon), and `improving_extended`, which by its own definition means
-the price has already run — momentum, not earliness.
+fundamental inflection it claims to detect at the moment it claims to detect it. `insufficient_data` tops the table at +71.2%, but it is a
+selection artifact rather than a signal — names with no fundamentals are the
+recent hypergrowth listings that happened to moon — which is why it is excluded
+from the baseline the excess column is measured against.
 
 **Read this against a hard caveat.** The 53 names are *today's* watchlist,
 assembled partly because they already worked. Replaying it over 2021–2026 is

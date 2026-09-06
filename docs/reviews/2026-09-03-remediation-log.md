@@ -344,6 +344,63 @@ Over all 55 instruments: **24 sessions worth checking, and only APH lands on a
 round factor**. The large moves in held names — VRT −36.7% in Feb 2022, CRDO,
 NBIS — are genuine.
 
+### 6.1 The repair then destroyed the series — found 6 September
+
+The fix above was verified and correct on 3 September. It did not survive the
+week, and the way it failed is worth more than the original bug.
+
+`bars:audit` on 6 September showed APH zig-zagging: 161.38 → 78.87 → 158.55 →
+81.59 across four consecutive sessions. Yahoo's live series is clean and fully
+split-adjusted (27 August = 80.69). Ours held **2× the correct price for every
+session from 2021-06-22 to 2026-08-27, plus 2026-08-31** — five years of prices,
+wrong, in a series that had been right three days earlier.
+
+The nightly log names the culprit:
+
+```
+2026-09-04  [ingest:bars] APH — REBASED: 1/1 stored sessions disagree from
+            2026-08-31; inconsistent (median 0.5000x) — vendor revision;
+            refetched from 2021-06-22
+2026-09-04  [ingest:bars] APH: 1304 bars via yahoo — re-based series refetched in full
+```
+
+Read the ratio. **0.5000×** means *stored was half of fetched* — our series was
+already correct and the vendor briefly served an unadjusted print for one
+session. The gate was `if (rebase.rebased)`, which is true on **any** single
+disagreement, so a one-session vendor glitch triggered a 1,900-day refetch and
+overwrote 1,304 good rows with the bad series the glitch came from. The log even
+classified it correctly — *"inconsistent … vendor revision"*, explicitly not a
+split — and refetched anyway, because `consistent` was only ever used to word the
+message, never to decide.
+
+Two guards now stand between a vendor hiccup and five years of history:
+
+1. **Overwrite only on a split signature.** `looksLikeSplit` requires the
+   disagreement to be consistent across at least two sessions. A split re-bases
+   *every* overlapping session by the same factor; one odd session never does.
+   A disagreement that fails this is logged and the history left alone.
+2. **Refuse a refetch that is itself broken.** The vendor has already been wrong
+   once — that is why we are refetching. Before the wide series is written it is
+   run through `findSeriesDiscontinuities`; a series that still has a
+   split-shaped hole in it is rejected, not written.
+
+`ingested_at` was useless for diagnosing this, and that is a trap worth naming:
+it carries `default now()`, which only fires on INSERT. An upsert that updates a
+row leaves the old timestamp in place, so "45 rows written on 09-03" was an
+artifact — those were the 44 genuinely new rows extending history, plus the day's
+bar. The values, not the timestamps, are the evidence.
+
+**Repair:** `pnpm --filter @powerfund/worker ingest:bars -- --days=1900 --symbols=APH`.
+The 1,309 corrupted rows are backed up at
+`/tmp/market_bars_APH_backup_2026-09-06.json`.
+
+**What this says about the class.** The 3 September fix turned a silent
+corruption into a *loud* one — the audit found it in one command, and the ingest
+log carried the exact evidence. That is the design working. What it also shows is
+that a repair path is code too: an automatic writer with a weak trigger is more
+dangerous than no writer at all, because it acts confidently on one bad reading
+and destroys the good data it was built to protect.
+
 ---
 
 ## 7. Access control

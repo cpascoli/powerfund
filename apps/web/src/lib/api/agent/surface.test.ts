@@ -157,6 +157,17 @@ describe("API surfaces", () => {
         (op.description ?? "").length,
         `${op.operationId} description`,
       ).toBeLessThanOrEqual(GPT_ACTION_TEXT_MAX);
+      // GPT truncates parameter help at the same 300 characters, and the
+      // review-history filters are where the long explanations live.
+      for (const param of (op.parameters ?? []) as Array<{
+        name: string;
+        description?: string;
+      }>) {
+        expect(
+          (param.description ?? "").length,
+          `${op.operationId}.${param.name} description`,
+        ).toBeLessThanOrEqual(GPT_ACTION_TEXT_MAX);
+      }
     }
 
     const createBody = agentDoc.paths["/api/v1/agent/review-tasks"].post
