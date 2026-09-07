@@ -23,6 +23,7 @@ export async function GET(request: Request) {
           ? Number(url.searchParams.get("limit"))
           : undefined,
         before: url.searchParams.get("before") ?? undefined,
+        graded: url.searchParams.get("graded") ?? undefined,
       });
       return agentJson(body, { remaining: ctx.remaining });
     },

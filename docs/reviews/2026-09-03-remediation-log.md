@@ -480,7 +480,7 @@ Recorded so they are not rediscovered as new.
 | **`instruments.status = 'active'` is dead; no archive path** | Ritual 5 remains unimplementable across 53 names except by raw SQL. |
 | **`bookFill` retry can double-book an unplanned fill** | Queued fills are protected by the `planned_action_id` unique index; manual ones are not. |
 | **`listDecisions` is unbounded** | Will silently truncate at the PostgREST 1,000-row cap and break `thesis_review` detection. |
-| **Benchmarks labelled "TR" but computed from price closes** | ~1.2%/yr of flattery against SPY over the multi-year window the mandate wants to judge. |
+| ~~**Benchmarks labelled "TR" but computed from price closes**~~ | **Struck 2026-09-07 — the finding was wrong.** `performance.ts` reads `row.adj_close ?? row.close`, and SPY's `adj_close` is fully populated: 0 nulls across 1,309 bars, differing from `close` on 1,254 of them. The comparison is already total-return and there is no ~1.2%/yr of flattery to remove. Left visible rather than deleted so it is not "fixed" later. |
 | **Mandate rule 1 still says "cost and/or market"** | The code chose market three weeks ago; the doc has not. |
 
 ---

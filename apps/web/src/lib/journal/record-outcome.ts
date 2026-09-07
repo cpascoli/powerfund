@@ -150,6 +150,39 @@ export async function recordDecisionOutcome(
   };
 }
 
+const OUTCOME_PAGE = 1000;
+
+/**
+ * The ids of every decision that has been graded at least once.
+ *
+ * Ritual 12 asks "which material decisions have not been calibrated yet", and
+ * that question cannot be answered by looking at a page of the journal: the
+ * absence of a child row is not a column you can filter on. Reading the whole
+ * (small, append-only) table once and filtering in memory is cheaper than a
+ * correlated per-decision existence check, and it must happen *before* the
+ * journal is paged or the filter would only apply to the current page.
+ *
+ * Paged, because PostgREST caps a response at 1,000 rows and says nothing
+ * about it.
+ */
+export async function gradedDecisionIds(
+  supabase: DbClient,
+): Promise<Set<string>> {
+  const graded = new Set<string>();
+  for (let offset = 0; ; offset += OUTCOME_PAGE) {
+    const { data, error } = await supabase
+      .from("decision_outcomes")
+      .select("decision_id")
+      .range(offset, offset + OUTCOME_PAGE - 1);
+    if (error) {
+      throw new Error(`Failed to load decision outcomes: ${error.message}`);
+    }
+    const page = (data as Array<{ decision_id: string }> | null) ?? [];
+    for (const row of page) graded.add(row.decision_id);
+    if (page.length < OUTCOME_PAGE) return graded;
+  }
+}
+
 export async function listDecisionOutcomes(
   supabase: DbClient,
   decisionIds: string[],

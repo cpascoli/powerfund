@@ -462,10 +462,19 @@ export function agentOpenApiDocument(origin: string) {
             {
               name: "decision_type",
               in: "query",
-              description: "Filter: enter, add, reduce, exit, hold, or watch.",
+              description:
+                "enter, add, reduce, exit, hold or watch. Comma-separate to combine. 'material' is shorthand for enter,add,reduce,exit — the set ritual 12 calibrates.",
               schema: {
                 type: "string",
-                enum: ["enter", "add", "reduce", "exit", "hold", "watch"],
+                enum: [
+                  "enter",
+                  "add",
+                  "reduce",
+                  "exit",
+                  "hold",
+                  "watch",
+                  "material",
+                ],
               },
             },
             {
@@ -491,6 +500,13 @@ export function agentOpenApiDocument(origin: string) {
               in: "query",
               description: "Return rows older than this action_at.",
               schema: { type: "string", format: "date-time" },
+            },
+            {
+              name: "graded",
+              in: "query",
+              description:
+                "false lists decisions with no outcome recorded yet, true lists ones already graded. Applied before paging. Use graded=false with decision_type=material for the quarterly calibration worklist.",
+              schema: { type: "boolean" },
             },
           ],
         }),
