@@ -49,6 +49,16 @@ Build:
 - [x] Portfolio book (open positions, cash, NAV, mandate weights)
 - [x] Deployment queue (plan buy → confirm fill)
 - [x] Decision journal CRUD (thesis → action → review)
+- [x] Review queue — dated obligations with triggers, plus history query
+      (`getReviewQueue` filters by status/scope/symbol/theme/date) so a review
+      can read what the book concluded last time before writing a new one
+- [x] Agent API (`/api/v1/agent`, 19 operations) — the weekly process runs
+      through it, not by hand ([agent-api.md](./agent-api.md),
+      [gpt-agent-process.md](./gpt-agent-process.md))
+- [x] Operator/viewer split — `requireOperator()` plus RLS; viewers read
+      research and never the book
+- [x] CI on every push (typecheck, tests, web build, migrations against an
+      empty database)
 
 Technical direction:
 
@@ -79,6 +89,23 @@ Exit criteria: at least one explainable automated scorer in production use that 
 
 Ingestion is the *input* to this phase, not a slice of “done.” EOD bars and quarterly fundamentals are already running; that does not meet the exit criterion.
 
+**Built (2026-09-03), and it changed what “done” costs.** The middle of the
+platform shape now exists: `fundamentals_vintages` makes fundamentals
+point-in-time (append-only, one observation per filing, `knowable_at` from the
+filing that disclosed it); `sliceScorerInputsAsOf` lets the scorer be asked what
+it knew on any past date, so the live run and a replay share one function; and
+`score:replay` grades each setup on forward returns with a leave-one-out
+universe baseline.
+
+The first thing that machinery produced was a **negative result**, and it is the
+most valuable output of this phase so far. Over 53 names and 63 monthly dates,
+`fundamental_inflection_v1`’s “buy now” state *underperforms* the universe by
+6.4% at twelve months, while “already extended” and “already fallen” beat it.
+So the exit criterion is further away than a feature list would suggest — we can
+now measure whether a scorer works, and the first one does not. See the
+[full review](./reviews/2026-09-02-full-review.md) §14. Do not tune it against
+that sample: the universe is survivorship-contaminated.
+
 ## Phase 3 — Risk & portfolio construction
 
 **Goal:** Fund-like discipline in software.
@@ -91,7 +118,19 @@ Still to encode:
 - Concentration and correlation checks as a pre-capital gate
 - Stress scenarios (AI CapEx pause, energy shock, rates reprice)
 - Sizing aids from volatility, conviction, liquidity
-- Drawdown kill-switch workflows aligned with [mandate.md](./mandate.md)
+- ~~Drawdown kill-switch workflows aligned with [mandate.md](./mandate.md)~~
+  **Encoded (2026-08 → 09).** `shouldHaltNewRiskForKillSwitch` in
+  `packages/domain/src/mandate.ts`, enforced in `lib/mandate/enforce.ts` and
+  surfaced on Briefing; it halts new risk only above the capital Phase-1 cap.
+  Two deployed-drawdown diagnostics have actually been run and persisted
+  (2026-08-30, 2026-09-03).
+
+**Measurement integrity is a prerequisite, not a detail.** A kill-switch is only
+as good as the series it reads. Until 2026-09-02 the published max deployed
+drawdown was 25.1% against a true 16.4% — snapshots were stamped by wall-clock
+rather than by cash session, so a late cron fabricated returns. Anything added
+above must state which stored series it trusts and what proves that series
+true. See the [remediation log](./reviews/2026-09-03-remediation-log.md) §2.
 
 Exit criteria: risk view is checked before every new risk; violations are visible and blocking by policy.
 
@@ -115,7 +154,7 @@ Exit criteria: deliberate go/no-go; no premature multi-tenant complexity before 
 4. [x] Connect UI to Supabase (auth + CRUD).
 5. [x] Manual research workflow for a starter universe (~15–30 names across core themes).
 6. [x] Ship one automated scorer (e.g. growth/CapEx inflection + anti-parabolic filter). Shadow `fundamental_inflection_v1` on Explore + Signals; not wired to Briefing or the buy gate.
-7. [ ] Establish weekly review ritual (queue + book; later, review writes into the queue).
+7. [x] Establish weekly review ritual (queue + book; later, review writes into the queue). Running since 2026-08-15: 34 `hold` decisions across eight roughly-weekly dates, the last covering all eight open names (2026-09-05). Monthly book pass, opportunity ranking and two drawdown diagnostics are persisted as `scope: portfolio` review tasks. Reviews now write into the queue, and the historical gate makes reading prior conclusions a precondition for completing a comparable one.
 8. [x] Backfill written invalidation criteria for all open positions missing them (mandate rule 4). Written to the book 2026-08-13; enter-decision invalidation now copies onto the open position.
 9. [x] Set the deployment-ladder baseline tranche: **~$10k/month** (decided 2026-08-13), reaching the **capital** Phase-1 $75k cap ~January 2027. Acceleration-tranche sizes for the −10%/−20% triggers still to be set at a monthly review.
 10. [x] Minimum viable risk view (correlation matrix + AI-capex stress) before deployed cost crossed ~$40–50k (software Phase 3 pull-forward). Workbench → Risk, 2026-08-14.
@@ -135,7 +174,7 @@ Exit criteria: deliberate go/no-go; no premature multi-tenant complexity before 
 | Phase | Status |
 |-------|--------|
 | 0 — Operating model | Complete |
-| 1 — Research OS | In progress (watchlist / dossiers / journal + free market ingest). Weekly ritual surface and filings-on-dossiers still open. |
-| 2 — Data & quant pipelines | Input layer started (EOD bars + quarterly fundamentals). Exit criterion not met. |
-| 3 — Risk & portfolio construction | Minimum slice live (Workbench → Risk). Full pre-capital gate not met. |
+| 1 — Research OS | In progress. Watchlist, dossiers, book, deployment queue, journal, review queue and the agent API are live, and the weekly ritual has run since 2026-08-15. Open: filings/earnings links on dossiers, signal inbox CRUD. |
+| 2 — Data & quant pipelines | Input layer plus point-in-time vintages, as-of scoring and a replay harness. Exit criterion **not** met, and now known to be further off: the first scorer measured worse than its universe. |
+| 3 — Risk & portfolio construction | Minimum slice live (Workbench → Risk); kill-switch encoded and diagnostics run. Full pre-capital gate not met. |
 | 4 — Insight product / other capital | Not started |
