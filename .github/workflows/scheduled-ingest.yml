@@ -4,9 +4,16 @@
 name: Scheduled ingest
 
 on:
+  # Deliberately off the hour. GitHub creates scheduled runs on a best-effort
+  # basis and is worst at :00, when every hourly cron on the platform queues at
+  # once — 11 runs measured on "0 22" landed a median 176 minutes late and one
+  # 474 minutes late, with zero runner wait, so the delay was entirely in the
+  # scheduler rather than in capacity. An odd minute sidesteps the peak.
+  # Lateness is a freshness problem, not a correctness one: snapshots are keyed
+  # on the cash session, so a run at 05:54 the next morning writes the same rows.
   schedule:
-    - cron: "0 22 * * 1-5" # weekdays after the US cash close
-    - cron: "0 8 * * 0" # Sunday fundamentals
+    - cron: "37 22 * * 1-5" # weekdays after the US cash close
+    - cron: "37 8 * * 0" # Sunday fundamentals
   workflow_dispatch:
     inputs:
       job:

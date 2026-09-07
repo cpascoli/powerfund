@@ -15,8 +15,9 @@ ADR 0004 already keeps heavy work in `apps/worker`. The worker CLI is the path t
 ## Decision
 
 - **GitHub Actions** is the production scheduler (`.github/workflows/scheduled-ingest.yml`).
-- Bars: `0 22 * * 1-5` (22:00 UTC weekdays ≈ 18:00 ET). Runs `ingest:bars --days=7` then `snapshot:portfolio`. `ingest:bars` also scores `fundamental_inflection_v1`.
-- Fundamentals: `0 8 * * 0` (Sunday 08:00 UTC). Runs `ingest:fundamentals` (SEC companyfacts, Yahoo hole-fill), which also scores.
+- Bars: `37 22 * * 1-5` (22:37 UTC weekdays ≈ 18:37 ET). Runs `ingest:bars --days=7` then `snapshot:portfolio`. `ingest:bars` also scores `fundamental_inflection_v1`.
+- Fundamentals: `37 8 * * 0` (Sunday 08:37 UTC). Runs `ingest:fundamentals` (SEC companyfacts, Yahoo hole-fill), which also scores.
+- **Both are deliberately off the hour.** GitHub creates scheduled runs best-effort and is worst at `:00`. On `0 22`, 11 measured runs landed a median **176 minutes** late and one **474 minutes** late, with **zero runner wait** — the delay was entirely in GitHub's scheduler, not in capacity, so a bigger runner would not have helped. Nothing was ever skipped. Lateness is a freshness problem rather than a correctness one, because snapshots are keyed on the cash session: a run at 05:54 the next morning writes the same rows. If punctuality ever does matter, drive `workflow_dispatch` from an external scheduler rather than trusting `schedule`.
 - `workflow_dispatch` runs either job immediately (Actions → Scheduled ingest → Run workflow).
 - Repository secrets (never `NEXT_PUBLIC_*` for the service role): `SUPABASE_URL` or `NEXT_PUBLIC_SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, optional `TIINGO_API_KEY`.
 - Local `pnpm ingest:bars` / `pnpm ingest:fundamentals` remain for backfill and one-off runs.
