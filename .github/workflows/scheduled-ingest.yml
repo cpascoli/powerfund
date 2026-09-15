@@ -43,7 +43,7 @@ jobs:
     name: Bars + snapshot
     if: >-
       (github.event_name == 'workflow_dispatch' && inputs.job == 'bars') ||
-      (github.event_name == 'schedule' && github.event.schedule == '0 22 * * 1-5')
+      (github.event_name == 'schedule' && github.event.schedule == '37 22 * * 1-5')
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -73,7 +73,7 @@ jobs:
     name: Fundamentals
     if: >-
       (github.event_name == 'workflow_dispatch' && inputs.job == 'fundamentals') ||
-      (github.event_name == 'schedule' && github.event.schedule == '0 8 * * 0')
+      (github.event_name == 'schedule' && github.event.schedule == '37 8 * * 0')
     runs-on: ubuntu-latest
     timeout-minutes: 25
     steps:
