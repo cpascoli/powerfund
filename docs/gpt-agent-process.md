@@ -5,7 +5,7 @@ How a GPT with the [agent API](./agent-api.md) helps run Power Fund. Paste this 
 Hard rules:
 
 - There is no agent path to `transactions`, `bookFill`, or cash movement.
-- `review_tasks` are dated obligations, not a dumping ground. **Company / theme** tasks are the catalyst calendar. **Portfolio** tasks are book-level reviews (monthly pass, quarterly review, stress diagnostic, capital-phase gates). Weekly holding reviews are **journal + dossier**, not a review task.
+- `review_tasks` are dated obligations, not a dumping ground. **Company / theme / macro** tasks are the catalyst calendar. **Portfolio** tasks are book-level reviews (monthly pass, quarterly review, stress diagnostic, capital-phase gates). Weekly holding reviews are **journal + dossier**, not a review task.
 - There is no `updateDecision`, `reviewed_at` endpoint, or `completeWeeklyReview`. Completing a weekly hold is a **new** `createDecision`.
 - `recordDecisionOutcome` appends a child row. It does **not** set `reviewed_at` and does **not** complete a weekly hold.
 - Do not `createReviewTask` for a weekly hold. Do not `createPlannedAction` for an earnings print. Do persist monthly and quarterly book rituals as `scope: portfolio` review tasks (see Object taxonomy).
@@ -130,7 +130,10 @@ the conversation that produced it.
 |------|--------|
 | Daily (or whenever the GPT is opened) | Briefing sweep — Dated this week, then Due. Research is a backlog, not the sweep. |
 | Weekly | Holding review — every open name |
-| Rolling | Calendar fill — known events 2–3 months out |
+| Weekly + event-driven | Calendar discovery/fill — maintain actionable events 2–3 months out |
+| Weekdays / during normal research | **Light event discovery** — capture newly announced material events for holdings and active-thesis watchlist names when encountered: earnings dates, investor days, conferences, product launches, regulatory decisions, financing events, customer milestones, macro releases, and other thesis-relevant catalysts. Add actionable dated events to the calendar; do not create vague monitoring tasks. |
+| Weekly — Saturday | **Comprehensive calendar refresh** — sweep the full holdings + active-thesis watchlist and relevant macro/theme calendars, looking roughly 2–3 months ahead. Add missing actionable events, update dates/checklists where better information is available, and remove duplication. |
+| Event-driven | Whenever company or market research uncovers a material future catalyst not already represented, add it immediately rather than waiting for Saturday. |
 | Ad hoc | New-name research; watchlist hygiene |
 | Before any `buy` / `add` planned action | Dossier / data-integrity gate |
 | Monthly | Book / mandate pass + opportunity ranking — one portfolio review task |
@@ -148,7 +151,7 @@ Briefing is **Now** (Dated / Due / Research). Journal is **Then** (what we decid
 
 | Kind | What it is | Lands on | Agent action when due |
 |------|------------|----------|------------------------|
-| **Review task (company / theme)** | Reassess when X happens (earnings, event window, price condition) | Dated until the trigger fires; then Due as `review_due` | Follow `instructions`. Update dossier / journal / planned trade **if needed**. Then `completeReviewTask` with an outcome. Never a fill. |
+| **Review task (company / theme / macro)** | Reassess when X happens (earnings, event window, policy decision, macro release, price condition) | Dated until the trigger fires; then Due as `review_due` | Follow `instructions`. Update dossier / journal / planned trade **if needed**. Then `completeReviewTask` with an outcome. Never a fill. |
 | **Review task (portfolio)** | Book-level cadence or incident (monthly pass, quarterly review, 15% diagnostic, capital-phase gate) | Dated until `scheduled.at`; then Due as `review_due`. Operator Calendar Past labels these **Book**. They do not appear on the public catalyst calendar. | Run the named ritual. Put conclusions in `outcome` (not only in chat). Link `planned_action` / `decision` ids in `outputs` when you created them. Then `completeReviewTask`. On monthly/quarterly complete, **roll the next period** (below). Never a fill. |
 | **Planned action** | Intended `buy` / `add` / `reduce` / `sell` | Dated until `due_by`; then Due as `due_today` or `overdue` | Confirm the window and thesis. **Human books the fill** on the Portfolio queue. Agent may only `updatePlannedAction` (`deferred` / `cancelled`) or leave it for the UI confirm flow. |
 
@@ -214,7 +217,7 @@ Purpose: action what is due; leave the rest of the calendar alone.
 1. `getFundState` (due reviews, upcoming reviews, planned actions, flags, holdings).
 2. Optionally `getReviewQueue?status=due` and `getPlannedActions` if the snapshot is thin.
 3. For each **due review task**:
-   - `scope: company` / `theme` — read `instructions`; the prior completed reviews for that name or theme (`getReviewQueue?status=completed&symbol=…` / `&theme=…`); the book-level chain (`getReviewQueue?status=completed&scope=portfolio&limit=5`, which `symbol=` cannot reach); and the dossier. Reassess. Write dossier/journal/planned trade only if the conclusion changed. Then `completeReviewTask` with `outcome` (link existing `dossier_version` / `decision` / `planned_action` ids if you created them).
+   - `scope: company` / `theme` / `macro` — read `instructions`; the prior completed reviews for the linked name or theme (`getReviewQueue?status=completed&symbol=…` / `&theme=…`); the book-level chain (`getReviewQueue?status=completed&scope=portfolio&limit=5`, which `symbol=` cannot reach); and each affected dossier. Reassess. Write dossier/journal/planned trade only if the conclusion changed. Then `completeReviewTask` with `outcome` (link existing `dossier_version` / `decision` / `planned_action` ids if you created them).
    - `scope: portfolio` — this **is** a book ritual, not a catalyst. Match the title: monthly → rituals 6 and 9; quarterly → 10 and 12; drawdown diagnostic → 11; capital-phase → 13 or 14. Do not treat it as “read a company dossier.”
 4. For each **due / overdue planned action**: say whether the window still holds. If yes, stop — the human confirms the fill in `/portfolio?confirm=…`. If no, `updatePlannedAction` to `deferred` or `cancelled` with a reason.
 5. For **flags** and **missing invalidation**: handle as in the table above. Do not invent review tasks for them. **Research** (no dossier / review date / 14-day diligence) is on the Research tab — not part of the daily sweep.
@@ -285,14 +288,31 @@ A matching GPT pass — **history first, in all three stores, before the dossier
 
 ---
 
-## 3. Calendar fill (2–3 months)
+## 3. Calendar discovery / fill (2–3 months)
 
 Purpose: Briefing Dated should already show the important prints, windows, and price levels **before** they are due.
 
+### Discovery cadence
+
+Run Calendar Fill at least once each week, preferably alongside the weekly holding-review ritual, with Saturday as the comprehensive discovery/reset point. Between full sweeps, treat event discovery as continuous: when normal research surfaces a newly announced material catalyst, check the existing open review queue and add it immediately if it is dated and actionable. Keep the daily Briefing sweep lightweight—its purpose is to action what is due, not to turn every opening into a research session.
+
+The weekly sweep should cover:
+
+- all current holdings;
+- watchlist companies with a live thesis;
+- relevant theme and industry events;
+- major scheduled macro events capable of changing the fund's deployment stance.
+
+Look roughly **2–3 months ahead**. Search for newly announced earnings dates, investor days, conferences, product or platform launches, financing or settlement dates, regulatory or policy decisions, major customer events, industry conferences, and scheduled macro releases.
+
+Do not create calendar rows merely because an event exists. It should have a plausible ability to **confirm, update, or invalidate a thesis, change valuation or position sizing, or alter the portfolio deployment stance**.
+
+Before creating anything, load the existing open review queue to avoid duplicates. If an existing task covers the event but its date or checklist is stale, update that task rather than creating another one.
+
 1. `getFundState` with watchlist. List open holdings plus watchlist names with a live thesis (`has_dossier`).
 2. `getReviewQueue?status=open` so you do not duplicate tasks.
-3. For each name, add `createReviewTask` only for dated, actionable events: earnings, financing settlements, policy windows, explicit price invalidation. Skip vague “keep an eye on it.”
-4. Always send `instructions` (what to check that day), `scope` (`company` needs `symbols`; `theme` needs existing theme slugs), and a real trigger. Prefer `scheduled` or `event_window` when the date is known.
+3. For each company, theme, industry, or macro event, add `createReviewTask` only when it is dated and actionable: earnings, financing settlements, policy windows, scheduled releases, explicit price invalidation. Skip vague “keep an eye on it.”
+4. Always send `instructions` (what to check that day), `scope` (`company` needs `symbols`; `theme` needs existing theme slugs; `macro` should link affected `symbols` or `themes` when known), and a real trigger. Prefer `scheduled` or `event_window` when the date is known.
 5. Do not create a review task for the weekly hold. Do not create a planned trade “just to remember the date.”
 6. Ensure the **book cadence** exists: an open `Monthly book pass — YYYY-MM` within ~6 weeks, and an open `Quarterly book review — YYYY-Qn` within ~4 months. Create with `scope: portfolio` and a `scheduled` trigger if missing. Do not duplicate. Do not create a separate monthly “ranking” task.
 
@@ -300,7 +320,7 @@ Purpose: Briefing Dated should already show the important prints, windows, and p
 |------|------|
 | Universe | `getFundState?include_watchlist=true` |
 | Existing calendar | `getReviewQueue?status=open` |
-| Add a catalyst or missing book-cadence task | `createReviewTask` (`company` / `theme` / `portfolio`) |
+| Add a catalyst or missing book-cadence task | `createReviewTask` (`company` / `theme` / `macro` / `portfolio`) |
 | Thicken a thin checklist | `updateReviewTask` (`instructions`) |
 
 ---
