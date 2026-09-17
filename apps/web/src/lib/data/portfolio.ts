@@ -10,6 +10,13 @@ import { fetchYahooQuotes, type LiveQuote } from "@powerfund/data-clients";
 import { isTapeActive, quoteCaption } from "@/lib/market/quotes";
 import { resolveDb, type DbClient } from "@/lib/supabase/db";
 
+const NY_DATE = new Intl.DateTimeFormat("en-CA", {
+  timeZone: "America/New_York",
+  year: "numeric",
+  month: "2-digit",
+  day: "2-digit",
+});
+
 export type OpenPositionRow = {
   id: string;
   instrumentId: string;
@@ -406,7 +413,19 @@ export function applyLiveMarks(
   const positions = book.positions.map((row) => {
     const quote = bySymbol.get(row.symbol.toUpperCase());
     if (quote == null) return row;
-    const previousClose = quote.previousClose ?? row.previousClose;
+    const quoteSession =
+      quote.asOf == null ? null : NY_DATE.format(new Date(quote.asOf));
+    // Yahoo's quote endpoint can lag its previous-close field even after the
+    // chart endpoint has published the next official EOD bar. When this quote
+    // belongs to a newer session, anchor live P&L to the stored close that the
+    // preceding NAV point actually uses. Otherwise the chart spans two sessions
+    // while labelling the result as today's move.
+    const previousClose =
+      quoteSession != null &&
+      row.lastCloseSession != null &&
+      quoteSession > row.lastCloseSession
+        ? (row.lastClose ?? quote.previousClose ?? row.previousClose)
+        : (quote.previousClose ?? row.previousClose);
     return {
       ...row,
       previousClose,

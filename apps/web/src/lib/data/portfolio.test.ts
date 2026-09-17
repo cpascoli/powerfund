@@ -110,6 +110,36 @@ describe("applyLiveMarks", () => {
     expect(live.tapeActive).toBe(true);
   });
 
+  it("anchors a newer-session quote to the latest stored close", () => {
+    const live = applyLiveMarks(closeBook(), [
+      quote({
+        price: 107,
+        marketState: "PRE",
+        asOf: "2026-08-27T12:05:00.000Z",
+        // Yahoo can still report the close before the latest stored session.
+        previousClose: 95,
+      }),
+    ]);
+
+    expect(live.positions[0]?.previousClose).toBe(100);
+    expect(live.positions[0]?.dayPnl).toBe(70);
+    expect(live.dayPnl).toBe(70);
+  });
+
+  it("uses the prior close when the quote and stored close share a session", () => {
+    const live = applyLiveMarks(closeBook(), [
+      quote({
+        price: 101,
+        marketState: "POST",
+        asOf: "2026-08-26T20:10:00.000Z",
+        previousClose: 95,
+      }),
+    ]);
+
+    expect(live.positions[0]?.previousClose).toBe(95);
+    expect(live.positions[0]?.dayPnl).toBe(60);
+  });
+
   it("leaves stored closes in place when no quotes arrive", () => {
     const book = closeBook();
     expect(applyLiveMarks(book, [])).toBe(book);
