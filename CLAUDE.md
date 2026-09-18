@@ -121,13 +121,18 @@ Each was a real production defect. See the remediation log for the full story.
   RLS refuses silently, so book-backed routes must say so rather than render a
   zeroed book.
 - **Every write goes through `requireOperator()`** as well as RLS.
-- **A planned action has a direction, and the fill path must honour it.**
-  `planned_action_type` includes `reduce` and `sell`, but as of 2026-09-18
-  `confirmPlannedAction` books every confirmed row through `bookFill` (a buy)
-  and `mandateGate` evaluates every planned action as a purchase. Nothing has
-  been sold yet, so it has not bitten. Until it is fixed, do not confirm a
-  `reduce`/`sell` from the queue — use the sell form on the position — and do
-  not route any new code through `mandateGate` without saying which side it is.
+- **A planned action has a direction, and every risk rule is a rule about one
+  side.** `mandateGate` takes a required `side`; a `sell` skips the caps and the
+  kill-switch entirely and is gated only on holding the thing, because every one
+  of those limits constrains *new* risk and a reduction lowers all of them. Use
+  `isSellSide()` rather than comparing action types, and gate on the direction
+  being asked for now, never the one on the stored row. The queue still cannot
+  book a sale: `confirmPlannedAction` refuses `reduce`/`sell` outright rather
+  than booking them through `bookFill` as it did before 2026-09-18 — sell from
+  the position's own form until the confirm path routes by direction.
+  Plan-time gating is an early warning, not the boundary: `restorePlannedAction`
+  flips a status straight to `pending` with no gate, and `bookFill` is what
+  actually stands between a planned action and the ledger.
 - **A signal means "look at this name".** Pipeline state (`stale`,
   `completeness`) belongs on the setup row or a run log, never in `signals`.
   296 of 351 live signals are `data_completeness` flips; do not add another

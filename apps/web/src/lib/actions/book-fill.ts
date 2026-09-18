@@ -53,6 +53,7 @@ export async function bookFill(args: {
     instrumentId: args.instrumentId,
     costUsd: costBasis,
     overrideReason: args.mandateOverrideReason ?? null,
+    side: "buy",
   });
   if (!gate.ok) {
     return { ok: false, error: gate.error };

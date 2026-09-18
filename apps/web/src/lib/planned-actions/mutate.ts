@@ -1,4 +1,5 @@
 import {
+  isSellSide,
   OPEN_PLANNED_ACTION_STATUSES,
   PLANNED_ACTION_TYPES,
   type PlannedActionStatus,
@@ -6,7 +7,7 @@ import {
 } from "@powerfund/domain";
 
 import { notFound, validationError } from "@/lib/api/agent/errors";
-import { mandateGate } from "@/lib/mandate/enforce";
+import { mandateGate, type MandateSide } from "@/lib/mandate/enforce";
 import { getOpenPortfolioBook } from "@/lib/data/portfolio";
 import type { DbClient } from "@/lib/supabase/db";
 
@@ -83,6 +84,10 @@ function emptyToNull(value: string | null | undefined): string | null {
 
 function isActionType(value: string): value is PlannedActionType {
   return (PLANNED_ACTION_TYPES as readonly string[]).includes(value);
+}
+
+function sideForActionType(actionType: PlannedActionType): MandateSide {
+  return isSellSide(actionType) ? "sell" : "buy";
 }
 
 function formatTrigger(trigger: PlannedActionTrigger | null | undefined): string | null {
@@ -199,6 +204,7 @@ export async function createPlannedAction(
     instrumentId: instrument.id,
     costUsd: plannedUsd,
     overrideReason: emptyToNull(input.mandate_override_reason),
+    side: sideForActionType(input.action_type),
     supabase,
   });
   if (!gate.ok) {
@@ -259,6 +265,15 @@ export async function updatePlannedAction(
       status: row.status,
     });
   }
+  // The clause above exists so a cancelled action can be revived. A confirmed one
+  // has a ledger entry behind it, and reviving it puts a booked fill back in the
+  // queue as work still to do.
+  if (row.status === "confirmed") {
+    throw validationError(
+      "This action is already confirmed and cannot be reopened. Plan a new one.",
+      { status: row.status },
+    );
+  }
 
   if (input.status != null && !PATCHABLE_STATUSES.has(input.status)) {
     throw validationError(
@@ -277,11 +292,22 @@ export async function updatePlannedAction(
       ? await resolvePlannedUsd(supabase, input.planned_usd, input.target_weight_pct)
       : Number(row.planned_usd);
 
-  if (plannedUsd !== Number(row.planned_usd) || input.action_type != null) {
+  // Gate on the action as it will be after this patch, never on the stored row:
+  // a cancelled action revived to pending was last gated against a book that has
+  // since moved, and a row flipped from `sell` to `buy` is a purchase that has
+  // never met a cap.
+  const nextActionType = input.action_type ?? row.action_type;
+  const revivedToPending = input.status === "pending" && row.status !== "pending";
+  if (
+    plannedUsd !== Number(row.planned_usd) ||
+    input.action_type != null ||
+    revivedToPending
+  ) {
     const gate = await mandateGate({
       instrumentId: row.instrument_id,
       costUsd: plannedUsd,
       overrideReason: emptyToNull(input.mandate_override_reason),
+      side: sideForActionType(nextActionType),
       supabase,
     });
     if (!gate.ok) {
@@ -308,7 +334,7 @@ export async function updatePlannedAction(
   const { data, error } = await supabase
     .from("planned_actions")
     .update({
-      action_type: input.action_type ?? row.action_type,
+      action_type: nextActionType,
       planned_usd: plannedUsd,
       window_label:
         input.window_label !== undefined
