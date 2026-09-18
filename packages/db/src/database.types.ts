@@ -1293,6 +1293,47 @@ export type Database = {
           },
         ]
       }
+      watchlist_membership: {
+        Row: {
+          actor_name: string | null
+          created_at: string
+          event: Database["public"]["Enums"]["watchlist_event"]
+          id: string
+          instrument_id: string
+          occurred_at: string
+          reason: string | null
+          source: Database["public"]["Enums"]["watchlist_event_source"]
+        }
+        Insert: {
+          actor_name?: string | null
+          created_at?: string
+          event: Database["public"]["Enums"]["watchlist_event"]
+          id?: string
+          instrument_id: string
+          occurred_at?: string
+          reason?: string | null
+          source?: Database["public"]["Enums"]["watchlist_event_source"]
+        }
+        Update: {
+          actor_name?: string | null
+          created_at?: string
+          event?: Database["public"]["Enums"]["watchlist_event"]
+          id?: string
+          instrument_id?: string
+          occurred_at?: string
+          reason?: string | null
+          source?: Database["public"]["Enums"]["watchlist_event_source"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "watchlist_membership_instrument_id_fkey"
+            columns: ["instrument_id"]
+            isOneToOne: false
+            referencedRelation: "instruments"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
@@ -1334,6 +1375,7 @@ export type Database = {
         Returns: string
       }
       is_operator: { Args: never; Returns: boolean }
+      reproject_fundamentals: { Args: never; Returns: number }
       save_dossier_versioned: {
         Args: {
           p_change_reason: string
@@ -1351,6 +1393,15 @@ export type Database = {
           check_name: string
           expected: number
           ok: boolean
+        }[]
+      }
+      watchlist_as_of: {
+        Args: { as_of: string }
+        Returns: {
+          added_at: string
+          instrument_id: string
+          source: Database["public"]["Enums"]["watchlist_event_source"]
+          symbol: string
         }[]
       }
     }
@@ -1401,6 +1452,8 @@ export type Database = {
         | "interest"
         | "fee"
         | "adjustment"
+      watchlist_event: "added" | "removed"
+      watchlist_event_source: "observed" | "seeded"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -1581,6 +1634,8 @@ export const Constants = {
         "fee",
         "adjustment",
       ],
+      watchlist_event: ["added", "removed"],
+      watchlist_event_source: ["observed", "seeded"],
     },
   },
 } as const

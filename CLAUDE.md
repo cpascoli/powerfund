@@ -133,6 +133,17 @@ Each was a real production defect. See the remediation log for the full story.
   Plan-time gating is an early warning, not the boundary: `restorePlannedAction`
   flips a status straight to `pending` with no gate, and `bookFill` is what
   actually stands between a planned action and the ledger.
+- **Watchlist membership is recorded as it changes, and only `archived` is a
+  removal.** `watchlist_membership` is an append-only event log written by
+  triggers on `instruments`; `watchlist_as_of(t)` is the projection. It exists
+  because every scorer replay before it ran on the *surviving* universe. When
+  `bookFill` starts moving held names to `active` (review item 8), that must not
+  write a removal: it would erase exactly the names that worked from the record
+  of what we were choosing from — the same survivorship bias, sign reversed, and
+  indistinguishable from data. `occurred_at` is when membership changed;
+  `created_at` uses `clock_timestamp()` so two events in one transaction stay
+  ordered. Seeded rows carry `source = 'seeded'` because they are dated from
+  `instruments.created_at`, which is a lower bound, not an observation.
 - **A signal means "look at this name".** Pipeline state (`stale`,
   `completeness`) belongs on the setup row or a run log, never in `signals`.
   296 of 351 live signals are `data_completeness` flips; do not add another
