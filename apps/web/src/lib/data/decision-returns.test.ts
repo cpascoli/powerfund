@@ -5,6 +5,7 @@ import {
   anchorSession,
   decisionClass,
   decisionHorizonReturns,
+  dueHorizonDays,
   fillKindForDecision,
 } from "@powerfund/domain";
 
@@ -125,5 +126,73 @@ describe("decisionHorizonReturns", () => {
     expect(rows[0]?.tickerReturn).toBeNull();
     expect(rows[0]?.spyReturn).toBeCloseTo(0.05, 8);
     expect(rows[0]?.vsSpy).toBeNull();
+  });
+});
+
+describe("dueHorizonDays", () => {
+  const horizons = (complete: Record<number, boolean>) =>
+    ([30, 90, 180] as const).map((days) => ({
+      days,
+      start: "2026-08-12",
+      target: addCalendarDays("2026-08-12", days),
+      asOf: "2026-08-12",
+      complete: complete[days] ?? false,
+      tickerReturn: null,
+      spyReturn: null,
+      vsSpy: null,
+    }));
+
+  it("owes nothing while no horizon has elapsed", () => {
+    expect(
+      dueHorizonDays({ horizons: horizons({}), outcomeRecordedAt: [] }),
+    ).toEqual([]);
+  });
+
+  it("owes an elapsed horizon that was never graded", () => {
+    expect(
+      dueHorizonDays({
+        horizons: horizons({ 30: true }),
+        outcomeRecordedAt: [],
+      }),
+    ).toEqual([30]);
+  });
+
+  it("stops owing a horizon once a grade is written after its target", () => {
+    expect(
+      dueHorizonDays({
+        horizons: horizons({ 30: true }),
+        outcomeRecordedAt: ["2026-09-12T10:00:00.000Z"],
+      }),
+    ).toEqual([]);
+  });
+
+  it("still owes 90 after a 30-day grade, which is the whole point of a clock", () => {
+    // graded=false would have dropped this decision entirely at the first grade.
+    expect(
+      dueHorizonDays({
+        horizons: horizons({ 30: true, 90: true }),
+        outcomeRecordedAt: ["2026-09-12T10:00:00.000Z"],
+      }),
+    ).toEqual([90]);
+  });
+
+  it("does not let a grade written before the target close that horizon", () => {
+    expect(
+      dueHorizonDays({
+        horizons: horizons({ 30: true }),
+        outcomeRecordedAt: ["2026-08-20T10:00:00.000Z"],
+      }),
+    ).toEqual([30]);
+  });
+
+  it("closes both when one grade is written after the later target", () => {
+    // A grade at day 100 was written knowing day 30 and day 90; they cannot be
+    // graded apart after the fact.
+    expect(
+      dueHorizonDays({
+        horizons: horizons({ 30: true, 90: true }),
+        outcomeRecordedAt: ["2026-11-20T10:00:00.000Z"],
+      }),
+    ).toEqual([]);
   });
 });

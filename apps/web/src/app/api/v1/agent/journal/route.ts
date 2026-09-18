@@ -24,6 +24,7 @@ export async function GET(request: Request) {
           : undefined,
         before: url.searchParams.get("before") ?? undefined,
         graded: url.searchParams.get("graded") ?? undefined,
+        horizon_due: url.searchParams.get("horizon_due") ?? undefined,
       });
       return agentJson(body, { remaining: ctx.remaining });
     },

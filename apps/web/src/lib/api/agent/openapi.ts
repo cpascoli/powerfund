@@ -508,6 +508,13 @@ export function agentOpenApiDocument(origin: string) {
                 "false lists decisions with no outcome recorded yet, true lists ones already graded. Applied before paging. Use graded=false with decision_type=material for the quarterly calibration worklist.",
               schema: { type: "boolean" },
             },
+            {
+              name: "horizon_due",
+              in: "query",
+              description:
+                "true lists decisions with an elapsed 30/90/180-day horizon and no grade written after it — the grading worklist for ritual 12. Unlike graded=false, a 30-day grade does not hide the row at 90. Applied before paging; due_horizons names which are owed.",
+              schema: { type: "boolean" },
+            },
           ],
         }),
       },
