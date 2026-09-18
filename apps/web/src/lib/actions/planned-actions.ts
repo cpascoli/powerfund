@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import { isSellSide } from "@powerfund/domain";
 import type { Database } from "@powerfund/db";
 
 import { requireOperator } from "@/lib/auth/operator";
@@ -173,7 +174,7 @@ export async function confirmPlannedAction(
   const supabase = await createClient();
   const { data: planned, error: loadError } = await supabase
     .from("planned_actions")
-    .select("id, instrument_id, status, rationale")
+    .select("id, instrument_id, action_type, status, rationale")
     .eq("id", id)
     .maybeSingle();
 
@@ -182,6 +183,21 @@ export async function confirmPlannedAction(
   }
   if (!planned) {
     return { error: "Planned action not found." };
+  }
+
+  // This path books a buy and only a buy: bookFill() below debits cash and adds
+  // quantity. A `reduce`/`sell` confirmed here would therefore *increase* the
+  // position it was written to cut, and the planned-action unique index would
+  // then record the sale as confirmed — repairable only by a manual ledger
+  // reversal. The agent API accepts `reduce` and `sell`, so such a row can reach
+  // this queue even though the operator form cannot create one. Refused until the
+  // confirm path routes by direction; sell from the position's own sell form.
+  if (isSellSide(planned.action_type)) {
+    return {
+      error:
+        `This is a ${planned.action_type} and the queue can only book buys. ` +
+        "Use the Sell form on the position in Portfolio → Book, then cancel this row.",
+    };
   }
 
   // A unique index guarantees one ledger entry per planned action. Checking for it

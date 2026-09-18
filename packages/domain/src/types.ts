@@ -107,6 +107,17 @@ export const PLANNED_ACTION_TYPES: readonly PlannedActionType[] = [
   "sell",
 ] as const;
 
+/**
+ * True when confirming the action would *remove* risk rather than add it.
+ *
+ * Every mandate cap and the kill-switch are limits on new risk, so anything
+ * enforcing one must branch on the side, not on the action type. Kept here so the
+ * gate, the fill path and the queue UI cannot disagree about what a sale is.
+ */
+export function isSellSide(actionType: PlannedActionType): boolean {
+  return actionType === "reduce" || actionType === "sell";
+}
+
 export type PlannedActionStatus =
   | "pending"
   | "deferred"

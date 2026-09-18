@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { RISK_DEFAULTS } from "@powerfund/domain";
+import { isSellSide, RISK_DEFAULTS } from "@powerfund/domain";
 
 import { CashEntryForm } from "@/components/cash-entry-form";
 import { ConfirmFillForm } from "@/components/confirm-fill-form";
@@ -172,9 +172,15 @@ export default async function PortfolioPage({
   const showForm = operator && add === "1";
   const showCash = operator && cashEdit === "1";
   const showPlan = operator && plan === "1";
+  // A ?confirm= for a sell row resolves to nothing: confirmPlannedAction refuses
+  // the same rows, so rendering a buy-shaped fill form over one would only invite
+  // the error. Both guards are deliberate — this one is cosmetic, that one is the
+  // boundary.
   const confirmAction =
     operator && confirm != null
-      ? (queue.actions.find((row) => row.id === confirm) ?? null)
+      ? (queue.actions.find(
+          (row) => row.id === confirm && !isSellSide(row.actionType),
+        ) ?? null)
       : null;
   const sellPositionRow =
     operator && sell != null
@@ -376,10 +382,15 @@ export default async function PortfolioPage({
                 ) : null}
               </div>
               <div className="queue-actions">
-                {operator ? (
+                {operator && !isSellSide(action.actionType) ? (
                   <Link href={href({ confirm: action.id, tab: "queue" })}>
                     Confirm
                   </Link>
+                ) : null}
+                {operator && isSellSide(action.actionType) ? (
+                  <span className="muted">
+                    Sell from the position, not the queue
+                  </span>
                 ) : null}
                 {operator && action.status === "deferred" ? (
                   <form action={restorePlannedAction}>
