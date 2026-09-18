@@ -50,6 +50,7 @@ pnpm --filter @powerfund/worker snapshot:portfolio   # rebuilds NAV history
 pnpm --filter @powerfund/worker snapshot:verify      # dry run, writes nothing
 pnpm --filter @powerfund/worker score:replay -- --from=2021-06-21 --every=21
 pnpm --filter @powerfund/worker bars:audit           # find split-shaped jumps
+pnpm --filter @powerfund/worker bars:freshness       # does the store reach the last session?
 ```
 
 ## Working with production
@@ -109,6 +110,11 @@ Each was a real production defect. See the remediation log for the full story.
   vendor glitch: acting on one in September 2026 overwrote five years of correct
   APH prices. An automatic repair path with a weak trigger is more dangerous than
   no repair path.
+- **A green ingest run is not evidence the store is current.** The vendor decides
+  where its window ends, and twice in September 2026 Yahoo ended it at the
+  *previous* session: every symbol logged "4 bars via yahoo", the snapshot keyed
+  the day before, nothing failed, and the briefing quoted stale closes. Freshness
+  is a property of the stored data (`bars:freshness`), never of the exit code.
 - **Viewers read research, never the book.** `positions`, `portfolio_state`,
   `portfolio_snapshots`, `transactions`, `planned_actions` are operator-only.
   RLS refuses silently, so book-backed routes must say so rather than render a

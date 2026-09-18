@@ -18,7 +18,8 @@
     "snapshot:verify": "tsx src/index.ts snapshot:verify",
     "smoke:vintages": "tsx src/smoke-vintages.ts",
     "score:replay": "tsx src/index.ts replay",
-    "bars:audit": "tsx src/index.ts audit"
+    "bars:audit": "tsx src/index.ts audit",
+    "bars:freshness": "tsx src/index.ts freshness"
   },
   "dependencies": {
     "@powerfund/data-clients": "workspace:*",

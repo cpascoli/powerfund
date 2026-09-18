@@ -1,5 +1,8 @@
+import { appendFileSync } from "node:fs";
+
 import { auditBars, printBarAudit } from "./ingest/audit-bars";
 import { ingestBars } from "./ingest/bars";
+import { loadBarsFreshness } from "./ingest/freshness";
 import { ingestFundamentals } from "./ingest/fundamentals";
 import { scoreInflectionUniverse } from "./score/inflection";
 import { printReplay, replayInflection } from "./score/replay";
@@ -14,6 +17,7 @@ Usage:
   pnpm --filter @powerfund/worker ingest:fundamentals [-- --symbols=SKHY,TSM]
   pnpm --filter @powerfund/worker ingest:all
   pnpm --filter @powerfund/worker bars:audit [-- --threshold=35 --symbols=APH]
+  pnpm --filter @powerfund/worker bars:freshness   (does the store reach the last completed session?)
   pnpm --filter @powerfund/worker score:inflection [-- --asOf=2026-06-30]
   pnpm --filter @powerfund/worker score:replay [-- --from=2022-01-01 --every=21 --symbols=NVDA,VRT]
   pnpm --filter @powerfund/worker snapshot:portfolio
@@ -82,6 +86,19 @@ async function main() {
         symbols,
       });
       printBarAudit(result);
+      break;
+    }
+    case "freshness": {
+      const result = await loadBarsFreshness();
+      console.log("[bars:freshness]", JSON.stringify(result));
+      // The gated retry in scheduled-ingest.yml reads this. It treats a missing
+      // value as stale, so a failure here re-ingests rather than assuming the
+      // store is current: a redundant pass costs two minutes, a skipped one
+      // costs the morning briefing.
+      const githubOutput = process.env.GITHUB_OUTPUT;
+      if (githubOutput) {
+        appendFileSync(githubOutput, `stale=${result.stale}\n`);
+      }
       break;
     }
     case "score": {

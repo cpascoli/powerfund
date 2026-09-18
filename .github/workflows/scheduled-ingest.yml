@@ -12,7 +12,15 @@ on:
   # Lateness is a freshness problem, not a correctness one: snapshots are keyed
   # on the cash session, so a run at 05:54 the next morning writes the same rows.
   schedule:
-    - cron: "37 22 * * 1-5" # weekdays after the US cash close
+    # 03:07 UTC — 10:07 Bangkok, ~23:07 ET on the evening of the session being
+    # closed out, which leaves Yahoo seven hours to publish the daily bar. It ran
+    # at 18:37 ET before, and twice in September 2026 the vendor served a window
+    # that stopped at the previous session, so a green run left the book a day
+    # behind. Tue–Sat, because the run happens the calendar day after its session.
+    - cron: "7 3 * * 2-6"
+    # Second pass at 05:07 UTC (12:07 Bangkok), and only when the store still
+    # does not reach the last completed session. See the bars-if-stale job.
+    - cron: "7 5 * * 2-6"
     - cron: "37 8 * * 0" # Sunday fundamentals
   workflow_dispatch:
     inputs:
@@ -22,6 +30,7 @@ on:
         type: choice
         options:
           - bars
+          - bars-if-stale
           - fundamentals
         default: bars
 
@@ -43,7 +52,7 @@ jobs:
     name: Bars + snapshot
     if: >-
       (github.event_name == 'workflow_dispatch' && inputs.job == 'bars') ||
-      (github.event_name == 'schedule' && github.event.schedule == '37 22 * * 1-5')
+      (github.event_name == 'schedule' && github.event.schedule == '7 3 * * 2-6')
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -68,6 +77,65 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm --filter @powerfund/worker ingest:bars -- --days=7 --pauseMs=400
       - run: pnpm --filter @powerfund/worker snapshot:portfolio
+
+  # A vendor that has not published yesterday's close yet is the one failure the
+  # first pass cannot fix by succeeding. Rather than ingesting twice every
+  # morning, ask the database whether the store reached the last completed cash
+  # session and stop there when it did.
+  bars-if-stale:
+    name: Bars retry if stale
+    if: >-
+      (github.event_name == 'workflow_dispatch' && inputs.job == 'bars-if-stale') ||
+      (github.event_name == 'schedule' && github.event.schedule == '7 5 * * 2-6')
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9.1.1
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - name: Check secrets
+        run: |
+          if [ -z "$SUPABASE_SERVICE_ROLE_KEY" ]; then
+            echo "Set repository secret SUPABASE_SERVICE_ROLE_KEY."
+            exit 1
+          fi
+          if [ -z "$SUPABASE_URL" ] && [ -z "$NEXT_PUBLIC_SUPABASE_URL" ]; then
+            echo "Set repository secret SUPABASE_URL or NEXT_PUBLIC_SUPABASE_URL."
+            exit 1
+          fi
+      - run: pnpm install --frozen-lockfile
+      - id: freshness
+        continue-on-error: true
+        run: pnpm --filter @powerfund/worker bars:freshness
+      - name: Decide whether to re-ingest
+        id: gate
+        env:
+          STALE: ${{ steps.freshness.outputs.stale }}
+        run: |
+          # Only a checked "false" skips the work. An unset value means the check
+          # itself failed, and re-ingesting is the safe reading of that.
+          if [ "$STALE" = "false" ]; then
+            echo "Bars already reach the last completed cash session; nothing to do."
+            echo "run=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "run=true" >> "$GITHUB_OUTPUT"
+          fi
+      - if: steps.gate.outputs.run == 'true'
+        run: pnpm --filter @powerfund/worker ingest:bars -- --days=7 --pauseMs=400
+      - if: steps.gate.outputs.run == 'true'
+        run: pnpm --filter @powerfund/worker snapshot:portfolio
+      # Still behind after a second pass means the vendor has published nothing,
+      # or it is a US market holiday — which the weekday-only session clock
+      # cannot tell apart. Record which, and fail neither run over it.
+      - name: Report freshness after the retry
+        if: steps.gate.outputs.run == 'true'
+        continue-on-error: true
+        run: pnpm --filter @powerfund/worker bars:freshness
 
   fundamentals:
     name: Fundamentals

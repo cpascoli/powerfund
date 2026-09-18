@@ -41,7 +41,9 @@ Same values as the worker CLI, as **repository** secrets (Settings → Secrets a
 
 ### Nightly EOD bars
 
-GitHub Actions (not Netlify cron). Weekdays at **22:37 UTC**, [scheduled-ingest.yml](../.github/workflows/scheduled-ingest.yml) runs `ingest:bars --days=7` then `snapshot:portfolio`. OpenNext on this site registers Netlify scheduled functions but never invokes them — do not look for logs on the Functions page. See [ADR 0006](../architecture/decisions/0006-netlify-scheduled-ingest.md).
+GitHub Actions (not Netlify cron). Tue–Sat at **03:07 UTC** (10:07 Bangkok, ~23:07 ET the evening of the session), [scheduled-ingest.yml](../.github/workflows/scheduled-ingest.yml) runs `ingest:bars --days=7` then `snapshot:portfolio`. A second pass at **05:07 UTC** (12:07 Bangkok) runs `bars:freshness` and re-ingests only if the store still does not reach the last completed cash session, so a lagging vendor does not leave the morning briefing a day behind. OpenNext on this site registers Netlify scheduled functions but never invokes them — do not look for logs on the Functions page. See [ADR 0006](../architecture/decisions/0006-netlify-scheduled-ingest.md).
+
+Check freshness yourself with `pnpm --filter @powerfund/worker bars:freshness`: it prints the session the store should have reached, SPY's latest bar, and any holding behind it.
 
 Repository secrets: `SUPABASE_URL` (or `NEXT_PUBLIC_SUPABASE_URL`), `SUPABASE_SERVICE_ROLE_KEY`, optional `TIINGO_API_KEY`. To run immediately: **Actions → Scheduled ingest → Run workflow → bars**.
 

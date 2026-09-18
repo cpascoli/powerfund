@@ -70,9 +70,10 @@ pnpm ingest:bars              # default ~2y daily bars + market caps
 pnpm ingest:fundamentals      # quarterly fundamentals
 pnpm ingest:all               # both
 pnpm score:inflection         # shadow fundamental-inflection scorer
+pnpm --filter @powerfund/worker bars:freshness   # does the store reach the last session?
 ```
 
-Production EOD is GitHub Actions (weekdays 22:00 UTC bars + snapshot; Sunday 08:00 UTC fundamentals). Netlify scheduled functions on this OpenNext site never invoke — logs are on the Actions run. Set repository secrets `SUPABASE_URL` (or `NEXT_PUBLIC_SUPABASE_URL`), `SUPABASE_SERVICE_ROLE_KEY`, and optionally `TIINGO_API_KEY`. Details: [docs/deploy.md](./docs/deploy.md).
+Production EOD is GitHub Actions (Tue–Sat 03:07 UTC bars + snapshot, with a 05:07 UTC pass that re-ingests only if the store is still behind; Sunday 08:37 UTC fundamentals). Netlify scheduled functions on this OpenNext site never invoke — logs are on the Actions run. Set repository secrets `SUPABASE_URL` (or `NEXT_PUBLIC_SUPABASE_URL`), `SUPABASE_SERVICE_ROLE_KEY`, and optionally `TIINGO_API_KEY`. Details: [docs/deploy.md](./docs/deploy.md).
 
 ## Git + Netlify CI
 
