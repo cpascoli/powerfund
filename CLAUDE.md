@@ -7,9 +7,10 @@ decision → risk platform with a human confirming every fill.
 **Read `docs/` before proposing anything about the investment process** —
 `goals.md`, `mandate.md`, `themes.md`, `plan.md`, `gpt-agent-process.md`,
 `agent-api.md`. They are living operator documents, not specs. Current open
-items live in `docs/reviews/` (the 2026-09-02 full review and the 2026-09-03
-remediation log); read those before proposing work, so you do not rediscover
-something already recorded.
+items live in `docs/reviews/` — the **2026-09-18 full review** (§6.3 bug
+table, §10 ordered next work) is the live list; the 2026-09-02 review and
+2026-09-03 remediation log are its closure record. Read those before proposing
+work, so you do not rediscover something already recorded.
 
 ## The rule that matters most
 
@@ -120,6 +121,17 @@ Each was a real production defect. See the remediation log for the full story.
   RLS refuses silently, so book-backed routes must say so rather than render a
   zeroed book.
 - **Every write goes through `requireOperator()`** as well as RLS.
+- **A planned action has a direction, and the fill path must honour it.**
+  `planned_action_type` includes `reduce` and `sell`, but as of 2026-09-18
+  `confirmPlannedAction` books every confirmed row through `bookFill` (a buy)
+  and `mandateGate` evaluates every planned action as a purchase. Nothing has
+  been sold yet, so it has not bitten. Until it is fixed, do not confirm a
+  `reduce`/`sell` from the queue — use the sell form on the position — and do
+  not route any new code through `mandateGate` without saying which side it is.
+- **A signal means "look at this name".** Pipeline state (`stale`,
+  `completeness`) belongs on the setup row or a run log, never in `signals`.
+  296 of 351 live signals are `data_completeness` flips; do not add another
+  cause that fires when nothing about the company changed.
 
 ## Testing philosophy learned here
 

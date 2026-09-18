@@ -44,10 +44,20 @@ Build:
 - [x] Watchlists organized by theme (live data + starter universe seed)
 - [x] Company dossiers (stub fields + CLS/VRT/NBIS research notes)
 - [x] Dossier create/edit UI + market snapshot fields
-- [ ] Filings/earnings links on dossiers
-- [ ] Signal inbox CRUD (manual + later automated)
+- [ ] Filings/earnings links on dossiers. The `documents` table has never
+      been written (0 rows). The gap is larger than a link: no table stores
+      when a company reports, so the catalyst calendar (rituals 1, 3) is only
+      as complete as the agent's memory — on 2026-09-18 it had no Q3 earnings
+      task for any held name.
+- [ ] Signal inbox CRUD (manual + later automated). Blocked on making the
+      inbox readable first: 296 of 351 live signals are `data_completeness`
+      pipeline flips, not research signals.
 - [x] Portfolio book (open positions, cash, NAV, mandate weights)
-- [x] Deployment queue (plan buy → confirm fill)
+- [x] Deployment queue (plan buy → confirm fill). **Buy side only in
+      practice:** `confirmPlannedAction` books every confirmed row through
+      `bookFill`, so a queued `reduce`/`sell` would be booked as a buy, and the
+      mandate gate evaluates sells as purchases. Nothing has been sold yet.
+      Fix is item 1–2 of the [2026-09-18 review](./reviews/2026-09-18-full-review.md) §10.
 - [x] Decision journal CRUD (thesis → action → review)
 - [x] Review queue — dated obligations with triggers, plus history query
       (`getReviewQueue` filters by status/scope/symbol/theme/date) so a review
@@ -122,8 +132,10 @@ Still to encode:
   **Encoded (2026-08 → 09).** `shouldHaltNewRiskForKillSwitch` in
   `packages/domain/src/mandate.ts`, enforced in `lib/mandate/enforce.ts` and
   surfaced on Briefing; it halts new risk only above the capital Phase-1 cap.
-  Two deployed-drawdown diagnostics have actually been run and persisted
-  (2026-08-30, 2026-09-03).
+  Three deployed-drawdown diagnostics have actually been run and persisted
+  (2026-08-30, 2026-09-03, 2026-09-17), and the 14-day / +5pp / new-episode
+  re-open rules fired on schedule. Known defect: the gate is direction-blind,
+  so above the Phase-1 cap the halt would also block a queued `sell`.
 
 **Measurement integrity is a prerequisite, not a detail.** A kill-switch is only
 as good as the series it reads. Until 2026-09-02 the published max deployed
@@ -154,11 +166,14 @@ Exit criteria: deliberate go/no-go; no premature multi-tenant complexity before 
 4. [x] Connect UI to Supabase (auth + CRUD).
 5. [x] Manual research workflow for a starter universe (~15–30 names across core themes).
 6. [x] Ship one automated scorer (e.g. growth/CapEx inflection + anti-parabolic filter). Shadow `fundamental_inflection_v1` on Explore + Signals; not wired to Briefing or the buy gate.
-7. [x] Establish weekly review ritual (queue + book; later, review writes into the queue). Running since 2026-08-15: 34 `hold` decisions across eight roughly-weekly dates, the last covering all eight open names (2026-09-05). Monthly book pass, opportunity ranking and two drawdown diagnostics are persisted as `scope: portfolio` review tasks. Reviews now write into the queue, and the historical gate makes reading prior conclusions a precondition for completing a comparable one.
+7. [x] Establish weekly review ritual (queue + book; later, review writes into the queue). Running since 2026-08-15: 42 `hold` decisions, the last pass covering all eight open names (2026-09-15; the week of 8–12 Sep was skipped). Monthly book pass, opportunity ranking and three drawdown diagnostics are persisted as `scope: portfolio` review tasks. Reviews now write into the queue, and the historical gate makes reading prior conclusions a precondition for completing a comparable one. **Not yet running:** decision grading — `decision_outcomes` has 0 rows after 57 decisions, so ritual 12 has no input.
 8. [x] Backfill written invalidation criteria for all open positions missing them (mandate rule 4). Written to the book 2026-08-13; enter-decision invalidation now copies onto the open position.
 9. [x] Set the deployment-ladder baseline tranche: **~$10k/month** (decided 2026-08-13), reaching the **capital** Phase-1 $75k cap ~January 2027. Acceleration-tranche sizes for the −10%/−20% triggers still to be set at a monthly review.
 10. [x] Minimum viable risk view (correlation matrix + AI-capex stress) before deployed cost crossed ~$40–50k (software Phase 3 pull-forward). Workbench → Risk, 2026-08-14.
 11. [ ] Decision-grade dossiers state **normal / attractive / dislocation / panic** valuation zones (scenario vs price, not a raw % drawdown). Process: [mandate.md](./mandate.md) and [gpt-agent-process.md](./gpt-agent-process.md) ritual 9.
+12. [ ] Make the queue able to sell and the gate able to tell a sell from a buy (2026-09-18 review §1.1). Both P0; neither has caused a loss because nothing has been sold.
+13. [ ] Start `watchlist_membership` (append-only: added, removed, why) so a future scorer replay can run on the names actually watched on a date rather than the surviving universe. Cannot be backfilled; every month of delay is a month lost.
+14. [ ] Move pipeline health out of `signals` (own row per scorer run), then delete the `data_completeness` rows so the inbox says "why look now" again.
 
 ## Sequencing principles
 
@@ -174,7 +189,7 @@ Exit criteria: deliberate go/no-go; no premature multi-tenant complexity before 
 | Phase | Status |
 |-------|--------|
 | 0 — Operating model | Complete |
-| 1 — Research OS | In progress. Watchlist, dossiers, book, deployment queue, journal, review queue and the agent API are live, and the weekly ritual has run since 2026-08-15. Open: filings/earnings links on dossiers, signal inbox CRUD. |
-| 2 — Data & quant pipelines | Input layer plus point-in-time vintages, as-of scoring and a replay harness. Exit criterion **not** met, and now known to be further off: the first scorer measured worse than its universe. |
-| 3 — Risk & portfolio construction | Minimum slice live (Workbench → Risk); kill-switch encoded and diagnostics run. Full pre-capital gate not met. |
+| 1 — Research OS | In progress. Watchlist, dossiers, book, deployment queue, journal, review queue and the agent API are live, and the weekly ritual has run since 2026-08-15. Open: the queue's sell side (P0, 2026-09-18), filings/earnings dates, signal inbox CRUD, `instruments.status` lifecycle. |
+| 2 — Data & quant pipelines | Input layer plus point-in-time vintages, as-of scoring and a replay harness. Exit criterion **not** met, and now known to be further off: the first scorer measured worse than its universe. Evaluation is blocked on a point-in-time watchlist, not on tuning. |
+| 3 — Risk & portfolio construction | Minimum slice live (Workbench → Risk); kill-switch encoded, three diagnostics run and the re-open rules verified. Full pre-capital gate not met, and the gate that exists is direction-blind (blocks sells as if they were buys). |
 | 4 — Insight product / other capital | Not started |
