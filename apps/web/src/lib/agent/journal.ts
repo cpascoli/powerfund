@@ -88,6 +88,20 @@ function pctFromFraction(value: number | null): number | null {
 function toAgentRelative(report: DecisionRelativeReturns) {
   return {
     method: report.method,
+    // Ritual 12 grades every eligible decision, so it needs to report the classes
+    // separately: a run of weekly holds on one name is many judgements about one
+    // position, not many observations of stock-picking skill.
+    decision_class: report.decisionClass,
+    anchor: report.anchor
+      ? {
+          kind: report.anchor.kind,
+          at: report.anchor.at,
+          session: report.anchor.session,
+          fill_kind: report.anchor.fillKind,
+        }
+      : null,
+    // Unchanged for fill-anchored decisions; null on a hold, which has no fill
+    // rather than a fill that could not be found. Read `anchor` for the clock.
     fill: report.fill
       ? {
           occurred_at: report.fill.occurredAt,
