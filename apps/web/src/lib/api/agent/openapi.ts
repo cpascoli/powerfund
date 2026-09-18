@@ -817,6 +817,12 @@ export function agentOpenApiDocument(origin: string) {
                       type: "string",
                       description: "What to repeat or change. Not a P&L dump.",
                     },
+                    horizon_days: {
+                      type: "integer",
+                      enum: [30, 90, 180],
+                      description:
+                        "Which horizon this grade is about. Required for clocked calibration — one grade per decision per horizon, and omitting it leaves the horizon owed. Omit only for an off-clock observation.",
+                    },
                     actor_name: { type: "string" },
                   },
                 },
@@ -825,6 +831,7 @@ export function agentOpenApiDocument(origin: string) {
                   timing_grade: "poor",
                   sizing_grade: "good",
                   risk_management_grade: "good",
+                  horizon_days: 30,
                   lessons: "Right company, chased the first print.",
                 },
               },

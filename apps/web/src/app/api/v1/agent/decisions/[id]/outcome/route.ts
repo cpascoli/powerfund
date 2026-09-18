@@ -42,6 +42,11 @@ export async function POST(request: Request, context: RouteContext) {
             ? body.risk_management_grade
             : null,
         lessons: typeof body.lessons === "string" ? body.lessons : "",
+        horizon_days:
+          typeof body.horizon_days === "number" ||
+          typeof body.horizon_days === "string"
+            ? body.horizon_days
+            : null,
         actor_name:
           typeof body.actor_name === "string"
             ? body.actor_name

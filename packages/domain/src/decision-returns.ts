@@ -191,27 +191,29 @@ export function decisionHorizonReturns(input: {
 /**
  * Which horizons have elapsed and not yet been graded.
  *
- * Grading is on a clock, so "graded" is not one bit per decision: a decision
- * graded at 30 days comes due again at 90 and at 180. `decision_outcomes` has no
- * horizon column and does not need one -- the horizon an outcome covers is
- * derivable from when it was recorded, and inventing a column would be designing
- * structure before any outcome data exists to say what structure is wanted.
+ * Deterministic: a horizon is owed when it has elapsed and no outcome names it.
+ * The horizon is read off the grade rather than inferred from when the grade was
+ * written, because a grade written at day 100 is a judgement about day 100 and
+ * says nothing about what the decision looked like at day 30 -- which is the
+ * whole reason for grading on a clock instead of on inspiration.
  *
- * An outcome recorded after a horizon's target date covers that horizon. One
- * recorded at day 100 therefore closes 30 and 90 together: they cannot be graded
- * separately after the fact, and the grade was written knowing both.
+ * An off-clock outcome (no horizon) leaves every horizon owed, which is right:
+ * it is an observation, not a clocked grade.
  */
 export function dueHorizonDays(input: {
   horizons: DecisionHorizonReturn[];
-  outcomeRecordedAt: readonly string[];
+  gradedHorizons: readonly (number | null)[];
 }): DecisionHorizonDays[] {
-  const graded = input.outcomeRecordedAt
-    .map((at) => (at.length <= 10 ? at : at.slice(0, 10)))
-    .sort();
+  const graded = new Set(
+    input.gradedHorizons.filter((days): days is number => days != null),
+  );
   return input.horizons
-    .filter(
-      (horizon) =>
-        horizon.complete && !graded.some((at) => at >= horizon.target),
-    )
+    .filter((horizon) => horizon.complete && !graded.has(horizon.days))
     .map((horizon) => horizon.days);
+}
+
+export function isDecisionHorizonDays(
+  value: number,
+): value is DecisionHorizonDays {
+  return (DECISION_HORIZONS_DAYS as readonly number[]).includes(value);
 }

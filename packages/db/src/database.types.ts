@@ -119,6 +119,7 @@ export type Database = {
           actor_name: string | null
           created_at: string
           decision_id: string
+          horizon_days: number | null
           id: string
           lessons: string
           recorded_at: string
@@ -137,6 +138,7 @@ export type Database = {
           actor_name?: string | null
           created_at?: string
           decision_id: string
+          horizon_days?: number | null
           id?: string
           lessons: string
           recorded_at?: string
@@ -155,6 +157,7 @@ export type Database = {
           actor_name?: string | null
           created_at?: string
           decision_id?: string
+          horizon_days?: number | null
           id?: string
           lessons?: string
           recorded_at?: string

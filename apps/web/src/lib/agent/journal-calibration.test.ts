@@ -34,8 +34,8 @@ vi.mock("@/lib/data/decisions", () => ({
  */
 const ELAPSED: Record<string, number[]> = {};
 
-/** Outcome timestamps per decision, so a grade can be placed before or after a target. */
-const OUTCOMES: Record<string, string[]> = {};
+/** Graded horizons per decision; null stands for an off-clock observation. */
+const OUTCOMES: Record<string, Array<number | null>> = {};
 
 vi.mock("@/lib/data/decision-returns", () => ({
   loadDecisionRelativeReturns: async (
@@ -86,11 +86,12 @@ function fakeDb(): DbClient {
             // listDecisionOutcomes chains .in().order()
             in: () => ({
               order: async () => ({
-                data: Object.entries(OUTCOMES).flatMap(([id, stamps]) =>
-                  stamps.map((recorded_at, i) => ({
+                data: Object.entries(OUTCOMES).flatMap(([id, graded]) =>
+                  graded.map((horizon_days, i) => ({
                     id: `${id}-o${i}`,
                     decision_id: id,
-                    recorded_at,
+                    recorded_at: "2026-06-10T00:00:00.000Z",
+                    horizon_days,
                     thesis_grade: "correct",
                     timing_grade: null,
                     sizing_grade: null,
@@ -208,9 +209,9 @@ describe("getAgentJournal horizon_due", () => {
     expect(ids(body)).toEqual(["d-hold-open"]);
   });
 
-  it("drops it once a grade is written after the target", async () => {
+  it("drops it once that horizon is graded", async () => {
     ELAPSED["d-hold-open"] = [30];
-    OUTCOMES["d-hold-open"] = ["2026-06-10T00:00:00.000Z"];
+    OUTCOMES["d-hold-open"] = [30];
     const body = await getAgentJournal(fakeDb(), { horizon_due: "true" });
     expect(ids(body)).toEqual([]);
   });
@@ -219,7 +220,7 @@ describe("getAgentJournal horizon_due", () => {
     // The distinction from graded=false, which would have hidden this decision
     // permanently at its first grade.
     ELAPSED["d-hold-open"] = [30, 90];
-    OUTCOMES["d-hold-open"] = ["2026-06-02T12:00:00.000Z"];
+    OUTCOMES["d-hold-open"] = [30];
     const due = await getAgentJournal(fakeDb(), { horizon_due: "true" });
     expect(ids(due)).toEqual(["d-hold-open"]);
 
@@ -237,6 +238,13 @@ describe("getAgentJournal horizon_due", () => {
     ELAPSED["d-enter-open"] = [30];
     const body = await getAgentJournal(fakeDb(), { horizon_due: "true" });
     expect(ids(body)).toEqual(["d-enter-open", "d-hold-open"]);
+  });
+
+  it("keeps a horizon owed when the only grade is off-clock", async () => {
+    ELAPSED["d-hold-open"] = [30];
+    OUTCOMES["d-hold-open"] = [null];
+    const body = await getAgentJournal(fakeDb(), { horizon_due: "true" });
+    expect(ids(body)).toEqual(["d-hold-open"]);
   });
 
   it("horizon_due=false is the complement, applied before paging", async () => {

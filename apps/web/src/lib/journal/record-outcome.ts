@@ -1,6 +1,9 @@
 import {
+  DECISION_HORIZONS_DAYS,
+  isDecisionHorizonDays,
   isDecisionQualityGrade,
   isDecisionThesisGrade,
+  type DecisionHorizonDays,
   type DecisionQualityGrade,
   type DecisionThesisGrade,
 } from "@powerfund/domain";
@@ -31,6 +34,11 @@ export type RecordDecisionOutcomeInput = {
   risk_management_grade?: string | null;
   lessons: string;
   actor_name?: string | null;
+  /**
+   * The horizon this grade is about. Omit only for an off-clock observation --
+   * omitting it on a clocked grade leaves the horizon owed.
+   */
+  horizon_days?: number | string | null;
 };
 
 export type RecordedDecisionOutcome = {
@@ -43,6 +51,7 @@ export type RecordedDecisionOutcome = {
   risk_management_grade: DecisionQualityGrade | null;
   lessons: string;
   actor_name: string | null;
+  horizon_days: DecisionHorizonDays | null;
 };
 
 function emptyToNull(value: string | null | undefined): string | null {
@@ -76,6 +85,30 @@ function parseQuality(
     });
   }
   return trimmed;
+}
+
+function parseHorizonDays(
+  value: number | string | null | undefined,
+): DecisionHorizonDays | null {
+  if (value == null || value === "") return null;
+  const days = typeof value === "number" ? value : Number(value.trim());
+  if (!Number.isInteger(days) || !isDecisionHorizonDays(days)) {
+    throw validationError("Invalid horizon_days.", {
+      field: "horizon_days",
+      allowed: DECISION_HORIZONS_DAYS,
+    });
+  }
+  return days;
+}
+
+/**
+ * The stored column is a smallint, so the database's own check constraint is the
+ * guarantee and this only narrows the type back. Anything outside the allowed set
+ * reads as an off-clock observation rather than throwing on read.
+ */
+function narrowHorizonDays(value: number | null): DecisionHorizonDays | null {
+  if (value == null) return null;
+  return isDecisionHorizonDays(value) ? value : null;
 }
 
 export async function recordDecisionOutcome(
@@ -123,17 +156,27 @@ export async function recordDecisionOutcome(
     ),
     lessons,
     actor_name: emptyToNull(input.actor_name),
+    horizon_days: parseHorizonDays(input.horizon_days),
   };
 
   const { data, error } = await supabase
     .from("decision_outcomes")
     .insert(payload)
     .select(
-      "id, decision_id, recorded_at, thesis_grade, timing_grade, sizing_grade, risk_management_grade, lessons, actor_name",
+      "id, decision_id, recorded_at, thesis_grade, timing_grade, sizing_grade, risk_management_grade, lessons, actor_name, horizon_days",
     )
     .single();
 
   if (error || !data) {
+    // A unique violation here is the clock working, not a fault: this horizon
+    // already carries a grade, and the table is append-only precisely so an
+    // earlier judgement cannot be revised once later information exists.
+    if (error?.code === "23505") {
+      throw validationError(
+        `This decision already has a ${payload.horizon_days}-day grade. Grades are append-only, so an earlier horizon cannot be rewritten once it is recorded.`,
+        { field: "horizon_days", code: "HORIZON_ALREADY_GRADED" },
+      );
+    }
     throw new Error(error?.message ?? "Outcome saved but no id returned.");
   }
 
@@ -147,6 +190,7 @@ export async function recordDecisionOutcome(
     risk_management_grade: data.risk_management_grade,
     lessons: data.lessons,
     actor_name: data.actor_name,
+    horizon_days: narrowHorizonDays(data.horizon_days),
   };
 }
 
@@ -192,7 +236,7 @@ export async function listDecisionOutcomes(
   const { data, error } = await supabase
     .from("decision_outcomes")
     .select(
-      "id, decision_id, recorded_at, thesis_grade, timing_grade, sizing_grade, risk_management_grade, lessons, actor_name",
+      "id, decision_id, recorded_at, thesis_grade, timing_grade, sizing_grade, risk_management_grade, lessons, actor_name, horizon_days",
     )
     .in("decision_id", decisionIds)
     .order("recorded_at", { ascending: false });
@@ -211,6 +255,7 @@ export async function listDecisionOutcomes(
       risk_management_grade: row.risk_management_grade,
       lessons: row.lessons,
       actor_name: row.actor_name,
+      horizon_days: narrowHorizonDays(row.horizon_days),
     });
     out.set(row.decision_id, list);
   }

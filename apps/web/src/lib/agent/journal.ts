@@ -128,7 +128,7 @@ function toAgentRelative(
     // decision is finished.
     due_horizons: dueHorizonDays({
       horizons: report.horizons,
-      outcomeRecordedAt: outcomes.map((row) => row.recorded_at),
+      gradedHorizons: outcomes.map((row) => row.horizon_days),
     }),
     reason: report.reason,
     horizons: report.horizons.map((row) => ({
@@ -148,6 +148,7 @@ function toAgentOutcome(row: RecordedDecisionOutcome) {
   return {
     id: row.id,
     recorded_at: row.recorded_at,
+    horizon_days: row.horizon_days,
     thesis_grade: row.thesis_grade,
     timing_grade: row.timing_grade,
     sizing_grade: row.sizing_grade,
@@ -240,8 +241,8 @@ export async function getAgentJournal(supabase: DbClient, query: JournalQuery) {
           ? []
           : dueHorizonDays({
               horizons: report.horizons,
-              outcomeRecordedAt: (allOutcomes.get(row.id) ?? []).map(
-                (outcome) => outcome.recorded_at,
+              gradedHorizons: (allOutcomes.get(row.id) ?? []).map(
+                (outcome) => outcome.horizon_days,
               ),
             });
       return due.length > 0 === horizonDue;

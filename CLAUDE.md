@@ -133,6 +133,13 @@ Each was a real production defect. See the remediation log for the full story.
   Plan-time gating is an early warning, not the boundary: `restorePlannedAction`
   flips a status straight to `pending` with no gate, and `bookFill` is what
   actually stands between a planned action and the ledger.
+- **A grade names the horizon it is about.** `decision_outcomes.horizon_days` is
+  30, 90 or 180, unique per decision, or null for an off-clock observation. Never
+  infer the horizon from `recorded_at`: a grade written at day 100 is a judgement
+  about day 100, and letting it stand for the 30- and 90-day rows writes hindsight
+  into the record whose purpose is to exclude it. An off-clock row leaves the
+  horizon owed. `horizon_due=true` on the agent journal is the grading worklist;
+  `graded=false` answers the different question "never graded at all".
 - **Watchlist membership is recorded as it changes, and only `archived` is a
   removal.** `watchlist_membership` is an append-only event log written by
   triggers on `instruments`; `watchlist_as_of(t)` is the projection. It exists

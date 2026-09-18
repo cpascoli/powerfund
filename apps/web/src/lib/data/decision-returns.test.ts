@@ -144,55 +144,61 @@ describe("dueHorizonDays", () => {
 
   it("owes nothing while no horizon has elapsed", () => {
     expect(
-      dueHorizonDays({ horizons: horizons({}), outcomeRecordedAt: [] }),
+      dueHorizonDays({ horizons: horizons({}), gradedHorizons: [] }),
     ).toEqual([]);
   });
 
   it("owes an elapsed horizon that was never graded", () => {
     expect(
-      dueHorizonDays({
-        horizons: horizons({ 30: true }),
-        outcomeRecordedAt: [],
-      }),
+      dueHorizonDays({ horizons: horizons({ 30: true }), gradedHorizons: [] }),
     ).toEqual([30]);
   });
 
-  it("stops owing a horizon once a grade is written after its target", () => {
+  it("stops owing a horizon once that horizon is graded", () => {
     expect(
-      dueHorizonDays({
-        horizons: horizons({ 30: true }),
-        outcomeRecordedAt: ["2026-09-12T10:00:00.000Z"],
-      }),
+      dueHorizonDays({ horizons: horizons({ 30: true }), gradedHorizons: [30] }),
     ).toEqual([]);
   });
 
-  it("still owes 90 after a 30-day grade, which is the whole point of a clock", () => {
-    // graded=false would have dropped this decision entirely at the first grade.
+  it("still owes 90 after a 30-day grade, which is the point of a clock", () => {
     expect(
       dueHorizonDays({
         horizons: horizons({ 30: true, 90: true }),
-        outcomeRecordedAt: ["2026-09-12T10:00:00.000Z"],
+        gradedHorizons: [30],
       }),
     ).toEqual([90]);
   });
 
-  it("does not let a grade written before the target close that horizon", () => {
+  /**
+   * The rule this replaced inferred the horizon from recorded_at, so one grade
+   * written at day 100 closed 30 and 90 together. A thesis that looked wrong at
+   * 30 days and recovered by 100 would then have had the later judgement
+   * recorded against both horizons -- hindsight written into the record whose
+   * whole purpose is to exclude it.
+   */
+  it("does not let a 180-day grade close the horizons before it", () => {
+    expect(
+      dueHorizonDays({
+        horizons: horizons({ 30: true, 90: true, 180: true }),
+        gradedHorizons: [180],
+      }),
+    ).toEqual([30, 90]);
+  });
+
+  it("treats an off-clock grade as no clocked grade at all", () => {
+    // A thesis invalidated at day 12 is worth recording and is not the 30-day
+    // judgement, so 30 stays owed.
     expect(
       dueHorizonDays({
         horizons: horizons({ 30: true }),
-        outcomeRecordedAt: ["2026-08-20T10:00:00.000Z"],
+        gradedHorizons: [null],
       }),
     ).toEqual([30]);
   });
 
-  it("closes both when one grade is written after the later target", () => {
-    // A grade at day 100 was written knowing day 30 and day 90; they cannot be
-    // graded apart after the fact.
+  it("never owes a horizon that has not elapsed, however it was graded", () => {
     expect(
-      dueHorizonDays({
-        horizons: horizons({ 30: true, 90: true }),
-        outcomeRecordedAt: ["2026-11-20T10:00:00.000Z"],
-      }),
+      dueHorizonDays({ horizons: horizons({}), gradedHorizons: [30] }),
     ).toEqual([]);
   });
 });
