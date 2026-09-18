@@ -24,6 +24,7 @@ Intelligence for managing and growing capital in the markets — starting with p
 | [2026-09-02](./reviews/2026-09-02-full-review.md) | Full review: capital + software roadmaps, process, tests, watchlist, audit trail, UX |
 | [2026-09-03 remediation log](./reviews/2026-09-03-remediation-log.md) | What was fixed on 2–3 September, what the diagnosis got wrong along the way, and what was left |
 | [2026-09-18](./reviews/2026-09-18-full-review.md) | Full review: measurement layer holding, sleeve −13.8% vs SPY −2.4%, the queue cannot sell and the gate is direction-blind, signals are 84% pipeline log; ordered next-work list |
+| [2026-09-18 are we on track?](./reviews/2026-09-18-are-we-on-track.md) | Opinion: the process records well but does not yet learn; seven quick wins a professional fund would have (pre-mortems, clocked grades, dollar-at-risk, relative benchmark, factor attribution, point-in-time watchlist, falsifiers on diagnostics) |
 
 ## Related
 
