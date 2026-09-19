@@ -160,8 +160,8 @@ Review-task triggers:
 
 | Type | Shape | Becomes due |
 |------|-------|-------------|
-| `scheduled` | `{ "type": "scheduled", "at": "<iso>" }` | `asOf >= at` |
-| `event_window` | `{ "type": "event_window", "not_before", "due_by" }` | Window opens at `not_before` |
+| `scheduled` | `{ "type": "scheduled", "at": "<iso>" }` | `asOf >= at` — for a date the company has **confirmed** |
+| `event_window` | `{ "type": "event_window", "not_before", "due_by" }` | Window opens at `not_before` — for an **estimated** date (ritual 3) |
 | `condition` | `{ "type": "condition", "metric", "symbol", "operator", "value" }` | Evaluable metric matches (`price`, `price_return_pct` auto-due) |
 
 `instructions` is the checklist for that day. PATCH it with `updateReviewTask` if the title is thin. Cannot PATCH status to `due` or `completed`.
@@ -313,9 +313,37 @@ Before creating anything, load the existing open review queue to avoid duplicate
 1. `getFundState` with watchlist. List open holdings plus watchlist names with a live thesis (`has_dossier`).
 2. `getReviewQueue?status=open` so you do not duplicate tasks.
 3. For each company, theme, industry, or macro event, add `createReviewTask` only when it is dated and actionable: earnings, financing settlements, policy windows, scheduled releases, explicit price invalidation. Skip vague “keep an eye on it.”
-4. Always send `instructions` (what to check that day), `scope` (`company` needs `symbols`; `theme` needs existing theme slugs; `macro` should link affected `symbols` or `themes` when known), and a real trigger. Prefer `scheduled` or `event_window` when the date is known.
+4. Always send `instructions` (what to check that day), `scope` (`company` needs `symbols`; `theme` needs existing theme slugs; `macro` should link affected `symbols` or `themes` when known), and a real trigger. Use `scheduled` **only for a date the company has confirmed**; use `event_window` for everything estimated. See below.
 5. Do not create a review task for the weekly hold. Do not create a planned trade “just to remember the date.”
 6. Ensure the **book cadence** exists: an open `Monthly book pass — YYYY-MM` within ~6 weeks, and an open `Quarterly book review — YYYY-Qn` within ~4 months. Create with `scope: portfolio` and a `scheduled` trigger if missing. Do not duplicate. Do not create a separate monthly “ranking” task.
+
+### Confirmed dates are `scheduled`; estimated dates are windows
+
+Most forward earnings dates are estimates. Third-party calendars extrapolate from
+prior-year timing, and companies move within a two-week band routinely. A
+`scheduled` trigger asserts a date the company has stated; using one for an
+estimate encodes a confidence the source does not have, and the failure is
+quiet — the task comes due on a day nothing happens, gets actioned against no
+print, and the real print lands with no obligation attached to it.
+
+So:
+
+- **Confirmed by the company** (IR announcement, press release, filing): a
+  `scheduled` trigger on that date.
+- **Estimated** (third-party calendar, "roughly mid-October", inference from the
+  prior year's cadence): an `event_window` trigger spanning the plausible band —
+  `not_before` at its start, `due_by` at its end. The task becomes due when the
+  window opens and stays due through it, which is the behaviour an uncertain date
+  actually wants.
+- **When IR confirms**, `updateReviewTask` the existing row to a `scheduled`
+  trigger on the real date. Do not create a second task; the window and the
+  confirmed print are the same obligation.
+- Say which it is in `instructions` — "estimated from FY25 timing, confirm with
+  IR" reads differently from "confirmed 21 Oct" to whoever actions it.
+
+The same applies to any date a third party is guessing at: analyst-day windows,
+lock-up expiries inferred from a prospectus, regulatory decisions with a
+statutory deadline but no announced date.
 
 | Step | Tool |
 |------|------|
@@ -323,6 +351,7 @@ Before creating anything, load the existing open review queue to avoid duplicate
 | Existing calendar | `getReviewQueue?status=open` |
 | Add a catalyst or missing book-cadence task | `createReviewTask` (`company` / `theme` / `macro` / `portfolio`) |
 | Thicken a thin checklist | `updateReviewTask` (`instructions`) |
+| Promote an estimate to a confirmed date | `updateReviewTask` (`trigger` → `scheduled`) |
 
 ---
 
