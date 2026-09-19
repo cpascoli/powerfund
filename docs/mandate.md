@@ -40,7 +40,7 @@ Do not introduce a blended S&P/QQQ policy portfolio. Do not change the primary b
 
 Exact percentages can be tuned; the existence of hard caps cannot.
 
-1. **Max single-position weight** — cap % of portfolio NAV at cost and/or at market (define one primary rule and stick to it).
+1. **Max single-position weight** — cap % of portfolio NAV at cost and/or at market (define one primary rule and stick to it). *Unratified:* the buy gate has enforced **market value vs NAV** since 2026-08-13. The code made the choice this rule asks for and the mandate has not confirmed it; until it does, the enforced rule and the written rule are not the same sentence.
 2. **Max theme concentration** — cap combined weight in any one theme (AI infra, Energy, Robotics, Defence, Other).
 3. **Cash buffer** — maintain a minimum cash (or cash-like) percentage for opportunity and stress.
 4. **Thesis invalidation** — every position has written kill criteria **recorded before or at fill time**; a fill without invalidation on the book is a mandate violation, not a TODO. Hit → exit or reduce, do not renegotiate emotionally.
@@ -64,7 +64,7 @@ Exact percentages can be tuned; the existence of hard caps cannot.
 
    The 15% **condition** stays on Portfolio → Mandate while the sleeve is still below its high-water mark. Briefing Due only asks for the diagnostic until a covering book-level write exists for this breach (a completed portfolio review task that names the sleeve diagnostic). It re-opens if the sleeve recovers then breaches again, if drawdown deepens by **5 percentage points** from the diagnosed print, or after **14 days** while still breached.
 
-   **After capital Phase 1:** the same 15% remains a diagnostic. Until a harder NAV-aware capital-preservation threshold is set (revise after the first live month), new buys still need a written override while the flag is on. That is a temporary software halt, not an order to sell the book.
+   **After capital Phase 1:** the same 15% remains a diagnostic. Until a harder NAV-aware capital-preservation threshold is set (revise after the first live month), new buys still need a written override while the flag is on. That is a temporary software halt on **new risk**, not an order to sell the book — and since 2026-09-19 the gate knows the difference: a `reduce` or `sell` skips the caps and the kill-switch entirely, so the halt can no longer block the exit a diagnostic recommends.
 9. **AI memory cycle discipline** — HBM/DRAM/NAND names are the **`ai_memory` sleeve** inside AI infrastructure (not a separate core theme). They count **fully** toward the rule-10 AI-capex cap. Do not treat peak-cycle EPS or trough trailing multiples as “cheap” without contract coverage, mix shift, and normalized-earnings evidence. Prefer starter sizes; add only on new information. Soft guide: memory/storage sleeve ≤ **15% NAV** until it earns a larger allocation in review.
 10. **Factor concentration (correlation-aware)** — theme labels are not diversification. The mandate map is a **unit-sum allocation**, not a stress-beta model: each name has explicit weights, a one-line rationale, and a review date. Unknown names are unclassified and flagged. Cap weighted **AI-capex + AI-memory** as one position-like risk **vs NAV (cash included)**. DoD autonomy, commercial aerospace, and surgical-procedure growth are not hyperscaler capex. Maintain a standing "hyperscaler capex guidance −20%" stress (haircut × mapped AI-capex/memory weight). Cash is a diversifier versus this factor; the kill-switch (rule 8) stays on deployed capital.
 
@@ -127,7 +127,7 @@ Evidence we want before crossing $75k:
 2. **Sizing** — starters, adds, factor caps, and cash prevent a bad idea from becoming a portfolio-level problem.
 3. **Anti-chase** — we do not deploy simply because an asset or theme is moving.
 4. **Volatility** — a correction leads to reassessment and selective acceleration, not panic or indiscriminate averaging down.
-5. **Journal** — we can tell good process / bad outcome from bad process / good outcome.
+5. **Journal** — we can tell good process / bad outcome from bad process / good outcome. Clocked grades are the evidence for this, not the claim: read them by decision class, and do not count repeated holds on one name, or several entries into one factor, as independent observations.
 6. **Operations** — the weekly PM workflow runs through PowerFund, not partly in the operator’s head.
 
 Before any buy that would take invested cost through $75k, write the Phase-1 → Phase-2 review ([gpt-agent-process.md](./gpt-agent-process.md) ritual 13):
@@ -207,7 +207,7 @@ Every material idea is logged before or at action time:
 3. **Risks** — what breaks the thesis
 4. **Invalidation** — observable conditions that force exit/reduce
 5. **Sizing** — why this weight given volatility, liquidity, conviction
-6. **Outcome review** — after exit or major change: process grade, not just P&L
+6. **Outcome review** — a grade on a clock, not only at exit. Every material decision is graded at **30 / 90 / 180 days** from its own anchor: the fill for an enter or add, the decision date for a hold, since a hold buys nothing and is the judgement to keep owning the exposure from there. Four dimensions — thesis, timing, sizing, risk management — so a market outcome and a process grade stay distinct: a name can fall 15% with the thesis intact and the timing wrong, or rise 20% with the thesis wrong. Grades are immutable and name the horizon they are about, and each is judged on evidence available **at that horizon**, not on what was learned since. An exit-time grade is still recorded, as an off-clock observation.
 
 Every high-quality dossier should answer not only “would we own this?” but **at what price we become unusually eager**. States are driven by scenario values vs price, not by a raw percentage drawdown:
 
@@ -254,8 +254,29 @@ We do not define edge as:
 | Cadence | Activity | Where it is stored |
 |---------|----------|-------------------|
 | Weekly | Book review, open theses, risk flags, signal quality | Per-name **journal** (`hold` / `add` / `reduce` / `exit`). Not a review task. |
+| Whenever a horizon elapses | Decision grading — 30 / 90 / 180 days from each decision's anchor | Append-only **outcome** on the journal row. Continuous, because horizons elapse on their own clock; process: ritual 12. |
 | Monthly | Mandate compliance, theme mix, where the next dollar goes, lesson write-ups | One **portfolio** review task (`Monthly book pass — YYYY-MM`). Process: [gpt-agent-process.md](./gpt-agent-process.md) rituals 6 and 9. |
-| Quarterly | Strategy fit; theme and factor weights; NAV and deployed performance vs S&P 500 and QQQ; decision calibration; update defaults if needed | One **portfolio** review task (`Quarterly book review — YYYY-Qn`). Process: rituals 10 and 12. |
+| Quarterly | Strategy fit; theme and factor weights; NAV and deployed performance vs S&P 500 and QQQ; the accumulated decision grades read **by class**, never pooled; update defaults if needed | One **portfolio** review task (`Quarterly book review — YYYY-Qn`). Process: rituals 10 and 12g. |
+
+## Open mandate decisions
+
+Recorded here so they are visible as *undecided* rather than sitting only in a
+review. Each is the operator's call, not the code's, and none is resolved by
+anything shipped so far.
+
+| Question | Why it is open |
+|----------|----------------|
+| **Does the capital Phase-1 → 2 transition require a *relative* return proof?** | Every rule above is absolute — 15% sleeve, NAV preservation, position and theme caps. A sleeve that returns −14% while QQQ returns −3% passes all of them. Either add a clause to the Phase-1 gate, or state in writing that the transition deliberately does not depend on relative return. `getPerformance` already computes the number; no rule reads it. |
+| **What must the fourth identical drawdown diagnostic do differently?** | Three diagnostics in five weeks reached "factor compression, hold". Each answers fresh, with no obligation to say what evidence would make the next one conclude otherwise. |
+| **Cost or market for the position cap (rule 1)?** | The gate chose market on 2026-08-13; the mandate still says "cost and/or market". |
+| **Is the book public, and to whom?** | Viewer accounts exist and read research but never the book. That line was drawn in code before it was written down here. |
+
+Factor concentration is deliberately **not** on this list as a proposed limit.
+The diagnostics attribute most of the drawdown to one AI-infrastructure factor
+across names filed under five themes, so theme caps are not constraining what is
+actually correlated — but measuring and reporting the factor split should come
+before any threshold is fixed to it, or the number gets fitted to one small
+sample.
 
 ## Compliance note (future scale)
 
