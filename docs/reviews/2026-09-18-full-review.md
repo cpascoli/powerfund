@@ -471,3 +471,45 @@ and had not yet had a scheduled run at review time. The store being one session
 behind at 09:56 Bangkok is expected under the new schedule and is not a finding.
 Whether the retry actually closes the vendor-lag gap should be checked against
 `bars:freshness` on Monday 22 Sep, after four scheduled mornings.
+
+---
+
+## 12. Addendum, 19 September — process debt found by using the learning loop
+
+Found while building the first calibration worklist against production, not by
+reading code. Recorded here rather than fixed, because the sequence agreed with
+the mandate is to run the first calibration before adding more machinery.
+
+**Three `enter` decisions can never be graded, and drop out of the worklist
+without saying so.** There are 11 `enter` decisions against 8 buys:
+
+| Decision | What it is |
+|---|---|
+| VST, 27 Aug | An intent-shaped enter with no fill; the 28 Aug enter is the executed one |
+| ISRG, 30 Aug | Same pattern; the 31 Aug enter is the executed one |
+| SNDK, 30 Aug | An intended entry that never executed at all |
+
+The first two look like the entry being journalled first and `bookFill` then
+logging a second `enter` when the fill was confirmed, so the journal carries two
+rows for one entry and only the second is measurable. SNDK is a different thing:
+economically it is closer to a `watch` — a candidate we decided to buy and did
+not — than to an entry.
+
+The modelling issue underneath is that the system infers what a decision *meant*
+from whether a fill happened. An investment intention and an executed position
+decision are different objects and should not be told apart by a join. That is a
+schema refinement to make from use, not ahead of it.
+
+What matters sooner is that these rows are excluded *silently*. A future
+worklist should carry `ungradeable_reason: no_fill` rather than omit them: "why
+did this decision never become measurable" is itself calibration evidence.
+Duplicate pre-fill enters say something about journal semantics; SNDK says
+something about opportunity cost.
+
+**Consequence for the first cohort.** 15 decisions are due a 30-day grade — 5
+position-originating and 10 continuation — and the entry cohort is 5 names
+(VRT, CLS, NVT, MRCY, NBIS), not 11. Four of the five are substantially the same
+AI-infrastructure exposure. The ritual 12 record should describe it that way: a
+small, highly correlated cohort that is an early test of deployment, factor and
+timing process rather than five independent demonstrations of stock selection,
+with continuation decisions analysed separately from position-originating ones.
