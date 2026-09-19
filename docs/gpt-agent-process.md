@@ -9,7 +9,7 @@ Hard rules:
 - There is no `updateDecision`, `reviewed_at` endpoint, or `completeWeeklyReview`. Completing a weekly hold is a **new** `createDecision`.
 - `recordDecisionOutcome` appends a child row. It does **not** set `reviewed_at` and does **not** complete a weekly hold.
 - Do not `createReviewTask` for a weekly hold. Do not `createPlannedAction` for an earnings print. Do persist monthly and quarterly book rituals as `scope: portfolio` review tasks (see Object taxonomy).
-- User approval before `updateDossier`, `createDecision`, `recordDecisionOutcome`, `createPlannedAction`, `createReviewTask`, and `addWatchlistCompany`.
+- User approval before `updateDossier`, `createDecision`, `recordDecisionOutcome`, `createPlannedAction`, `createReviewTask`, and `addWatchlistCompany`. Approval may cover a **defined batch** rather than one write at a time — "grade all 30-day decisions due today" is a valid approval for the whole worklist, provided the set is stated before the first write and not widened afterwards. A calibration run is fifteen-odd immutable writes; fifteen separate confirmations buys no extra control and makes the ritual cost more than it is worth.
 - A capital Phase-1 15% deployed-sleeve drawdown is a **diagnostic**, not an automatic trim or buy halt. Per-name invalidation still forces reduce/exit.
 - Do not treat software phases and capital phases as one ladder. The PM implements the **capital** plan.
 - **Historical review gate.** Before completing any company, theme, macro, portfolio, stress, or capital-phase review, load the completed review outcomes relevant to it since the last comparable review or decision, and treat them as prior beliefs to confirm, update, or invalidate. Chat history is not the durable record — `getReviewQueue?status=completed` is. See [Historical review gate](#historical-review-gate).
@@ -72,7 +72,7 @@ to have thought.
 | **Theme review** (10) | Previous **theme** outcomes for that theme · **macro** outcomes over the same window · company outcomes for its larger holdings. Read a print in context: AVGO after NVIDIA, Marvell and Jackson Hole, not in isolation |
 | **Monthly book pass** (6, 9) | Previous **monthly** outcome · any **stress diagnostic** since · major macro/theme outcomes since · `getPortfolio` + `getPerformance` · `recordDecisionOutcome` grades where they exist |
 | **Stress / kill-switch** (11) | Every prior **drawdown diagnostic** · the last monthly pass · per-name journal since |
-| **Quarterly review** (10, 12) | Previous **quarterly** outcome · all **monthly** portfolio outcomes since · stress diagnostics since |
+| **Quarterly review** (10, 12g) | Previous **quarterly** outcome · all **monthly** portfolio outcomes since · stress diagnostics since · the decision grades accumulated over the quarter, read by class |
 | **Capital-phase gate** (13, 14) | Every **portfolio** outcome for the phase · the quarterly record · decision grades |
 
 ### Fetching it
@@ -137,7 +137,8 @@ the conversation that produced it.
 | Ad hoc | New-name research; watchlist hygiene |
 | Before any `buy` / `add` planned action | Dossier / data-integrity gate |
 | Monthly | Book / mandate pass + opportunity ranking — one portfolio review task |
-| Quarterly | Theme/factor review + performance calibration — one portfolio review task |
+| Whenever horizons come due | **Decision grading** — `getJournal?horizon_due=true`; grade what is owed at 30/90/180 days. Continuous, not quarterly: horizons elapse on their own clock (ritual 12) |
+| Quarterly | Theme/factor review + performance calibration roll-up — one portfolio review task |
 | On −15% deployed sleeve / major factor shock | Stress incident review |
 | At $75k invested cost | Capital Phase-1 → Phase-2 transition review (ritual 13) |
 | At the authorized Phase-2 cap (once set) | Capital Phase-2 → Phase-3 transition review (ritual 14) |
@@ -172,7 +173,7 @@ Monthly and quarterly rituals are **not** chat-only. They follow the same persis
 | Cadence | One task covers | Title pattern | Trigger |
 |---------|-----------------|---------------|---------|
 | Monthly | Ritual 6 (book / mandate pass) **and** ritual 9 (opportunity ranking) | `Monthly book pass — YYYY-MM` | `scheduled` at the review date |
-| Quarterly | Ritual 10 (theme / factor) **and** ritual 12 (performance / calibration) | `Quarterly book review — YYYY-Qn` | `scheduled` at the review date |
+| Quarterly | Ritual 10 (theme / factor) **and** ritual 12g (performance roll-up) | `Quarterly book review — YYYY-Qn` | `scheduled` at the review date |
 | Incident | Ritual 11 (15% sleeve / factor shock) | Deployed-drawdown diagnostic (existing naming) | Create when it fires; do **not** roll a “next stress” |
 | Gate | Ritual 13 / 14 (capital-phase transition) | `Capital Phase-1 → Phase-2 transition` (or Phase-2 → Phase-3) | Create when the cap is in sight; do **not** roll |
 
@@ -393,7 +394,7 @@ This ritual is a **portfolio review task**. Find the open `Monthly book pass —
 The human confirms the fill in the UI. Then:
 
 1. `getJournal?symbol=` — the new row should pin a `dossier_version`. If the live thesis had changed, that version should already exist from `updateDossier` **before** the fill when possible.
-2. On **exit**, record outcome notes (process grade, not just P&L). Prefer `recordDecisionOutcome` on the exit (or enter) row for structured grades, plus a new journal row if the conclusion is a hold/watch going forward. Do not PATCH `reviewed_at` on the old enter.
+2. On **exit**, record outcome notes (process grade, not just P&L). Prefer `recordDecisionOutcome` on the exit (or enter) row for structured grades, plus a new journal row if the conclusion is a hold/watch going forward. Do not PATCH `reviewed_at` on the old enter. An exit-time grade is an **off-clock observation**: pass `horizon_days: null` explicitly. It is not the 30-day judgement and leaves every horizon still owed to ritual 12a, which is correct — what we concluded on the day we sold is a different question from what the decision looked like at 30 days.
 3. Cancel leftover planned actions for that name if the thesis is done (`updatePlannedAction` `cancelled`).
 4. Do not use the live dossier as a proxy for “what we believed when we bought it” — use `getDossierVersion` on the pin.
 
@@ -477,7 +478,7 @@ This ritual shares **one** portfolio review task with ritual 12: `Quarterly book
 5. Identify hidden correlation (e.g. cooling + power + EMS as one AI-capex trade).
 6. Conclude **more / same / less capital** for each theme next quarter. Update dossiers and, if the map changed, say so — factor weights live in code (`FACTOR_EXPOSURES`), not the agent API.
 7. Optional: `createReviewTask` on a **theme** scope for the next dated catalyst; `createPlannedAction` only for size changes that survived rituals 8–9.
-8. Continue with ritual 12 on the **same** task, then `completeReviewTask` and roll the next quarter.
+8. Continue with ritual 12g (the roll-up) on the **same** task, then `completeReviewTask` and roll the next quarter. Grading itself is not done here — it runs continuously as horizons come due (ritual 12a).
 
 | Step | Tool |
 |------|------|
@@ -515,28 +516,165 @@ Due re-opens this ritual if the sleeve recovers below 15% and breaches again, if
 
 ---
 
-## 12. Quarterly performance and decision calibration
+## 12. Decision calibration (continuous) and quarterly performance
 
-Purpose: improve the process, not accumulate dossiers. Same portfolio task as ritual 10 (`Quarterly book review — YYYY-Qn`). Run after the theme/factor section. Persist lessons in that task’s `outcome`; chat is not the archive.
+Purpose: improve the process, not accumulate dossiers. Grading runs on the
+**decision's clock**, not the calendar's — horizons elapse whenever they elapse,
+and a quarterly cadence would grade a 30-day judgement at day 100. The quarterly
+portfolio task (`Quarterly book review — YYYY-Qn`, shared with ritual 10) is the
+**roll-up**, not the grading run.
 
-Qualitative (works today):
+### 12a. Grade what is due
 
-1. `getJournal` (filter by date or symbol). For each material `enter` / `add` / `reduce` / `exit`, `getDossierVersion` on the pin — not the live dossier.
-2. Ask: did stock selection add value? Did cash timing help or hurt? Which themes contributed? Were we right for the right reason? Did we add only on new evidence? Were scenario estimates systematically optimistic?
-3. Write lessons on the quarterly task. Add a new `createDecision` (`hold` / `watch`) only if the process itself changed and must live on a name. Do not PATCH old journal rows to grade them — that is not an agent API, and `reviewed_at` / `outcome_grade` on the old enter is not this week’s review.
+1. `getJournal?horizon_due=true` — the worklist: decisions with an elapsed
+   30/90/180-day horizon carrying no grade written for it. Each entry's
+   `relative_returns.due_horizons` names which horizons are owed.
+   - This is **not** `graded=false`, which lists decisions never graded at all.
+     Once a decision is graded at 30 days, `graded=false` drops it and it becomes
+     invisible at 90. Use `horizon_due=true`.
+2. For each, `getDossierVersion` on the pin — not the live dossier. Use
+   `dossier_version.id` from the entry **only** for that fetch.
+3. `recordDecisionOutcome` on the entry's own top-level `id`, with
+   `horizon_days` set to the horizon being graded.
+   - `horizon_days` is **required**: `30` / `90` / `180` is a clocked grade, an
+     explicit `null` is a deliberate off-clock observation, and omitting it is a
+     `422`. A grade closes **only** the horizon it names; the others stay owed.
+   - One grade per decision per horizon. A second attempt returns
+     `HORIZON_ALREADY_GRADED` — that is the clock working, not a fault. Grades
+     are append-only so an earlier judgement cannot be revised once later
+     information exists.
+   - **`dossier_version.id` is not the decision id.** Sending it returns
+     `UNKNOWN_DECISION` against a UUID that plainly exists in the database. Every
+     entry pinned to a dossier carries both.
 
-Quantitative (partial today):
+### 12b. The point-in-time rule
 
-- `getPerformance` — NAV TWR and deployed TWR vs SPY and QQQ, plus **current and max** unitized drawdowns, plus **dollar contribution** by ticker, theme, and factor. Optional `from` / `to`. Returns are percent; `pnl_usd` is dollars. That is the mandate scoreboard.
-- `getJournal` — per-decision **30/90/180d vs SPY** (`relative_returns`, close-to-close from the **fill session**, not `action_at`). Horizons that have not elapsed still report so far. `recordDecisionOutcome` for structured thesis/timing/sizing/risk grades. That does not complete a weekly hold.
+**Grade on evidence available through the horizon cutoff, not through today.** A
+30-day grade written on day 37 reconstructs what was knowable at day 30; what
+happened on days 31–37 belongs to the 90-day grade or to an off-clock
+observation. Nothing in the schema can enforce this — `horizon_days` keeps the
+database honest, and only the ritual keeps the judgement honest. Grading a
+recovered name "correct at 30 days" because it recovered by day 37 destroys the
+only thing the 30-day grade was for.
 
-Then `completeReviewTask` (theme conclusions + scoreboard + calibration in `outcome`) and `createReviewTask` for the next quarter unless it already exists.
+Same discipline as `fundamentals_as_of`, applied to conclusions rather than
+filings.
+
+### 12c. Market outcome is not a process grade
+
+A −20% return does not mechanically mean the thesis was wrong, and an
+outperformer does not prove good process. That is what the four dimensions are
+for — say which one actually failed:
+
+| Dimension | The question |
+|-----------|--------------|
+| `thesis_grade` | Did the operating case develop as underwritten, on the evidence available at the cutoff? |
+| `timing_grade` | Was the entry point right, given a thesis that held? |
+| `sizing_grade` | Was the dollar commitment right for the conviction and the volatility? |
+| `risk_management_grade` | Did invalidation, sizing discipline and correlation control behave as intended? |
+
+A name can fall 15% while the business does exactly what was underwritten:
+**thesis correct, timing poor**. A name can rise 20% while the operating case was
+wrong: **thesis wrong, timing lucky**. Those two are the whole point, and a grade
+that collapses them into the return teaches nothing.
+
+`lessons` records behaviour to repeat or change. Not a P&L restatement.
+
+### 12d. Decision classes — grade all, pool none
+
+`relative_returns.decision_class` separates what kind of judgement each row was:
+
+| Class | Types | Anchor | What it measures |
+|-------|-------|--------|------------------|
+| `position_originating` | `enter`, `add` | the fill | Was initiating this exposure, at this price, right? |
+| `continuation` | `hold` | `action_at` | Was continuing to own it from that date, rather than reducing or reallocating, right? |
+| `risk_changing` | `reduce`, `exit` | the sell fill | Was taking risk off, then, right? |
+| `candidate` | `watch` | `action_at` | Measured as opportunity cost. **Not graded yet** — what "correct" means for a watch is unsettled |
+
+Grade every eligible decision, winners, losers and boring holds alike. Grading
+only the ones that went badly, or only the ones someone thought to revisit, puts
+selection bias inside the instrument built to detect it.
+
+But **report the classes apart**. Seven consecutive weekly holds on one name are
+seven judgements about one position, not seven observations of stock-selection
+skill. "12 of 18 continuation decisions had correct theses" is a finding;
+averaging those 18 in with entry timing is not.
+
+The same caution applies **within** a class when the names are correlated. Five
+entries that are substantially one AI-infrastructure bet are an early test of
+deployment cadence, factor concentration and timing — not five independent reads
+on picking companies. Say so in the write-up.
+
+### 12e. Decisions that cannot be graded
+
+A fill-anchored decision (`enter`, `add`, `reduce`, `exit`) with no linked fill
+is **ungradeable as an executed investment decision**. `relative_returns.reason`
+reads `no_fill` and there are no horizons to owe.
+
+Do not invent an anchor and do not quietly drop the row. Report it as `no_fill`
+with the count, because *why a decision never became measurable* is itself
+evidence. Two shapes seen so far:
+
+- An intent-shaped `enter` written before execution, shadowed a day later by the
+  `enter` that `bookFill` wrote on confirmation. One entry, two journal rows,
+  only the second measurable (VST 27 Aug, ISRG 30 Aug).
+- An `enter` that never executed at all — economically a candidate, not an entry
+  (SNDK 30 Aug).
+
+A quarterly completeness check that silently omits these will understate the
+cohort. Count them.
+
+### 12f. Reconcile the run
+
+After a grading batch:
+
+1. Re-query `getJournal?horizon_due=true`. Every decision you intended to grade
+   should be gone; anything still listed either failed to write or was graded
+   against the wrong id.
+2. Confirm every write landed on the intended **decision** id. The unique index
+   stops the same `(decision_id, horizon_days)` pair twice, but a grade written
+   against the *wrong* decision is a perfectly valid row and no constraint
+   catches it.
+3. Reconcile: one outcome row per `(decision_id, horizon_days)` pair, each
+   `decision_id` distinct within the batch, each `horizon_days` the one intended.
+
+The worklist moves under you — a decision crosses 30 days mid-run — so reconcile
+against a fresh query, not against the list you started with.
+
+### 12g. Quarterly roll-up
+
+Run after the theme/factor section of ritual 10, on the same portfolio task.
+Persist in that task's `outcome`; chat is not the archive.
+
+1. `getPerformance` — NAV TWR and deployed TWR vs SPY and QQQ, **current and
+   max** unitized drawdowns, and **dollar contribution** by ticker, theme and
+   factor. Optional `from` / `to`. Returns are percent; `pnl_usd` is dollars.
+   That is the mandate scoreboard.
+2. Read the accumulated grades by class. Ask: did stock selection add value? Did
+   cash timing help or hurt? Were we right for the right reason? Did we add only
+   on new evidence? Were scenario estimates systematically optimistic? Is one
+   dimension failing repeatedly across names — which is a process finding, not a
+   stock finding?
+3. Record cohort context that explains a period without excusing it. The first
+   entries partly served to exercise a live operating system that had never run
+   with money in it; later entries are expected to clear the investment gates
+   without that consideration. That belongs in **this quarter's outcome**, not in
+   the standing rules.
+4. Write lessons on the quarterly task. Add a new `createDecision`
+   (`hold` / `watch`) only if the process itself changed and must live on a name.
+   Do not PATCH old journal rows to grade them — that is not an agent API, and
+   `reviewed_at` / `outcome_grade` on the old enter is not this week's review.
+
+Then `completeReviewTask` (theme conclusions + scoreboard + calibration in
+`outcome`) and `createReviewTask` for the next quarter unless it already exists.
 
 | Step | Tool |
 |------|------|
+| What is owed | `getJournal?horizon_due=true` |
+| What we believed | `getDossierVersion` on the entry's `dossier_version.id` |
+| Write the grade | `recordDecisionOutcome` with `horizon_days` |
+| Reconcile the batch | `getJournal?horizon_due=true` again |
 | Scoreboard | `getPerformance` |
-| Decision returns + grades | `getJournal`, `recordDecisionOutcome` |
-| What we believed | `getJournal`, `getDossierVersion` |
 | Persist and roll | `completeReviewTask`, then `createReviewTask` for next quarter |
 
 ---
