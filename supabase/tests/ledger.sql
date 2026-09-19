@@ -332,6 +332,45 @@ begin
   end if;
   raise notice 'PASS no function relies on a WHERE-less UPDATE';
 
+  ---------------------------------------------------------------------------
+  -- The append-only guards are present AND armed
+  ---------------------------------------------------------------------------
+  -- Everything downstream treats a booked transaction as immutable: positions
+  -- and cash are projections that transactions_apply maintains, and
+  -- verify_book_against_ledger() checks the projection against the ledger
+  -- rather than the reverse. A disabled guard makes all of that assume a
+  -- property the database is no longer enforcing, and nothing else here would
+  -- notice -- the reconciliation would keep passing against a rewritten ledger.
+  --
+  -- Asserted on existence *and* tgenabled, because the 13 Aug backfill disables
+  -- transactions_apply mid-migration to load history and re-enables it after. A
+  -- migration that disables a guard and does not restore it would leave the
+  -- schema looking correct and behaving otherwise.
+  select count(*) into v_failures
+  from (
+    select unnest(array[
+      'transactions_no_update',
+      'transactions_no_delete',
+      'transactions_apply',
+      'transactions_currency_guard',
+      'decision_outcomes_no_update',
+      'decision_outcomes_no_delete',
+      'watchlist_membership_no_update',
+      'watchlist_membership_no_delete'
+    ]) as required
+  ) r
+  where not exists (
+    select 1 from public.ledger_guard_status() g
+    where g.trigger_name = r.required and g.enabled
+  );
+
+  if v_failures > 0 then
+    raise exception
+      'FAIL guards: % append-only/projection trigger(s) are missing or disabled; a booked transaction could be rewritten',
+      v_failures;
+  end if;
+  raise notice 'PASS the append-only guards exist and are enabled';
+
   raise notice 'ALL LEDGER TESTS PASSED';
 end $$;
 

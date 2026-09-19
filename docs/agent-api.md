@@ -13,7 +13,7 @@ Private agent API: `/api/v1/agent/*` — Bearer token, scoped permissions, dolla
 | `getFundState` | no | Compact current investment state |
 | `getPortfolio` | no | Private book from the ledger. Marks include `last_close_session` and `price_data_through`. Flags include the kill-switch: `due: false` means the 15% condition is live but ritual 11 is done for this breach. TWR is `getPerformance` |
 | `getPerformance` | no | NAV and deployed TWR vs SPY/QQQ, unitized drawdowns, and dollar contribution by ticker / theme / factor. Optional `from`/`to`. Percent returns. `price_data_through` is the last session, not `as_of` |
-| `getJournal` | no | Decisions + pinned `dossier_version`, fill-based 30/90/180d vs SPY, append-only outcomes. `price_data_through` is the last bar used |
+| `getJournal` | no | Decisions + pinned `dossier_version`, 30/90/180d vs SPY from each decision's anchor, append-only outcomes. `horizon_due=true` is the grading worklist. `price_data_through` is the last bar used |
 | `getResearchInbox` | no | Briefing Research tab, derived. Same clocks as the UI (`needs_dossier`, `review_due_date`, `diligence`). A save clears a row only if it moves the clock that kind uses |
 | `getCompanyDossier` | no | Live research object. Includes `last_close` / `last_close_session` and `price_data_stale` |
 | `getDossierVersions` / `getDossierVersion` | no | Immutable snapshots. No diff endpoint — fetch two versions and compare |
@@ -157,6 +157,7 @@ curl -sS -X POST -H "Authorization: Bearer $TOKEN" \
     "timing_grade": "poor",
     "sizing_grade": "good",
     "risk_management_grade": "good",
+    "horizon_days": 30,
     "lessons": "Right company, chased the first print."
   }' \
   "$ORIGIN/api/v1/agent/decisions/DECISION_UUID/outcome"
@@ -378,13 +379,13 @@ Typical workflows:
 3. Read `drawdown.nav_max_pct` and `drawdown.deployed_max_pct` (unitized; percent)
 4. Compare window `nav_return_pct` and `deployed_return_pct` to `spy_return_pct` / `qqq_return_pct`
 5. Read `contribution.tickers` / `themes` / `factors` (`pnl_usd` is dollars, not TWR)
-6. Per-decision 30/90/180d vs SPY is on `getJournal` (`relative_returns`, keyed off the linked fill session). Do not read TWR from `getPortfolio`.
+6. Per-decision 30/90/180d vs SPY is on `getJournal` (`relative_returns`, keyed off that decision's anchor session — see Calibration below). Do not read TWR from `getPortfolio`.
 
 **What we believed when we bought it**
 
 1. `getJournal?symbol=MRCY`
 2. `getDossierVersion` with the pinned `dossier_version` id or number on that row
-3. Read `relative_returns` (fill session, not `action_at`) and any `outcomes`
+3. Read `relative_returns` (anchored at the fill for an enter/add, at `action_at` for a hold) and any `outcomes`
 4. Do not use the live dossier as a proxy for that date
 
 **Tighten a review already on Dated**
@@ -392,5 +393,35 @@ Typical workflows:
 1. `getReviewQueue` (or `getFundState`) to get the task id
 2. `updateReviewTask` with `instructions` (and optionally `title`, `trigger`, `symbols` / `themes`)
 3. Status may be `pending`, `in_progress`, `deferred`, or `cancelled`. Triggers mark `due`; `completeReviewTask` records the outcome.
+
+**Grade the decisions that are due (ritual 12)**
+
+1. `getJournal?horizon_due=true` — decisions with an elapsed 30/90/180-day
+   horizon and no grade written after it. This is the worklist. `graded=false`
+   answers a different question: it lists decisions never graded *at all*, so a
+   30-day grade hides a row from it until someone remembers it at 90.
+2. Each entry carries `relative_returns.due_horizons` naming which horizons are
+   owed, and `relative_returns.decision_class`:
+   - `position_originating` (enter/add) — anchored at the fill
+   - `continuation` (hold) — anchored at `action_at`, because a hold buys
+     nothing and is the judgement to keep owning the exposure from there
+   - `risk_changing` (reduce/exit) — anchored at the sell fill
+   - `candidate` (watch) — measured, deliberately not yet graded
+   Grade every class, and report them apart. A run of weekly holds on one name
+   is many judgements about one position, not many observations of skill.
+3. Retrieve the pinned belief with `getDossierVersion` using
+   `dossier_version.id` from the entry. **That id is not the decision id** —
+   `recordDecisionOutcome` takes the entry's own top-level `id`, and sending the
+   version id instead returns `UNKNOWN_DECISION` against a UUID that plainly
+   exists.
+4. `recordDecisionOutcome` with `horizon_days` set to the horizon being graded.
+   The field is required: `30`/`90`/`180` is a clocked grade, an explicit `null`
+   is a deliberate off-clock observation, and omitting it is a `422`. One grade
+   per decision per horizon, enforced by a unique index; a second attempt returns
+   `HORIZON_ALREADY_GRADED`.
+5. Judge on evidence available **through the horizon cutoff**, not through
+   today. A 30-day grade written on day 33 reconstructs what was knowable at day
+   30; later evidence belongs to the 90-day grade or an off-clock observation.
+   The schema cannot enforce this — only the ritual can.
 
 Machine-readable contract: `GET /api/v1/agent/openapi.json` (public, no Bearer token). ChatGPT Actions can import that URL. Configure the GPT's authentication separately as API key / Bearer for the actual operations. The schema is OpenAPI 3.1.0, with no `oneOf`/`anyOf`/`$ref`, so Actions can parse every tool including `createReviewTask.trigger`.

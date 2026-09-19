@@ -77,6 +77,16 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm --filter @powerfund/worker ingest:bars -- --days=7 --pauseMs=400
       - run: pnpm --filter @powerfund/worker snapshot:portfolio
+      # The book is a projection the transactions_apply trigger maintains, so it
+      # can drift from the ledger without anything failing. This recomputes cash
+      # and every quantity from `transactions` and compares, and also asks
+      # whether the append-only guards are still armed -- because a reconciliation
+      # alone cannot see a rewritten ledger, only a rewritten projection. It runs
+      # after the snapshot so a mismatch is reported against the book the
+      # briefing will quote, and it fails the run: silent drift is the failure
+      # mode the whole ledger design exists to prevent.
+      - name: Verify the book against the ledger
+        run: pnpm --filter @powerfund/worker verify:book
 
   # A vendor that has not published yesterday's close yet is the one failure the
   # first pass cannot fix by succeeding. Rather than ingesting twice every
@@ -129,6 +139,9 @@ jobs:
         run: pnpm --filter @powerfund/worker ingest:bars -- --days=7 --pauseMs=400
       - if: steps.gate.outputs.run == 'true'
         run: pnpm --filter @powerfund/worker snapshot:portfolio
+      - name: Verify the book against the ledger
+        if: steps.gate.outputs.run == 'true'
+        run: pnpm --filter @powerfund/worker verify:book
       # Still behind after a second pass means the vendor has published nothing,
       # or it is a US market holiday — which the weekday-only session clock
       # cannot tell apart. Record which, and fail neither run over it.

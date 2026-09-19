@@ -19,7 +19,8 @@
     "smoke:vintages": "tsx src/smoke-vintages.ts",
     "score:replay": "tsx src/index.ts replay",
     "bars:audit": "tsx src/index.ts audit",
-    "bars:freshness": "tsx src/index.ts freshness"
+    "bars:freshness": "tsx src/index.ts freshness",
+    "verify:book": "tsx src/index.ts verify:book"
   },
   "dependencies": {
     "@powerfund/data-clients": "workspace:*",

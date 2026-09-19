@@ -7,6 +7,10 @@ import { ingestFundamentals } from "./ingest/fundamentals";
 import { scoreInflectionUniverse } from "./score/inflection";
 import { printReplay, replayInflection } from "./score/replay";
 import { snapshotPortfolio } from "./snapshot/portfolio";
+import {
+  printBookVerification,
+  verifyBookAgainstLedger,
+} from "./snapshot/verify-book";
 import "./env";
 
 function usage() {
@@ -22,6 +26,7 @@ Usage:
   pnpm --filter @powerfund/worker score:replay [-- --from=2022-01-01 --every=21 --symbols=NVDA,VRT]
   pnpm --filter @powerfund/worker snapshot:portfolio
   pnpm --filter @powerfund/worker snapshot:verify   (dry run — rebuild and diff, write nothing)
+  pnpm --filter @powerfund/worker verify:book      (positions/cash vs the ledger, and the append-only guards)
 
 Env:
   SUPABASE_URL or NEXT_PUBLIC_SUPABASE_URL
@@ -98,6 +103,17 @@ async function main() {
       const githubOutput = process.env.GITHUB_OUTPUT;
       if (githubOutput) {
         appendFileSync(githubOutput, `stale=${result.stale}\n`);
+      }
+      break;
+    }
+    case "verify:book": {
+      const result = await verifyBookAgainstLedger();
+      printBookVerification(result);
+      // Both are hard failures. A drifted projection means the book on screen is
+      // not the book in the ledger; a disabled guard means the ledger itself
+      // stopped being immutable, which no later reconciliation would reveal.
+      if (result.failed.length > 0 || result.guardsDisabled.length > 0) {
+        process.exitCode = 1;
       }
       break;
     }

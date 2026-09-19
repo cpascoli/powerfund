@@ -288,7 +288,7 @@ commit history reads like reasoning rather than changelog. Keep that.
 |---|---|---|
 | Kill-switch 15% | Diagnostic in Phase 1; buy override after | `shouldHaltNewRiskForKillSwitch` halts only above $75k. **Matches.** But the halt also blocks `sell`/`reduce` planned actions via the direction-blind gate (§1.1b) — the mandate never intended that |
 | Max position | "cost and/or market — never chosen" | Still market value vs NAV. Still not chosen |
-| Benchmarks total-return | Required | Price return with a TR label. Systematically flatters the record by ~1.2%/yr vs SPY |
+| Benchmarks total-return | Required | ~~Price return with a TR label~~ — **struck 19 Sep, this finding is wrong.** It restates one the [3 Sep remediation log](./2026-09-03-remediation-log.md) §10 had already struck on 7 September, which said so precisely to stop it being "fixed" later. Re-verified against production: SPY has 0 null `adj_close` across 1,000 bars and 940 differ from `close`, and `performance.ts:203` reads `adj_close ?? close`. The comparison is already total-return |
 | Deposits/withdrawals | Mandate allows | `computeDrawdown.navDrawdownPct` uses raw NAV peak; `getPerformance` uses the unitized index. They disagree after the first withdrawal |
 | Rule 4 written invalidation | Required on every position | **Met** 8/8 |
 
@@ -406,16 +406,19 @@ a single afternoon and remove the two P0s.
    `reduce`/`sell` go through `sellPosition` with `planned_action_id`; the
    queue shows "Confirm sale" and a quantity ≤ held check. Test: queued sell →
    `sell` transaction, position reduced, cash credited.
-2. **Make the gate know direction.** `mandateGate({ side: 'buy' | 'sell' })`;
-   sells skip cap/kill-switch evaluation and check the position exists.
-   Test: with `killSwitchBreached` and `invested > 75k`, a sell is allowed.
+2. ~~**Make the gate know direction.**~~ — **done 18 Sep** (`9ffd429`). `side`
+   is required, sells skip the caps and the kill-switch and check only that the
+   position exists, and the sell path does not read the drawdown series at all.
 3. **Re-gate revived actions and fix `withActor`.** Two one-liners with tests.
 4. **Stop writing `data_completeness` signals.** Record run health in a
    `scorer_runs` row (started, finished, scored, stale count, transitions).
    Then delete the 296 existing rows by migration so the inbox is readable.
    After this, the signals table should say "why look now" again.
-5. **Run `verify_book_against_ledger()` in the nightly job** after
-   `snapshot:portfolio`; fail on any `not ok`.
+5. ~~**Run `verify_book_against_ledger()` in the nightly job**~~ — **done
+   19 Sep.** `verify:book` runs after `snapshot:portfolio` in both ingest paths
+   and fails the run on a mismatch. It also checks the append-only guards are
+   armed, which the reconciliation alone cannot see: it compares a projection to
+   the ledger, so a rewritten ledger moves both sides together and still passes.
 6. **One session function.** `contributionFromLedger` and `fillSession` use
    `fillSessionDate`. Test with a 23:00 ET booking.
 7. **Holiday-aware session clock.** Use SPY bars as the calendar where a
@@ -424,15 +427,15 @@ a single afternoon and remove the two P0s.
 8. **`instruments.status` lifecycle** (`active` on fill, `watchlist` on exit,
    `archive` op on the agent API) — unblocks ritual 5 and makes Explore
    distinguish owned from watched.
-9. **Start `watchlist_membership` today.** Append-only. It is the only way the
-   scorer will ever be evaluable without survivorship bias, and it cannot be
-   backfilled.
+9. ~~**Start `watchlist_membership` today.**~~ — **done 18 Sep** (`af6d08d`),
+   live in production with 55 seeded names and `watchlist_as_of(t)` answering.
 10. **Earnings dates.** `company_events` fed from SEC filing dates plus an
     agent-writable forward date; Due flags a held name with no review task
     inside its reporting window. Then ISRG/VRT get their October tasks by
     construction rather than by memory.
-11. **Fix the TR label** (one line) and pick the unitized NAV drawdown in
-    `computeDrawdown`.
+11. ~~**Fix the TR label**~~ — **struck 19 Sep**, see §6.2: the benchmark is
+    already total-return and this repeats a finding struck on 7 September. Pick
+    the unitized NAV drawdown in `computeDrawdown`; that half stands.
 12. **Grade the 30 Aug enters.** Not software: run ritual 12 once so
     `decision_outcomes` has rows and the calibration ritual has something to
     calibrate.

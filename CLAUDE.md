@@ -52,6 +52,7 @@ pnpm --filter @powerfund/worker snapshot:verify      # dry run, writes nothing
 pnpm --filter @powerfund/worker score:replay -- --from=2021-06-21 --every=21
 pnpm --filter @powerfund/worker bars:audit           # find split-shaped jumps
 pnpm --filter @powerfund/worker bars:freshness       # does the store reach the last session?
+pnpm --filter @powerfund/worker verify:book          # positions/cash vs the ledger, and the append-only guards
 ```
 
 ## Working with production
@@ -133,6 +134,15 @@ Each was a real production defect. See the remediation log for the full story.
   Plan-time gating is an early warning, not the boundary: `restorePlannedAction`
   flips a status straight to `pending` with no gate, and `bookFill` is what
   actually stands between a planned action and the ledger.
+- **The ledger is immutable, and that is checked rather than assumed.**
+  `transactions` and the append-only journals are guarded by triggers, and
+  `positions`/`portfolio_state` are projections `transactions_apply` maintains.
+  `verify_book_against_ledger()` compares the projection to the ledger, so it
+  cannot see a rewritten *ledger* — both sides would move together. That is why
+  `verify:book` also reads `ledger_guard_status()` and fails if any guard is
+  disabled, and why `ledger.sql` asserts every guard exists **and** is enabled.
+  A mis-keyed VST fill was corrected directly in the database in September 2026,
+  which those triggers should have refused; nothing noticed for three weeks.
 - **A clocked grade is judged on evidence available at the horizon, not on
   evidence available when you got round to grading.** A 30-day grade written on
   day 33 must reconstruct what was knowable through day 30; later evidence
