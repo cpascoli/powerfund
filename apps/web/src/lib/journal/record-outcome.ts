@@ -125,6 +125,46 @@ function narrowHorizonDays(value: number | null): DecisionHorizonDays | null {
   return isDecisionHorizonDays(value) ? value : null;
 }
 
+/**
+ * What an id that is not a decision actually points at.
+ *
+ * A journal entry carries more than one UUID -- its own `id`, and
+ * `dossier_version.id` on any decision pinned to a dossier version, plus an id
+ * per recorded outcome. Nothing in the payload says which one this endpoint
+ * takes, so sending the wrong one is an easy mistake and "Unknown decision" is a
+ * useless reply to it: the id looks perfectly valid and exists in the database.
+ *
+ * Runs only on the failure path, and only to make the error say what happened.
+ */
+async function identifyForeignId(
+  supabase: DbClient,
+  id: string,
+): Promise<string | null> {
+  const candidates: Array<{ table: string; hint: string }> = [
+    {
+      table: "dossier_versions",
+      hint: "a dossier version id (journal entries expose it as dossier_version.id) — use the entry's own `id`",
+    },
+    {
+      table: "decision_outcomes",
+      hint: "an existing outcome id, not the decision it grades — use the entry's own `id`",
+    },
+    { table: "positions", hint: "a position id" },
+    { table: "instruments", hint: "an instrument id" },
+    { table: "planned_actions", hint: "a planned action id" },
+  ];
+  for (const candidate of candidates) {
+    const { data } = await supabase
+      // The table list is fixed above, so this cast is over a closed set.
+      .from(candidate.table as "dossier_versions")
+      .select("id")
+      .eq("id", id)
+      .maybeSingle();
+    if (data) return candidate.hint;
+  }
+  return null;
+}
+
 export async function recordDecisionOutcome(
   supabase: DbClient,
   decisionId: string,
@@ -156,7 +196,14 @@ export async function recordDecisionOutcome(
     throw new Error(`Failed to load decision: ${decisionError.message}`);
   }
   if (!decision) {
-    throw notFound("UNKNOWN_DECISION", "Unknown decision.", { id: decisionId });
+    const hint = await identifyForeignId(supabase, decisionId);
+    throw notFound(
+      "UNKNOWN_DECISION",
+      hint
+        ? `That id is ${hint}.`
+        : "Unknown decision. Use the `id` of a getJournal entry.",
+      { id: decisionId, ...(hint ? { looks_like: hint } : {}) },
+    );
   }
 
   const payload = {

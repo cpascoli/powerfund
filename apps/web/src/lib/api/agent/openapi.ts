@@ -793,7 +793,10 @@ export function agentOpenApiDocument(origin: string) {
           scope: "powerfund:journal:append",
           mutating: true,
           parameters: [
-            uuidParam("id", "decisions row UUID from getJournal."),
+            uuidParam(
+              "id",
+              "The `id` of a getJournal entry. Not dossier_version.id, which entries pinned to a dossier also carry, and not an existing outcomes[].id.",
+            ),
           ],
           requestBody: {
             required: true,

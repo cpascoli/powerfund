@@ -11,6 +11,8 @@ import {
 function mockClient(args: {
   decisionId: string | null;
   inserted?: Record<string, unknown>;
+  /** Tables in which the looked-up id does exist, for the diagnostic path. */
+  foundIn?: string[];
 }): DbClient {
   const client = {
     from(table: string) {
@@ -24,6 +26,9 @@ function mockClient(args: {
                     return args.decisionId
                       ? { data: { id: args.decisionId }, error: null }
                       : { data: null, error: null };
+                  }
+                  if ((args.foundIn ?? []).includes(table)) {
+                    return { data: { id: "some-id" }, error: null };
                   }
                   return { data: null, error: null };
                 },
@@ -146,6 +151,32 @@ describe("recordDecisionOutcome", () => {
         horizon_days: 45,
       }),
     ).rejects.toBeInstanceOf(AgentApiError);
+  });
+
+  /**
+   * The first live calibration hit this: the worklist surfaced a CLS hold, the
+   * grade was sent against the dossier_version.id the same entry carries, and
+   * "Unknown decision" was a useless reply — the id was real, just a different
+   * kind of thing.
+   */
+  it("says what the id actually is when it belongs to another table", async () => {
+    const supabase = mockClient({
+      decisionId: null,
+      foundIn: ["dossier_versions"],
+    });
+    try {
+      await recordDecisionOutcome(supabase, "42d412e3", {
+        thesis_grade: "correct",
+        lessons: "Graded against the wrong id.",
+        horizon_days: 30,
+      });
+      throw new Error("expected throw");
+    } catch (error) {
+      expect(error).toBeInstanceOf(AgentApiError);
+      expect((error as AgentApiError).code).toBe("UNKNOWN_DECISION");
+      expect((error as AgentApiError).message).toMatch(/dossier version id/i);
+      expect((error as AgentApiError).details.looks_like).toBeDefined();
+    }
   });
 
   it("404s when the decision does not exist", async () => {
