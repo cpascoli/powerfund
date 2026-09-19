@@ -165,6 +165,12 @@ export function serializeDecision(
 ) {
   return {
     id: row.id,
+    // The same value as `id`, named for what it is. An entry pinned to a dossier
+    // carries dossier_version.id too, and the first live calibration sent that
+    // one to recordDecisionOutcome — a valid UUID, present in the database, and
+    // rejected as UNKNOWN_DECISION. `id` alone gives an agent nothing to
+    // disambiguate against; a field called decision_id does.
+    decision_id: row.id,
     action_at: row.action_at,
     created_at: row.created_at,
     decision_type: row.decision_type,

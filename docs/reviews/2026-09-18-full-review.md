@@ -516,3 +516,94 @@ AI-infrastructure exposure. The ritual 12 record should describe it that way: a
 small, highly correlated cohort that is an early test of deployment, factor and
 timing process rather than five independent demonstrations of stock selection,
 with continuation decisions analysed separately from position-originating ones.
+
+---
+
+## 13. Backlog from the first live calibration — 19 September
+
+The first 30-day cohort was graded end to end. The run reconciles: **15 outcome
+rows across 15 distinct decisions, all `horizon_days = 30`, zero duplicate
+`(decision_id, horizon_days)` pairs, zero unknown decision ids**, 5
+position-originating and 10 continuation, and `horizon_due=true` returns nothing
+afterwards. The explicit-horizon design works.
+
+What follows is the improvement list the run produced. Ordered by whether
+something is already true, cheap, or a build.
+
+### 13.1 Already closed by the run
+
+| Item | State |
+|---|---|
+| Batch approval for a calibration run | Done — `gpt-agent-process.md` hard rules now allow a defined batch stated before the first write and not widened after |
+| Grades must not be derived from returns | Doctrine, ritual 12c: returns are evidence handed to the grader, never an algorithm that assigns the grade. The live run is the argument — see 13.5 |
+| Point-in-time evidence rule | Doctrine, ritual 12b. An `evidence_cutoff_at` field would make it machine-checkable; see 13.3 |
+| `decision_id` on journal entries | Done 19 Sep — the entry now carries `decision_id` alongside `id` |
+
+### 13.2 Cheap, not yet done
+
+| Item | Note |
+|---|---|
+| **Post-run reconciliation diagnostic** | The check run by hand above: expected due `(decision_id, horizon)` pairs vs recorded, duplicates, missing, unexpected, and horizons still owed. Belongs in the agent surface or a worker command so a run is auditable without counting 15 ids by hand. The unique index cannot substitute — a grade against the *wrong* decision is a valid row |
+| **`ungradeable_reason` in the calibration universe** | `relative_returns.reason` already says `no_fill`, but such decisions never appear in `horizon_due` at all, so a completeness check cannot see them. A quarterly view should be able to report "3 enters ungradeable: `no_fill`" rather than silently omitting them (§12) |
+
+### 13.3 A purpose-built calibration read surface
+
+Today the agent assembles decision id, class, anchor, horizon, benchmark return
+and pinned belief from a general journal payload. A dedicated worklist would
+carry `decision_id`, `decision_type`, `decision_class`, `anchor_date`,
+`due_horizons`, the horizon return, SPY/QQQ, relative return, the pinned
+`dossier_version`, and `evidence_cutoff_at` — the last making ritual 12b's
+point-in-time rule checkable rather than only stated.
+
+**Constraint: derive it from the canonical journal logic.** A second calculation
+path for decision returns is exactly the "two session functions for one concept"
+failure in §7.7, and it would be worse here because the two would disagree about
+grades rather than dates.
+
+### 13.4 Class-aware analytics, and a stronger reason for it
+
+Report `position_originating`, `continuation` and `risk_changing` separately
+rather than pooled. The run gives a measured reason beyond the argument from
+first principles:
+
+| Dimension | Varies within a name? |
+|---|---|
+| `thesis_grade` | **0 of 5 names** |
+| `timing_grade` | 2 of 5 |
+| `sizing_grade` | 3 of 5 |
+| `risk_management_grade` | 2 of 5 |
+
+`thesis_grade` was identical across every decision on the same name. So the 15
+grades contain **five** independent thesis judgements, not fifteen, and a report
+saying "12 of 15 decisions had a correct or partly-correct thesis" would restate
+five name-level calls three times each. Analytics must carry distinct-name counts
+alongside decision counts, not only the class split.
+
+The other three dimensions *do* vary within a name, which is the first evidence
+that the four-dimension schema earns its keep: they carry information the thesis
+grade does not.
+
+### 13.5 Decision outcome is not investment outcome
+
+A hold can be a good decision on a name that falls — holding a deliberately small
+speculative position while correctly refusing to add is the clearest case. A
+stock can rise after a badly reasoned decision. The four dimensions already
+express this and the schema does not need changing. The risk is in presentation:
+any future dashboard that reduces this to a win rate or a relative-return hit
+rate throws away the thing the loop was built to measure.
+
+### 13.6 Explicitly not to be encoded yet
+
+The first cohort reads as weak entry timing with better subsequent sizing and
+capital discipline. It is five correlated names over thirty days, and the August
+starters partly existed to exercise an operating system that had never run with
+money in it. Do not turn that into automated thresholds or mandate changes. Let
+the 90- and 180-day cohorts and later entries carry the weight.
+
+### 13.7 The success criterion
+
+The next due cohort should be gradeable without inspecting the database or
+asking what an identifier means. The first run shook out exactly the operational
+ambiguity a live calibration was meant to expose — the `dossier_version.id`
+confusion (`d913f0c`) and the missing `decision_id` (13.1) were both found by
+grading, not by reading code.

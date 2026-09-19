@@ -197,6 +197,19 @@ describe("getAgentJournal calibration filters", () => {
  * it answers "never graded at all", which is a different set the moment any
  * decision is graded once.
  */
+describe("getAgentJournal entry identity", () => {
+  it("names the decision id, because a bare `id` is what got confused", () => {
+    // dossier_version.id sits in the same entry and is also a real UUID. The
+    // write path takes this one.
+    return getAgentJournal(fakeDb(), {}).then((body) => {
+      for (const entry of body.entries) {
+        expect(entry.decision_id).toBe(entry.id);
+      }
+      expect(body.entries.length).toBeGreaterThan(0);
+    });
+  });
+});
+
 describe("getAgentJournal horizon_due", () => {
   it("lists nothing while no horizon has elapsed", async () => {
     const body = await getAgentJournal(fakeDb(), { horizon_due: "true" });

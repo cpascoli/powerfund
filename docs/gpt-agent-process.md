@@ -563,8 +563,9 @@ portfolio task (`Quarterly book review — YYYY-Qn`, shared with ritual 10) is t
      invisible at 90. Use `horizon_due=true`.
 2. For each, `getDossierVersion` on the pin — not the live dossier. Use
    `dossier_version.id` from the entry **only** for that fetch.
-3. `recordDecisionOutcome` on the entry's own top-level `id`, with
-   `horizon_days` set to the horizon being graded.
+3. `recordDecisionOutcome` on the entry's `decision_id` (the same value as its
+   top-level `id`, named so it cannot be mistaken), with `horizon_days` set to
+   the horizon being graded.
    - `horizon_days` is **required**: `30` / `90` / `180` is a clocked grade, an
      explicit `null` is a deliberate off-clock observation, and omitting it is a
      `422`. A grade closes **only** the horizon it names; the others stay owed.

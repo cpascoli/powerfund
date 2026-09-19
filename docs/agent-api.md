@@ -411,9 +411,9 @@ Typical workflows:
    is many judgements about one position, not many observations of skill.
 3. Retrieve the pinned belief with `getDossierVersion` using
    `dossier_version.id` from the entry. **That id is not the decision id** —
-   `recordDecisionOutcome` takes the entry's own top-level `id`, and sending the
-   version id instead returns `UNKNOWN_DECISION` against a UUID that plainly
-   exists.
+   `recordDecisionOutcome` takes the entry's `decision_id` (identical to its
+   top-level `id`), and sending the version id instead returns
+   `UNKNOWN_DECISION` against a UUID that plainly exists.
 4. `recordDecisionOutcome` with `horizon_days` set to the horizon being graded.
    The field is required: `30`/`90`/`180` is a clocked grade, an explicit `null`
    is a deliberate off-clock observation, and omitting it is a `422`. One grade
