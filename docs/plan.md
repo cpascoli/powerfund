@@ -48,17 +48,22 @@ Build:
       been written (0 rows). The gap is larger than a link: no table stores
       when a company reports, so the catalyst calendar (rituals 1, 3) is only
       as complete as the agent's memory — on 2026-09-18 it had no Q3 earnings
-      task for any held name.
+      task for any held name. The operating process now distinguishes a date
+      the company confirmed from a third-party estimate, which is the rule a
+      data source would let the system apply rather than the operator.
 - [ ] Signal inbox CRUD (manual + later automated). Blocked on making the
       inbox readable first: 296 of 351 live signals are `data_completeness`
       pipeline flips, not research signals.
 - [x] Portfolio book (open positions, cash, NAV, mandate weights)
-- [x] Deployment queue (plan buy → confirm fill). **Buy side only in
-      practice:** `confirmPlannedAction` books every confirmed row through
-      `bookFill`, so a queued `reduce`/`sell` would be booked as a buy, and the
-      mandate gate evaluates sells as purchases. Nothing has been sold yet.
-      Fix is item 1–2 of the [2026-09-18 review](./reviews/2026-09-18-full-review.md) §10.
+- [x] Deployment queue (plan buy → confirm fill, or plan exit → confirm sale).
+      Both sides route by direction as of 2026-09-19, and each stamps
+      `planned_action_id` on the ledger row so a retried confirmation repairs
+      the queue instead of booking twice. Still never exercised by a real sale.
 - [x] Decision journal CRUD (thesis → action → review)
+- [x] Decision calibration — grades on a 30/90/180-day clock, anchored on the
+      decision rather than always on a fill, one immutable grade per horizon,
+      and a reconciliation surface so a grading run can be audited rather than
+      counted by hand. First cohort graded 2026-09-19.
 - [x] Review queue — dated obligations with triggers, plus history query
       (`getReviewQueue` filters by status/scope/symbol/theme/date) so a review
       can read what the book concluded last time before writing a new one
@@ -166,14 +171,16 @@ Exit criteria: deliberate go/no-go; no premature multi-tenant complexity before 
 4. [x] Connect UI to Supabase (auth + CRUD).
 5. [x] Manual research workflow for a starter universe (~15–30 names across core themes).
 6. [x] Ship one automated scorer (e.g. growth/CapEx inflection + anti-parabolic filter). Shadow `fundamental_inflection_v1` on Explore + Signals; not wired to Briefing or the buy gate.
-7. [x] Establish weekly review ritual (queue + book; later, review writes into the queue). Running since 2026-08-15: 42 `hold` decisions, the last pass covering all eight open names (2026-09-15; the week of 8–12 Sep was skipped). Monthly book pass, opportunity ranking and three drawdown diagnostics are persisted as `scope: portfolio` review tasks. Reviews now write into the queue, and the historical gate makes reading prior conclusions a precondition for completing a comparable one. **Not yet running:** decision grading — `decision_outcomes` has 0 rows after 57 decisions, so ritual 12 has no input.
+7. [x] Establish weekly review ritual (queue + book; later, review writes into the queue). Running since 2026-08-15: 42 `hold` decisions, the last pass covering all eight open names (2026-09-15; the week of 8–12 Sep was skipped). Monthly book pass, opportunity ranking and three drawdown diagnostics are persisted as `scope: portfolio` review tasks. Reviews now write into the queue, and the historical gate makes reading prior conclusions a precondition for completing a comparable one. Decision grading started 2026-09-19 (see item 15).
 8. [x] Backfill written invalidation criteria for all open positions missing them (mandate rule 4). Written to the book 2026-08-13; enter-decision invalidation now copies onto the open position.
 9. [x] Set the deployment-ladder baseline tranche: **~$10k/month** (decided 2026-08-13), reaching the **capital** Phase-1 $75k cap ~January 2027. Acceleration-tranche sizes for the −10%/−20% triggers still to be set at a monthly review.
 10. [x] Minimum viable risk view (correlation matrix + AI-capex stress) before deployed cost crossed ~$40–50k (software Phase 3 pull-forward). Workbench → Risk, 2026-08-14.
 11. [ ] Decision-grade dossiers state **normal / attractive / dislocation / panic** valuation zones (scenario vs price, not a raw % drawdown). Process: [mandate.md](./mandate.md) and [gpt-agent-process.md](./gpt-agent-process.md) ritual 9.
-12. [ ] Make the queue able to sell and the gate able to tell a sell from a buy (2026-09-18 review §1.1). Both P0; neither has caused a loss because nothing has been sold.
-13. [ ] Start `watchlist_membership` (append-only: added, removed, why) so a future scorer replay can run on the names actually watched on a date rather than the surviving universe. Cannot be backfilled; every month of delay is a month lost.
+12. [x] Make the queue able to sell and the gate able to tell a sell from a buy (2026-09-18 review §1.1). Both P0, both fixed 2026-09-18/19: the gate takes a required side and a sell skips the caps and the kill-switch entirely, because every one of those limits constrains *new* risk and a reduction lowers all of them; the queue routes a confirmed `reduce`/`sell` through the sell path, stamping `planned_action_id` so a retried exit repairs the queue rather than booking a second one. **Untested against money — nothing has been sold yet.**
+13. [x] Start `watchlist_membership` (append-only: added, removed, why) so a future scorer replay can run on the names actually watched on a date rather than the surviving universe. Live 2026-09-18, written by triggers, with 55 names seeded from `instruments.created_at` and marked as seeded rather than observed. It accrues forward only, so the replay is now blocked on elapsed time rather than on a missing table — shipping it did not unblock evaluation, it started the clock.
 14. [ ] Move pipeline health out of `signals` (own row per scorer run), then delete the `data_completeness` rows so the inbox says "why look now" again.
+15. [x] Make the process score itself. Decisions are graded on a clock — 30/90/180 days from the decision's own anchor, the fill for an enter or add and `action_at` for a hold, since a hold buys nothing and is the judgement to keep owning the exposure from there. Grades are append-only and name the horizon they are about, so a grade written at day 100 cannot stand in for the day-30 judgement it would otherwise overwrite with hindsight. Four dimensions (thesis, timing, sizing, risk management) keep a market outcome distinct from a process grade. First cohort graded 2026-09-19: 15 decisions at 30 days. **One cohort of five correlated names is not evidence about skill; it is evidence the loop runs.**
+16. [ ] A canonical company-event source (`company_events`) so the catalyst calendar is derived rather than remembered, with confirmed dates distinguished from third-party estimates.
 
 ## Sequencing principles
 
@@ -189,7 +196,7 @@ Exit criteria: deliberate go/no-go; no premature multi-tenant complexity before 
 | Phase | Status |
 |-------|--------|
 | 0 — Operating model | Complete |
-| 1 — Research OS | In progress. Watchlist, dossiers, book, deployment queue, journal, review queue and the agent API are live, and the weekly ritual has run since 2026-08-15. Open: the queue's sell side (P0, 2026-09-18), filings/earnings dates, signal inbox CRUD, `instruments.status` lifecycle. |
-| 2 — Data & quant pipelines | Input layer plus point-in-time vintages, as-of scoring and a replay harness. Exit criterion **not** met, and now known to be further off: the first scorer measured worse than its universe. Evaluation is blocked on a point-in-time watchlist, not on tuning. |
-| 3 — Risk & portfolio construction | Minimum slice live (Workbench → Risk); kill-switch encoded, three diagnostics run and the re-open rules verified. Full pre-capital gate not met, and the gate that exists is direction-blind (blocks sells as if they were buys). |
+| 1 — Research OS | In progress. Watchlist, dossiers, book, deployment queue, journal, review queue and the agent API are live; the weekly ritual has run since 2026-08-15; the queue can now sell as well as buy; and decisions are graded on a clock rather than on inspiration. Open: filings/earnings dates, signal inbox CRUD, `instruments.status` lifecycle. |
+| 2 — Data & quant pipelines | Input layer plus point-in-time vintages, as-of scoring and a replay harness. Exit criterion **not** met, and now known to be further off: the first scorer measured worse than its universe. Point-in-time watchlist membership records from 2026-09-18 forward, so evaluation is blocked on elapsed history rather than on tuning or on a missing table. |
+| 3 — Risk & portfolio construction | Minimum slice live (Workbench → Risk); kill-switch encoded, three diagnostics run and the re-open rules verified. The gate now knows direction, so a drawdown halt can no longer block the exit it recommends. Full pre-capital gate still not met. |
 | 4 — Insight product / other capital | Not started |
