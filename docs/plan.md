@@ -132,15 +132,19 @@ Still to encode:
 - Exposure by theme, factor, geography, commodity beta
 - Concentration and correlation checks as a pre-capital gate
 - Stress scenarios (AI CapEx pause, energy shock, rates reprice)
-- Sizing aids from volatility, conviction, liquidity
+- Sizing aids from volatility, conviction, liquidity. The **display** is worth
+  pulling forward ahead of the automation (near-term item 18): dollar-at-risk to
+  invalidation per position, so a $1.5k starter and a $5k position are not read
+  as the same bet because they are both "one name".
 - ~~Drawdown kill-switch workflows aligned with [mandate.md](./mandate.md)~~
   **Encoded (2026-08 → 09).** `shouldHaltNewRiskForKillSwitch` in
   `packages/domain/src/mandate.ts`, enforced in `lib/mandate/enforce.ts` and
   surfaced on Briefing; it halts new risk only above the capital Phase-1 cap.
   Three deployed-drawdown diagnostics have actually been run and persisted
   (2026-08-30, 2026-09-03, 2026-09-17), and the 14-day / +5pp / new-episode
-  re-open rules fired on schedule. Known defect: the gate is direction-blind,
-  so above the Phase-1 cap the halt would also block a queued `sell`.
+  re-open rules fired on schedule. The gate learned direction on 2026-09-19:
+  a sell skips the caps and the kill-switch entirely, so the halt can no longer
+  block the exit a diagnostic recommends.
 
 **Measurement integrity is a prerequisite, not a detail.** A kill-switch is only
 as good as the series it reads. Until 2026-09-02 the published max deployed
@@ -175,12 +179,16 @@ Exit criteria: deliberate go/no-go; no premature multi-tenant complexity before 
 8. [x] Backfill written invalidation criteria for all open positions missing them (mandate rule 4). Written to the book 2026-08-13; enter-decision invalidation now copies onto the open position.
 9. [x] Set the deployment-ladder baseline tranche: **~$10k/month** (decided 2026-08-13), reaching the **capital** Phase-1 $75k cap ~January 2027. Acceleration-tranche sizes for the −10%/−20% triggers still to be set at a monthly review.
 10. [x] Minimum viable risk view (correlation matrix + AI-capex stress) before deployed cost crossed ~$40–50k (software Phase 3 pull-forward). Workbench → Risk, 2026-08-14.
-11. [ ] Decision-grade dossiers state **normal / attractive / dislocation / panic** valuation zones (scenario vs price, not a raw % drawdown). Process: [mandate.md](./mandate.md) and [gpt-agent-process.md](./gpt-agent-process.md) ritual 9.
+11. [ ] Decision-grade dossiers state **normal / attractive / dislocation / panic** valuation zones (scenario vs price, not a raw % drawdown). Process: [mandate.md](./mandate.md) and [gpt-agent-process.md](./gpt-agent-process.md) ritual 9. The deeper half is that **scenario values are not a stored object**: ritual 9's probability-weighted returns are re-derived from prose by a language model every month, so the app cannot recompute them, check them, or re-price them when the stock moves. The [3 September remediation log](./reviews/2026-09-03-remediation-log.md) §10 calls this the largest remaining gap between the mandate's process and the software, and it still is.
 12. [x] Make the queue able to sell and the gate able to tell a sell from a buy (2026-09-18 review §1.1). Both P0, both fixed 2026-09-18/19: the gate takes a required side and a sell skips the caps and the kill-switch entirely, because every one of those limits constrains *new* risk and a reduction lowers all of them; the queue routes a confirmed `reduce`/`sell` through the sell path, stamping `planned_action_id` so a retried exit repairs the queue rather than booking a second one. **Untested against money — nothing has been sold yet.**
 13. [x] Start `watchlist_membership` (append-only: added, removed, why) so a future scorer replay can run on the names actually watched on a date rather than the surviving universe. Live 2026-09-18, written by triggers, with 55 names seeded from `instruments.created_at` and marked as seeded rather than observed. It accrues forward only, so the replay is now blocked on elapsed time rather than on a missing table — shipping it did not unblock evaluation, it started the clock.
 14. [ ] Move pipeline health out of `signals` (own row per scorer run), then delete the `data_completeness` rows so the inbox says "why look now" again.
 15. [x] Make the process score itself. Decisions are graded on a clock — 30/90/180 days from the decision's own anchor, the fill for an enter or add and `action_at` for a hold, since a hold buys nothing and is the judgement to keep owning the exposure from there. Grades are append-only and name the horizon they are about, so a grade written at day 100 cannot stand in for the day-30 judgement it would otherwise overwrite with hindsight. Four dimensions (thesis, timing, sizing, risk management) keep a market outcome distinct from a process grade. First cohort graded 2026-09-19: 15 decisions at 30 days. **One cohort of five correlated names is not evidence about skill; it is evidence the loop runs.**
 16. [ ] A canonical company-event source (`company_events`) so the catalyst calendar is derived rather than remembered, with confirmed dates distinguished from third-party estimates.
+17. [ ] Write the underwriting down in numbers at entry, not only in prose: expected 12-month return, probability the invalidation is hit, expected bear-case loss, and the observable that has to occur for the thesis to work. In a year the hit-rate is a fact rather than a feeling, and the hit-rate is what should decide sizing. Without it a grade can say the thesis was wrong but not *which* belief was wrong ([are-we-on-track](./reviews/2026-09-18-are-we-on-track.md) §2.1).
+18. [ ] Dollar-at-risk to invalidation on Portfolio → Book, and the sleeve total. Every desk shows it; nothing here does. Needs structured `warning_price` / `invalidation_price` where a price genuinely applies — **not** parsed out of the prose invalidation, most of which is fundamental (orders, margins, financing economics) and would become a false stop. Display only; it changes how the next tranche is sized, it does not size it (§2.3).
+19. [ ] Make the factor split a gate input rather than only a view. Theme caps do not constrain what is actually correlated: the diagnostics attribute most of the drawdown to one AI-infrastructure factor across names filed under five different themes. Measure and report first, on the monthly pass; decide a threshold only once enough of the portfolio's behaviour has been observed to know which threshold means anything (§2.5).
+20. [ ] One session rule, everywhere. `contributionFromLedger` still buckets fills by UTC day while snapshots and flows use the New York session, and `lastCompletedCashSession` knows weekends but not market holidays — which is why 32 spurious signals fired the day after Labor Day. Neither can bite today, and both are the same class of defect as the snapshot mislabelling that published a 25.1% drawdown that never happened (2026-09-18 review §6.3).
 
 ## Sequencing principles
 
@@ -196,7 +204,7 @@ Exit criteria: deliberate go/no-go; no premature multi-tenant complexity before 
 | Phase | Status |
 |-------|--------|
 | 0 — Operating model | Complete |
-| 1 — Research OS | In progress. Watchlist, dossiers, book, deployment queue, journal, review queue and the agent API are live; the weekly ritual has run since 2026-08-15; the queue can now sell as well as buy; and decisions are graded on a clock rather than on inspiration. Open: filings/earnings dates, signal inbox CRUD, `instruments.status` lifecycle. |
+| 1 — Research OS | In progress. Watchlist, dossiers, book, deployment queue, journal, review queue and the agent API are live; the weekly ritual has run since 2026-08-15; the queue can now sell as well as buy; and decisions are graded on a clock rather than on inspiration. Open: filings/earnings dates, signal inbox CRUD, `instruments.status` lifecycle, and one session rule across contribution and the trading calendar. |
 | 2 — Data & quant pipelines | Input layer plus point-in-time vintages, as-of scoring and a replay harness. Exit criterion **not** met, and now known to be further off: the first scorer measured worse than its universe. Point-in-time watchlist membership records from 2026-09-18 forward, so evaluation is blocked on elapsed history rather than on tuning or on a missing table. |
 | 3 — Risk & portfolio construction | Minimum slice live (Workbench → Risk); kill-switch encoded, three diagnostics run and the re-open rules verified. The gate now knows direction, so a drawdown halt can no longer block the exit it recommends. Full pre-capital gate still not met. |
 | 4 — Insight product / other capital | Not started |
