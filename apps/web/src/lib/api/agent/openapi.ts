@@ -450,12 +450,23 @@ export function agentOpenApiDocument(origin: string) {
           responses: { "422": errorResponse },
         }),
       },
+      "/api/v1/agent/calibration": {
+        get: op({
+          operationId: "getCalibrationStatus",
+          summary: "Calibration worklist and reconciliation",
+          description:
+            "The whole grading worklist, not a page: every decision with an elapsed horizon carrying no grade, what has been recorded, and which decisions can never be graded because they have no linked fill. Re-read after a batch to reconcile it.",
+          scope: "powerfund:journal:read",
+          mutating: false,
+          parameters: [],
+        }),
+      },
       "/api/v1/agent/journal": {
         get: op({
           operationId: "getJournal",
           summary: "Investment journal",
           description:
-            "Read decisions with pinned dossier_version, fill-based 30/90/180d vs SPY, and append-only outcomes. price_data_through is the last bar used. Outcomes do not set reviewed_at.",
+            "Read decisions with pinned dossier_version, 30/90/180d vs SPY from each decision's anchor (the fill for enter/add, action_at for hold), and append-only outcomes. price_data_through is the last bar used. Outcomes do not set reviewed_at.",
           scope: "powerfund:journal:read",
           mutating: false,
           parameters: [

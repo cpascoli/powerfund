@@ -85,6 +85,11 @@ export async function GET(request: Request) {
               method: "POST",
               path: "/api/v1/agent/watchlist",
             },
+            {
+              operationId: "getCalibrationStatus",
+              method: "GET",
+              path: "/api/v1/agent/calibration",
+            },
             { operationId: "createDecision", method: "POST", path: "/api/v1/agent/decisions" },
             {
               operationId: "recordDecisionOutcome",

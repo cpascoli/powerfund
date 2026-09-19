@@ -547,8 +547,8 @@ something is already true, cheap, or a build.
 
 | Item | Note |
 |---|---|
-| **Post-run reconciliation diagnostic** | The check run by hand above: expected due `(decision_id, horizon)` pairs vs recorded, duplicates, missing, unexpected, and horizons still owed. Belongs in the agent surface or a worker command so a run is auditable without counting 15 ids by hand. The unique index cannot substitute — a grade against the *wrong* decision is a valid row |
-| **`ungradeable_reason` in the calibration universe** | `relative_returns.reason` already says `no_fill`, but such decisions never appear in `horizon_due` at all, so a completeness check cannot see them. A quarterly view should be able to report "3 enters ungradeable: `no_fill`" rather than silently omitting them (§12) |
+| ~~**Post-run reconciliation diagnostic**~~ | **Done 19 Sep** — `getCalibrationStatus`. Reproduces the hand-run against production: 15 grades across 15 distinct decisions, all at horizon 30, nothing owed |
+| ~~**`ungradeable_reason` in the calibration universe**~~ | **Done 19 Sep** — same endpoint reports the three `no_fill` enters (SNDK, ISRG, VST) with a count, rather than omitting them |
 
 ### 13.3 A purpose-built calibration read surface
 

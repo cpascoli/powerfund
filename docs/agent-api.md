@@ -14,6 +14,7 @@ Private agent API: `/api/v1/agent/*` — Bearer token, scoped permissions, dolla
 | `getPortfolio` | no | Private book from the ledger. Marks include `last_close_session` and `price_data_through`. Flags include the kill-switch: `due: false` means the 15% condition is live but ritual 11 is done for this breach. TWR is `getPerformance` |
 | `getPerformance` | no | NAV and deployed TWR vs SPY/QQQ, unitized drawdowns, and dollar contribution by ticker / theme / factor. Optional `from`/`to`. Percent returns. `price_data_through` is the last session, not `as_of` |
 | `getJournal` | no | Decisions + pinned `dossier_version`, 30/90/180d vs SPY from each decision's anchor, append-only outcomes. `horizon_due=true` is the grading worklist. `price_data_through` is the last bar used |
+| `getCalibrationStatus` | no | The whole grading worklist plus its reconciliation: what is owed by decision and horizon, what has been recorded, and which decisions can never be graded (`ungradeable_reason: no_fill`). Re-read after a batch |
 | `getResearchInbox` | no | Briefing Research tab, derived. Same clocks as the UI (`needs_dossier`, `review_due_date`, `diligence`). A save clears a row only if it moves the clock that kind uses |
 | `getCompanyDossier` | no | Live research object. Includes `last_close` / `last_close_session` and `price_data_stale` |
 | `getDossierVersions` / `getDossierVersion` | no | Immutable snapshots. No diff endpoint — fetch two versions and compare |
@@ -396,10 +397,13 @@ Typical workflows:
 
 **Grade the decisions that are due (ritual 12)**
 
-1. `getJournal?horizon_due=true` — decisions with an elapsed 30/90/180-day
-   horizon and no grade written after it. This is the worklist. `graded=false`
-   answers a different question: it lists decisions never graded *at all*, so a
-   30-day grade hides a row from it until someone remembers it at 90.
+1. `getCalibrationStatus` — the whole worklist in one call, plus what has been
+   recorded and what can never be graded. `getJournal?horizon_due=true` answers
+   the same "what is owed" question but a page at a time, and carries the
+   returns and pinned dossier alongside; use it when grading, and the
+   calibration endpoint to scope and reconcile the run. `graded=false` is a
+   third question: decisions never graded *at all*, so a 30-day grade hides a
+   row from it until someone remembers it at 90.
 2. Each entry carries `relative_returns.due_horizons` naming which horizons are
    owed, and `relative_returns.decision_class`:
    - `position_originating` (enter/add) — anchored at the fill
@@ -419,7 +423,12 @@ Typical workflows:
    is a deliberate off-clock observation, and omitting it is a `422`. One grade
    per decision per horizon, enforced by a unique index; a second attempt returns
    `HORIZON_ALREADY_GRADED`.
-5. Judge on evidence available **through the horizon cutoff**, not through
+5. Re-read `getCalibrationStatus` after the batch. Every decision you graded
+   should have left `due`, and `graded.distinct_decisions` should equal the
+   number of decisions you meant to grade — the unique index stops the same
+   `(decision_id, horizon_days)` twice but cannot stop a grade landing on the
+   wrong decision, and a distinct count below the batch size is how that shows.
+6. Judge on evidence available **through the horizon cutoff**, not through
    today. A 30-day grade written on day 33 reconstructs what was knowable at day
    30; later evidence belongs to the 90-day grade or an off-clock observation.
    The schema cannot enforce this — only the ritual can.

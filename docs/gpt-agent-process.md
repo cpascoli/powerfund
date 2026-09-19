@@ -555,9 +555,11 @@ portfolio task (`Quarterly book review — YYYY-Qn`, shared with ritual 10) is t
 
 ### 12a. Grade what is due
 
-1. `getJournal?horizon_due=true` — the worklist: decisions with an elapsed
-   30/90/180-day horizon carrying no grade written for it. Each entry's
-   `relative_returns.due_horizons` names which horizons are owed.
+1. `getCalibrationStatus` — the whole worklist in one call, split by class, plus
+   what has been recorded and what can never be graded. Scope the run from here.
+   Then `getJournal?horizon_due=true` for the decisions themselves: same "what is
+   owed" question, a page at a time, with the returns and the pinned dossier
+   alongside. Each entry's `relative_returns.due_horizons` names its horizons.
    - This is **not** `graded=false`, which lists decisions never graded at all.
      Once a decision is graded at 30 days, `graded=false` drops it and it becomes
      invisible at 90. Use `horizon_due=true`.
@@ -658,15 +660,19 @@ cohort. Count them.
 
 After a grading batch:
 
-1. Re-query `getJournal?horizon_due=true`. Every decision you intended to grade
-   should be gone; anything still listed either failed to write or was graded
-   against the wrong id.
+1. Re-read `getCalibrationStatus`. `due` should no longer list anything you
+   graded; anything still there either failed to write or was graded against the
+   wrong id.
 2. Confirm every write landed on the intended **decision** id. The unique index
    stops the same `(decision_id, horizon_days)` pair twice, but a grade written
    against the *wrong* decision is a perfectly valid row and no constraint
    catches it.
-3. Reconcile: one outcome row per `(decision_id, horizon_days)` pair, each
-   `decision_id` distinct within the batch, each `horizon_days` the one intended.
+3. Reconcile: `graded.distinct_decisions` equals the number of decisions you
+   meant to grade, and `graded.by_horizon` has them under the horizon you
+   intended rather than under `off_clock`.
+4. Read `ungradeable` and carry the count into the write-up. Those decisions
+   never enter the worklist, and their absence is not the same as their being
+   graded.
 
 The worklist moves under you — a decision crosses 30 days mid-run — so reconcile
 against a fresh query, not against the list you started with.
@@ -700,10 +706,11 @@ Then `completeReviewTask` (theme conclusions + scoreboard + calibration in
 
 | Step | Tool |
 |------|------|
-| What is owed | `getJournal?horizon_due=true` |
+| Scope and reconcile the run | `getCalibrationStatus` |
+| What is owed, with the evidence | `getJournal?horizon_due=true` |
 | What we believed | `getDossierVersion` on the entry's `dossier_version.id` |
 | Write the grade | `recordDecisionOutcome` with `horizon_days` |
-| Reconcile the batch | `getJournal?horizon_due=true` again |
+| Reconcile the batch | `getCalibrationStatus` again |
 | Scoreboard | `getPerformance` |
 | Persist and roll | `completeReviewTask`, then `createReviewTask` for next quarter |
 
