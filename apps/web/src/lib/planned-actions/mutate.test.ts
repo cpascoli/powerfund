@@ -115,6 +115,51 @@ describe("planned action mutations", () => {
     }
   });
 
+  /**
+   * Live rows reached `[agent:chatgpt]\n[agent:chatgpt]\n…` because a PATCH that
+   * changed anything else re-stamped the stored rationale, which already had a
+   * tag. The newest tag is the only informative one — prepending puts the most
+   * recent writer first.
+   */
+  it("stamps the actor once, however many times a row is patched", async () => {
+    row = { ...ROW, status: "pending", rationale: "Original body." };
+    await updatePlannedAction(db(), "pa-1", {
+      due_by: "2026-10-01",
+      actor_name: "chatgpt",
+    });
+    const first = writes.at(-1)?.rationale as string;
+    expect(first).toBe("[agent:chatgpt]\nOriginal body.");
+
+    // Re-stamping the already-stamped text is where the stack used to grow.
+    row = { ...ROW, status: "pending", rationale: first };
+    await updatePlannedAction(db(), "pa-1", {
+      due_by: "2026-10-02",
+      actor_name: "chatgpt",
+    });
+    expect(writes.at(-1)?.rationale).toBe("[agent:chatgpt]\nOriginal body.");
+  });
+
+  it("replaces another agent's tag rather than stacking on it", async () => {
+    row = {
+      ...ROW,
+      status: "pending",
+      rationale: "[agent:chatgpt]\nOriginal body.",
+    };
+    await updatePlannedAction(db(), "pa-1", {
+      due_by: "2026-10-03",
+      actor_name: "PowerFundAgent",
+    });
+    expect(writes.at(-1)?.rationale).toBe(
+      "[agent:PowerFundAgent]\nOriginal body.",
+    );
+  });
+
+  it("leaves the text alone when no actor is given", async () => {
+    row = { ...ROW, status: "pending", rationale: "[agent:chatgpt]\nBody." };
+    await updatePlannedAction(db(), "pa-1", { due_by: "2026-10-04" });
+    expect(writes.at(-1)?.rationale).toBe("[agent:chatgpt]\nBody.");
+  });
+
   it("tells the gate which side each action type is", async () => {
     for (const [actionType, side] of [
       ["buy", "buy"],

@@ -410,7 +410,10 @@ a single afternoon and remove the two P0s.
 2. ~~**Make the gate know direction.**~~ — **done 18 Sep** (`9ffd429`). `side`
    is required, sells skip the caps and the kill-switch and check only that the
    position exists, and the sell path does not read the drawdown series at all.
-3. **Re-gate revived actions and fix `withActor`.** Two one-liners with tests.
+3. ~~**Re-gate revived actions and fix `withActor`.**~~ — **done**: re-gating
+   18 Sep (`9ffd429`), `withActor` 19 Sep. It now strips any leading tag before
+   stamping, so a re-PATCH replaces rather than accumulates, and a migration
+   collapses the three stacked live rows.
 4. **Stop writing `data_completeness` signals.** Record run health in a
    `scorer_runs` row (started, finished, scored, stale count, transitions).
    Then delete the 296 existing rows by migration so the inbox is readable.
@@ -435,8 +438,8 @@ a single afternoon and remove the two P0s.
     inside its reporting window. Then ISRG/VRT get their October tasks by
     construction rather than by memory.
 11. ~~**Fix the TR label**~~ — **struck 19 Sep**, see §6.2: the benchmark is
-    already total-return and this repeats a finding struck on 7 September. Pick
-    the unitized NAV drawdown in `computeDrawdown`; that half stands.
+    already total-return and this repeats a finding struck on 7 September. The
+    unitized NAV drawdown in `computeDrawdown` is **done 19 Sep**.
 12. **Grade the 30 Aug enters.** Not software: run ritual 12 once so
     `decision_outcomes` has rows and the calibration ritual has something to
     calibrate.

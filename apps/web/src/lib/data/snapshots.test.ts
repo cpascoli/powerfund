@@ -97,6 +97,62 @@ describe("computeDrawdown", () => {
     expect(summary.killSwitchBreached).toBe(false);
   });
 
+  /**
+   * The raw NAV peak counts a withdrawal as a loss and a deposit as a new high.
+   * `getPerformance` has always unitized this; `computeDrawdown` had not, so the
+   * same number computed two ways would disagree on two screens the first time
+   * capital moved. No deposit or withdrawal has happened since the seed, so the
+   * bug could not show itself on live data.
+   */
+  it("does not count a withdrawal as a NAV drawdown", () => {
+    const history: SnapshotRow[] = [
+      {
+        asOf: "2026-08-12T22:30:00.000Z",
+        nav: 250_000,
+        cash: 250_000,
+        invested: 0,
+        positionsValue: 0,
+      },
+    ];
+    // Nothing was bought and nothing moved in price; $50k simply left the book.
+    const flows = new Map([["2026-08-13", { external: -50_000, sleeve: 0 }]]);
+    const summary = computeDrawdown(
+      history,
+      {
+        nav: 200_000,
+        invested: 0,
+        positionsValue: 0,
+        asOf: "2026-08-13T22:30:00.000Z",
+      },
+      flows,
+    );
+
+    expect(summary.navDrawdownPct).toBeCloseTo(0, 6);
+    // The raw-peak reading, which is what this replaced.
+    expect(((250_000 - 200_000) / 250_000) * 100).toBeCloseTo(20, 6);
+    // Still reported in dollars, which a unitized peak cannot be.
+    expect(summary.peakNav).toBe(250_000);
+  });
+
+  it("still reports a real NAV drawdown when the book actually falls", () => {
+    const history: SnapshotRow[] = [
+      {
+        asOf: "2026-08-12T22:30:00.000Z",
+        nav: 250_000,
+        cash: 150_000,
+        invested: 100_000,
+        positionsValue: 100_000,
+      },
+    ];
+    const summary = computeDrawdown(history, {
+      nav: 225_000,
+      invested: 100_000,
+      positionsValue: 75_000,
+      asOf: "2026-08-13T22:30:00.000Z",
+    });
+    expect(summary.navDrawdownPct).toBeCloseTo(10, 6);
+  });
+
   it("breaches the 15% diagnostic without blocking Phase-1 buys", () => {
     const history: SnapshotRow[] = [
       {

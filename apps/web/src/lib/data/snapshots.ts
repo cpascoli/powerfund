@@ -5,6 +5,7 @@ import {
   drawdownFromPeakPct,
   shouldHaltNewRiskForKillSwitch,
   unitizedDeployedIndex,
+  unitizedNavIndex,
   utcDay,
   type DailyFlows,
   type PerformanceMark,
@@ -170,9 +171,15 @@ export function computeDrawdown(
   }
 
   const peakNav = Math.max(...history.map((row) => row.nav), current.nav);
-  const navDrawdownPct =
-    peakNav > 0 ? ((peakNav - current.nav) / peakNav) * 100 : null;
   const points = livePerformancePoints(history, current, flows);
+  // Unitized, like every other return in the system. The raw peak treats a
+  // deposit as a new high and a withdrawal as a loss, so this measure and
+  // `getPerformance`'s would diverge the first time capital moved — the same
+  // number, computed two ways, on two screens. No deposit or withdrawal has
+  // happened since the seed, so they agree today by circumstance rather than by
+  // construction. `peakNav` is kept because it is quoted in dollars and a
+  // unitized peak is not a dollar figure.
+  const navDrawdownPct = drawdownFromPeakPct(unitizedNavIndex(points));
   const deployedDrawdownPp = drawdownFromPeakPct(
     unitizedDeployedIndex(points),
   );

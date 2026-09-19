@@ -100,11 +100,33 @@ function formatTrigger(trigger: PlannedActionTrigger | null | undefined): string
   return `${trigger.type.trim()}:${String(trigger.value)}`;
 }
 
+/** A tag at the very front of the text, with whatever whitespace follows it. */
+const LEADING_AGENT_TAG = /^\[agent:[^\]\n]+\]\s*/;
+
+/**
+ * Stamp who wrote this, exactly once.
+ *
+ * A PATCH that changes anything else still re-runs this over the *stored*
+ * rationale, which already carries a tag, so every touch used to add another
+ * one. Live rows reached `[agent:chatgpt]\n[agent:chatgpt]\n…` and, once a
+ * second agent existed, `[agent:chatgpt]\n[agent:PowerFundAgent]\n…`. The stack
+ * grows without bound and none of it is information: the newest tag is the only
+ * one that says anything, because prepending puts the most recent writer first.
+ *
+ * So strip any leading tags before adding ours. Idempotent — re-stamping with
+ * the same actor is a no-op, and with a different one it replaces rather than
+ * accumulates. This field is a rationale, not an audit log.
+ */
 function withActor(text: string | null, actorName: string | null | undefined): string | null {
   const actor = emptyToNull(actorName);
   if (!actor) return text;
+  let body = text ?? "";
+  while (LEADING_AGENT_TAG.test(body)) {
+    body = body.replace(LEADING_AGENT_TAG, "");
+  }
+  const rest = emptyToNull(body);
   const line = `[agent:${actor}]`;
-  return text ? `${line}\n${text}` : line;
+  return rest ? `${line}\n${rest}` : line;
 }
 
 async function loadInstrument(
