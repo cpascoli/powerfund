@@ -76,6 +76,12 @@ Idempotency-Key: <uuid>
 
 That includes `POST` decisions, decisions/{id}/outcome, planned-actions, review-tasks, review-tasks complete, and watchlist, plus `PATCH` planned-actions, review-tasks, and dossiers. A retry with the same key and body returns the original result. A reused key with a different body returns `409 IDEMPOTENCY_KEY_REUSED`.
 
+**`actor_name` is the attribution, not the text.** A planned-action rationale is
+stamped `[agent:<actor_name>]` by the server, which strips any leading tag before
+adding its own. So a tag written into the body is replaced by whoever the request
+was made as, with no error. Send `actor_name` and leave the body clean — writing
+both is how the 19 September BWXT deferral came to name the wrong agent.
+
 ## Example curl
 
 Replace `$ORIGIN` and `$TOKEN`.
@@ -129,6 +135,7 @@ curl -sS -X PATCH -H "Authorization: Bearer $TOKEN" \
   -d '{
     "expected_version": 3,
     "change_reason": "Q1 FY27 earnings re-underwrite",
+    # Who is writing. The server stamps it; never put [agent:...] in the text.
     "actor_name": "chatgpt",
     "changes": {
       "summary": "...",
