@@ -273,6 +273,12 @@ const decisionOutcomeSchema = {
     risk_management_grade: { type: "string", enum: ["good", "mixed", "poor"] },
     lessons: { type: "string" },
     actor_name: { type: "string" },
+    horizon_days: {
+      type: ["integer", "null"],
+      enum: [30, 90, 180, null],
+      description:
+        "The horizon this grade is about, or null for an off-clock observation.",
+    },
   },
 };
 
@@ -795,7 +801,7 @@ export function agentOpenApiDocument(origin: string) {
               "application/json": {
                 schema: {
                   type: "object",
-                  required: ["thesis_grade", "lessons"],
+                  required: ["thesis_grade", "lessons", "horizon_days"],
                   properties: {
                     thesis_grade: {
                       type: "string",
@@ -818,10 +824,10 @@ export function agentOpenApiDocument(origin: string) {
                       description: "What to repeat or change. Not a P&L dump.",
                     },
                     horizon_days: {
-                      type: "integer",
-                      enum: [30, 90, 180],
+                      type: ["integer", "null"],
+                      enum: [30, 90, 180, null],
                       description:
-                        "Which horizon this grade is about. Required for clocked calibration — one grade per decision per horizon, and omitting it leaves the horizon owed. Omit only for an off-clock observation.",
+                        "Which horizon this grade is about: 30, 90 or 180 for a clocked calibration grade, one per decision per horizon. Send null only for an off-clock observation, which leaves the horizon still owed. Must be present either way.",
                     },
                     actor_name: { type: "string" },
                   },

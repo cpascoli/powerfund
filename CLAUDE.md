@@ -133,6 +133,13 @@ Each was a real production defect. See the remediation log for the full story.
   Plan-time gating is an early warning, not the boundary: `restorePlannedAction`
   flips a status straight to `pending` with no gate, and `bookFill` is what
   actually stands between a planned action and the ledger.
+- **A clocked grade is judged on evidence available at the horizon, not on
+  evidence available when you got round to grading.** A 30-day grade written on
+  day 33 must reconstruct what was knowable through day 30; later evidence
+  belongs to the 90-day grade or an off-clock observation. `horizon_days` keeps
+  the database honest, but only this keeps the judgement honest — the column
+  cannot tell that a human read three extra days of tape. Same discipline as
+  `fundamentals_as_of`, applied to conclusions rather than filings.
 - **A grade names the horizon it is about.** `decision_outcomes.horizon_days` is
   30, 90 or 180, unique per decision, or null for an off-clock observation. Never
   infer the horizon from `recorded_at`: a grade written at day 100 is a judgement

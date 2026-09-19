@@ -35,10 +35,10 @@ export type RecordDecisionOutcomeInput = {
   lessons: string;
   actor_name?: string | null;
   /**
-   * The horizon this grade is about. Omit only for an off-clock observation --
-   * omitting it on a clocked grade leaves the horizon owed.
+   * The horizon this grade is about, or an explicit null for an off-clock
+   * observation. Required to be *present*: see parseHorizonDays.
    */
-  horizon_days?: number | string | null;
+  horizon_days: number | string | null | undefined;
 };
 
 export type RecordedDecisionOutcome = {
@@ -87,10 +87,24 @@ function parseQuality(
   return trimmed;
 }
 
+/**
+ * Present, not merely valid. An omitted horizon used to mean null, which is the
+ * one mistake this field exists to prevent: a caller that forgets it writes an
+ * off-clock observation while believing it recorded the 30-day grade, the
+ * horizon stays owed, and the grade it thought it wrote is not the grade that
+ * exists. Making omission an error costs one line and turns a silent
+ * misclassification into a 422. An explicit null still means off-clock.
+ */
 function parseHorizonDays(
   value: number | string | null | undefined,
 ): DecisionHorizonDays | null {
-  if (value == null || value === "") return null;
+  if (value === undefined) {
+    throw validationError(
+      "horizon_days is required. Pass 30, 90 or 180 for a clocked calibration grade, or null for an off-clock observation.",
+      { field: "horizon_days", allowed: [...DECISION_HORIZONS_DAYS, null] },
+    );
+  }
+  if (value === null || value === "") return null;
   const days = typeof value === "number" ? value : Number(value.trim());
   if (!Number.isInteger(days) || !isDecisionHorizonDays(days)) {
     throw validationError("Invalid horizon_days.", {

@@ -42,11 +42,11 @@ export async function POST(request: Request, context: RouteContext) {
             ? body.risk_management_grade
             : null,
         lessons: typeof body.lessons === "string" ? body.lessons : "",
-        horizon_days:
-          typeof body.horizon_days === "number" ||
-          typeof body.horizon_days === "string"
-            ? body.horizon_days
-            : null,
+        // `in`, not a truthiness check: an absent horizon and an explicit null
+        // mean different things and only one of them is allowed to pass.
+        horizon_days: "horizon_days" in body
+          ? (body.horizon_days as number | string | null)
+          : undefined,
         actor_name:
           typeof body.actor_name === "string"
             ? body.actor_name
