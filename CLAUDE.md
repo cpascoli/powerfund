@@ -127,36 +127,15 @@ Each was a real production defect. See the remediation log for the full story.
   kill-switch entirely and is gated only on holding the thing, because every one
   of those limits constrains *new* risk and a reduction lowers all of them. Use
   `isSellSide()` rather than comparing action types, and gate on the direction
-  being asked for now, never the one on the stored row. The queue still cannot
-  book a sale: `confirmPlannedAction` refuses `reduce`/`sell` outright rather
-  than booking them through `bookFill` as it did before 2026-09-18 — sell from
-  the position's own form until the confirm path routes by direction.
+  being asked for now, never the one on the stored row. `confirmPlannedAction`
+  routes by direction — `bookSell` for `reduce`/`sell`, `bookFill` for
+  `buy`/`add` — and both stamp `planned_action_id` on the ledger row, which is
+  what makes either confirm idempotent under
+  `transactions_planned_action_id_idx`. A sale without that stamp has no
+  idempotency key, and unlike a double buy a double exit is bounded by nothing.
   Plan-time gating is an early warning, not the boundary: `restorePlannedAction`
-  flips a status straight to `pending` with no gate, and `bookFill` is what
-  actually stands between a planned action and the ledger.
-- **The ledger is immutable, and that is checked rather than assumed.**
-  `transactions` and the append-only journals are guarded by triggers, and
-  `positions`/`portfolio_state` are projections `transactions_apply` maintains.
-  `verify_book_against_ledger()` compares the projection to the ledger, so it
-  cannot see a rewritten *ledger* — both sides would move together. That is why
-  `verify:book` also reads `ledger_guard_status()` and fails if any guard is
-  disabled, and why `ledger.sql` asserts every guard exists **and** is enabled.
-  A mis-keyed VST fill was corrected directly in the database in September 2026,
-  which those triggers should have refused; nothing noticed for three weeks.
-- **A clocked grade is judged on evidence available at the horizon, not on
-  evidence available when you got round to grading.** A 30-day grade written on
-  day 33 must reconstruct what was knowable through day 30; later evidence
-  belongs to the 90-day grade or an off-clock observation. `horizon_days` keeps
-  the database honest, but only this keeps the judgement honest — the column
-  cannot tell that a human read three extra days of tape. Same discipline as
-  `fundamentals_as_of`, applied to conclusions rather than filings.
-- **A grade names the horizon it is about.** `decision_outcomes.horizon_days` is
-  30, 90 or 180, unique per decision, or null for an off-clock observation. Never
-  infer the horizon from `recorded_at`: a grade written at day 100 is a judgement
-  about day 100, and letting it stand for the 30- and 90-day rows writes hindsight
-  into the record whose purpose is to exclude it. An off-clock row leaves the
-  horizon owed. `horizon_due=true` on the agent journal is the grading worklist;
-  `graded=false` answers the different question "never graded at all".
+  flips a status straight to `pending` with no gate, and `bookFill` / `bookSell`
+  are what actually stand between a planned action and the ledger.
 - **Watchlist membership is recorded as it changes, and only `archived` is a
   removal.** `watchlist_membership` is an append-only event log written by
   triggers on `instruments`; `watchlist_as_of(t)` is the projection. It exists

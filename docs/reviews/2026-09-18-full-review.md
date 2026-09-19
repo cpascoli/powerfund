@@ -402,10 +402,11 @@ pattern.
 In order. Each item is one commit-sized change with a test; the first three are
 a single afternoon and remove the two P0s.
 
-1. **Make the queue sell.** `confirmPlannedAction` routes on `action_type`;
-   `reduce`/`sell` go through `sellPosition` with `planned_action_id`; the
-   queue shows "Confirm sale" and a quantity ≤ held check. Test: queued sell →
-   `sell` transaction, position reduced, cash credited.
+1. ~~**Make the queue sell.**~~ — **done 19 Sep.** `bookSell` extracted from the
+   sell form, addressable by instrument as well as position, stamping
+   `planned_action_id` so a queued exit is idempotent under the same index that
+   protected queued buys. `confirmPlannedAction` routes on `action_type`; the
+   temporary refusal is removed; the queue shows "Confirm sale".
 2. ~~**Make the gate know direction.**~~ — **done 18 Sep** (`9ffd429`). `side`
    is required, sells skip the caps and the kill-switch and check only that the
    position exists, and the sell path does not read the drawdown series at all.

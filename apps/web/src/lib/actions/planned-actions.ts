@@ -7,6 +7,7 @@ import type { Database } from "@powerfund/db";
 
 import { requireOperator } from "@/lib/auth/operator";
 import { bookFill } from "@/lib/actions/book-fill";
+import { bookSell } from "@/lib/actions/sell-position";
 import { AgentApiError } from "@/lib/api/agent/errors";
 import { createPlannedAction } from "@/lib/planned-actions/mutate";
 import { createClient } from "@/lib/supabase/server";
@@ -185,21 +186,6 @@ export async function confirmPlannedAction(
     return { error: "Planned action not found." };
   }
 
-  // This path books a buy and only a buy: bookFill() below debits cash and adds
-  // quantity. A `reduce`/`sell` confirmed here would therefore *increase* the
-  // position it was written to cut, and the planned-action unique index would
-  // then record the sale as confirmed — repairable only by a manual ledger
-  // reversal. The agent API accepts `reduce` and `sell`, so such a row can reach
-  // this queue even though the operator form cannot create one. Refused until the
-  // confirm path routes by direction; sell from the position's own sell form.
-  if (isSellSide(planned.action_type)) {
-    return {
-      error:
-        `This is a ${planned.action_type} and the queue can only book buys. ` +
-        "Use the Sell form on the position in Portfolio → Book, then cancel this row.",
-    };
-  }
-
   // A unique index guarantees one ledger entry per planned action. Checking for it
   // first means a retry after a failed queue update repairs the queue instead of
   // booking the fill a second time.
@@ -227,18 +213,36 @@ export async function confirmPlannedAction(
     return { error: "This action is no longer open." };
   }
 
-  const result = await bookFill({
-    instrumentId: planned.instrument_id,
-    quantity,
-    avgCost: price,
-    openedAt: filledAt,
-    thesisSummary: thesisSummary ?? planned.rationale,
-    invalidation,
-    logDecision: true,
-    fees,
-    plannedActionId: id,
-    mandateOverrideReason,
-  });
+  // Route on the direction the row was planned with. Before 18 September this
+  // called bookFill() unconditionally, so confirming a queued sell debited cash
+  // and *increased* the position it was written to cut. Both paths set
+  // `plannedActionId`, so the unique index on it makes either confirm
+  // idempotent — a retry after a failed queue update repairs the queue rather
+  // than booking a second time.
+  const selling = isSellSide(planned.action_type);
+  const result = selling
+    ? await bookSell({
+        instrumentId: planned.instrument_id,
+        quantity,
+        price,
+        fees,
+        soldAt: filledAt,
+        rationale: thesisSummary ?? planned.rationale,
+        logDecision: true,
+        plannedActionId: id,
+      })
+    : await bookFill({
+        instrumentId: planned.instrument_id,
+        quantity,
+        avgCost: price,
+        openedAt: filledAt,
+        thesisSummary: thesisSummary ?? planned.rationale,
+        invalidation,
+        logDecision: true,
+        fees,
+        plannedActionId: id,
+        mandateOverrideReason,
+      });
 
   if (!result.ok) {
     return { error: result.error };

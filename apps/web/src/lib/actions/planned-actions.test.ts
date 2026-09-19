@@ -7,13 +7,15 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
  * increasing the position the row was written to cut — and then marked the sale
  * confirmed. Unwinding that needs a manual ledger reversal.
  *
- * The operator form cannot create a sell (`savePlannedAction` coerces to
- * buy/add), but the agent API accepts both, so such a row can reach this queue.
- * Until the confirm path routes by direction, it refuses them here. The rule used
- * to live only in CLAUDE.md, where the code could not read it.
+ * It was refused outright while the sell path was built. Now it routes: a sale
+ * goes through `bookSell`, a purchase through `bookFill`, and the tests assert
+ * each reaches one and only one of them. Direction is the whole finding, so a
+ * test that only checks a sale succeeds would miss a regression that booked it
+ * as a buy and returned ok.
  */
 
 const bookFill = vi.fn();
+const bookSell = vi.fn();
 const redirected: string[] = [];
 
 /** Only the reads and writes this action performs, in the shape it performs them. */
@@ -43,6 +45,18 @@ vi.mock("@/lib/actions/book-fill", () => ({
       ok: true,
       positionId: "pos-1",
       decisionId: "dec-1",
+    });
+  },
+}));
+
+vi.mock("@/lib/actions/sell-position", () => ({
+  bookSell: (args: unknown) => {
+    bookSell(args);
+    return Promise.resolve({
+      ok: true,
+      positionId: "pos-1",
+      decisionId: "dec-1",
+      isFullExit: false,
     });
   },
 }));
@@ -86,6 +100,7 @@ function form(): FormData {
 
 beforeEach(() => {
   bookFill.mockClear();
+  bookSell.mockClear();
   redirected.length = 0;
   queueUpdates.length = 0;
   bookedTransaction = null;
@@ -94,7 +109,7 @@ beforeEach(() => {
 
 describe("confirmPlannedAction", () => {
   for (const actionType of ["sell", "reduce"] as const) {
-    it(`refuses a queued ${actionType} instead of booking it as a buy`, async () => {
+    it(`books a queued ${actionType} through the sell path, not bookFill`, async () => {
       plannedRow = {
         id: "pa-1",
         instrument_id: "instr-vrt",
@@ -103,19 +118,46 @@ describe("confirmPlannedAction", () => {
         rationale: "Diagnostic says trim.",
       };
 
-      const result = await confirmPlannedAction({ error: null }, form());
+      await expect(
+        confirmPlannedAction({ error: null }, form()),
+      ).rejects.toBeInstanceOf(Redirect);
 
-      expect(result.error).toMatch(new RegExp(actionType, "i"));
-      // The assertions that matter: no money moved and the row was not marked
-      // confirmed, so the sale is still there to be handled properly.
+      // The finding was direction, so assert the negative too: a sale that
+      // reached bookFill would debit cash and grow the position.
       expect(bookFill).not.toHaveBeenCalled();
-      expect(queueUpdates).toEqual([]);
-      expect(redirected).toEqual([]);
+      expect(bookSell).toHaveBeenCalledTimes(1);
+      expect(bookSell.mock.calls[0]?.[0]).toMatchObject({
+        instrumentId: "instr-vrt",
+        quantity: 10,
+        price: 250,
+        // Carried onto the ledger row, which is what brings a sale under the
+        // planned-action unique index and makes a retry repair instead of
+        // booking a second exit.
+        plannedActionId: "pa-1",
+      });
+      expect(queueUpdates[0]).toMatchObject({
+        status: "confirmed",
+        confirmed_quantity: 10,
+      });
     });
   }
 
-  // The refusal above is only correct if the queue still works. A blanket
-  // rejection would satisfy every assertion in this file but the ones below.
+  it("does not reach the sell path with a buy", async () => {
+    plannedRow = {
+      id: "pa-1",
+      instrument_id: "instr-vrt",
+      action_type: "buy",
+      status: "pending",
+      rationale: "Starter tranche.",
+    };
+
+    await expect(
+      confirmPlannedAction({ error: null }, form()),
+    ).rejects.toBeInstanceOf(Redirect);
+    expect(bookSell).not.toHaveBeenCalled();
+  });
+
+  // The buy path must be untouched by the routing.
   for (const actionType of ["buy", "add"] as const) {
     it(`still books a queued ${actionType} through bookFill`, async () => {
       plannedRow = {

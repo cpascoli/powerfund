@@ -172,15 +172,9 @@ export default async function PortfolioPage({
   const showForm = operator && add === "1";
   const showCash = operator && cashEdit === "1";
   const showPlan = operator && plan === "1";
-  // A ?confirm= for a sell row resolves to nothing: confirmPlannedAction refuses
-  // the same rows, so rendering a buy-shaped fill form over one would only invite
-  // the error. Both guards are deliberate — this one is cosmetic, that one is the
-  // boundary.
   const confirmAction =
     operator && confirm != null
-      ? (queue.actions.find(
-          (row) => row.id === confirm && !isSellSide(row.actionType),
-        ) ?? null)
+      ? (queue.actions.find((row) => row.id === confirm) ?? null)
       : null;
   const sellPositionRow =
     operator && sell != null
@@ -352,7 +346,7 @@ export default async function PortfolioPage({
       ) : null}
       {queue.actions.length === 0 ? (
         <p className="empty">
-          No pending buys. Plan a stub before you hit the tape.
+          Nothing queued. Plan a stub before you hit the tape.
         </p>
       ) : (
         <ul className="list position-list">
@@ -382,15 +376,10 @@ export default async function PortfolioPage({
                 ) : null}
               </div>
               <div className="queue-actions">
-                {operator && !isSellSide(action.actionType) ? (
+                {operator ? (
                   <Link href={href({ confirm: action.id, tab: "queue" })}>
-                    Confirm
+                    {isSellSide(action.actionType) ? "Confirm sale" : "Confirm"}
                   </Link>
-                ) : null}
-                {operator && isSellSide(action.actionType) ? (
-                  <span className="muted">
-                    Sell from the position, not the queue
-                  </span>
                 ) : null}
                 {operator && action.status === "deferred" ? (
                   <form action={restorePlannedAction}>
@@ -861,7 +850,11 @@ export default async function PortfolioPage({
               <>
                 {confirmAction ? (
                   <section className="panel">
-                    <h2>Confirm fill</h2>
+                    <h2>
+                      {isSellSide(confirmAction.actionType)
+                        ? "Confirm sale"
+                        : "Confirm fill"}
+                    </h2>
                     <ConfirmFillForm action={confirmAction} />
                   </section>
                 ) : null}

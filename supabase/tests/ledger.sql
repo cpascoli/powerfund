@@ -261,6 +261,37 @@ begin
   raise notice 'PASS a planned action cannot be booked twice';
 
   ---------------------------------------------------------------------------
+  -- The same protection covers a queued sale
+  ---------------------------------------------------------------------------
+  -- Until 19 September a confirmed sale carried no planned_action_id at all, so
+  -- the index above protected queued buys and nothing else. A double buy is
+  -- bounded by the cash floor; a double exit is not bounded by anything, and it
+  -- sells stock that is no longer held.
+  insert into public.planned_actions (instrument_id, action_type, planned_usd, status)
+  values (v_nvda, 'sell', 500, 'pending')
+  returning id into v_planned;
+
+  insert into public.transactions (
+    occurred_at, kind, instrument_id, quantity, price, cash_delta, planned_action_id
+  )
+  values ('2026-09-07 15:00:00+00', 'sell', v_nvda, 1, 150, 150.00, v_planned);
+
+  v_raised := false;
+  begin
+    insert into public.transactions (
+      occurred_at, kind, instrument_id, quantity, price, cash_delta, planned_action_id
+    )
+    values ('2026-09-07 15:00:00+00', 'sell', v_nvda, 1, 150, 150.00, v_planned);
+  exception when others then
+    v_raised := true;
+  end;
+  if not v_raised then
+    raise exception
+      'FAIL sell idempotency: the same queued exit was booked twice';
+  end if;
+  raise notice 'PASS a queued sale cannot be booked twice either';
+
+  ---------------------------------------------------------------------------
   -- Fees are capitalised into cost basis, which is the UK CGT treatment.
   ---------------------------------------------------------------------------
   select id into v_other from public.instruments where symbol <> 'NVDA' limit 1;

@@ -6,6 +6,7 @@ import {
   confirmPlannedAction,
   type PlannedActionState,
 } from "@/lib/actions/planned-actions";
+import { isSellSide } from "@powerfund/domain";
 import type { PlannedActionRow } from "@/lib/data/planned-actions";
 
 const initialState: PlannedActionState = { error: null };
@@ -20,6 +21,8 @@ export function ConfirmFillForm({ action }: Props) {
     initialState,
   );
 
+  const selling = isSellSide(action.actionType);
+
   const now = new Date();
   now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
   const filledDefault = now.toISOString().slice(0, 16);
@@ -31,12 +34,12 @@ export function ConfirmFillForm({ action }: Props) {
         Planned {action.actionType} {action.symbol} · $
         {action.plannedUsd.toLocaleString()}
         {action.windowLabel ? ` · ${action.windowLabel}` : ""}. Enter the actual
-        fill.
+        {selling ? " sale" : " fill"}.
       </p>
 
       <div className="form-row-2">
         <label>
-          Shares bought
+          {selling ? "Shares sold" : "Shares bought"}
           <input
             name="quantity"
             type="number"
@@ -76,7 +79,7 @@ export function ConfirmFillForm({ action }: Props) {
       </div>
 
       <label>
-        Thesis summary
+        {selling ? "Why this sale" : "Thesis summary"}
         <textarea
           name="thesis_summary"
           rows={3}
@@ -84,28 +87,39 @@ export function ConfirmFillForm({ action }: Props) {
         />
       </label>
 
-      <label>
-        Invalidation
-        <textarea
-          name="invalidation"
-          rows={2}
-          placeholder="What would force an exit or cut"
-        />
-      </label>
+      {/* A sale needs neither. Invalidation is what would force an exit, and
+          this is the exit; the mandate caps constrain new risk, which a
+          reduction lowers, so the gate never evaluates one. */}
+      {selling ? null : (
+        <>
+          <label>
+            Invalidation
+            <textarea
+              name="invalidation"
+              rows={2}
+              placeholder="What would force an exit or cut"
+            />
+          </label>
 
-      <label>
-        Mandate override reason
-        <textarea
-          name="mandate_override_reason"
-          rows={2}
-          placeholder="Required only if this fill would breach a cap, the cash floor, the phase-1 cap, the Phase-2 drawdown halt, or the 40% NAV AI-capex factor"
-        />
-      </label>
+          <label>
+            Mandate override reason
+            <textarea
+              name="mandate_override_reason"
+              rows={2}
+              placeholder="Required only if this fill would breach a cap, the cash floor, the phase-1 cap, the Phase-2 drawdown halt, or the 40% NAV AI-capex factor"
+            />
+          </label>
+        </>
+      )}
 
       {state.error ? <p className="form-error">{state.error}</p> : null}
 
       <button type="submit" disabled={pending}>
-        {pending ? "Booking…" : "Confirm fill"}
+        {pending
+          ? "Booking…"
+          : selling
+            ? "Confirm sale"
+            : "Confirm fill"}
       </button>
     </form>
   );
