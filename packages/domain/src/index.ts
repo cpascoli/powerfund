@@ -12,6 +12,7 @@ export * from "./scorer-inputs";
 export * from "./replay-stats";
 export * from "./price-rebase";
 export * from "./dates";
+export * from "./memory-timeline";
 export * from "./bars-freshness";
 export * from "./holdings";
 export * from "./decision-outcomes";
