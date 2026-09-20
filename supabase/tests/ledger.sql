@@ -292,6 +292,48 @@ begin
   raise notice 'PASS a queued sale cannot be booked twice either';
 
   ---------------------------------------------------------------------------
+  -- A hand-booked fill carries its own key
+  ---------------------------------------------------------------------------
+  -- Queued confirmations are protected by planned_action_id. Fills booked from
+  -- the manual form carry no planned action -- 2 of the first 8 live buys took
+  -- that route -- so client_key is what makes a resubmit repair rather than
+  -- double-book. The booking paths write the ledger first and can still fail
+  -- afterwards, which is what makes retrying the natural response.
+  insert into public.transactions (
+    occurred_at, kind, instrument_id, quantity, price, cash_delta, client_key
+  )
+  values ('2026-09-08 15:00:00+00', 'buy', v_nvda, 1, 120, -120.00,
+          '11111111-1111-1111-1111-111111111111');
+
+  v_raised := false;
+  begin
+    insert into public.transactions (
+      occurred_at, kind, instrument_id, quantity, price, cash_delta, client_key
+    )
+    values ('2026-09-08 15:00:00+00', 'buy', v_nvda, 1, 120, -120.00,
+            '11111111-1111-1111-1111-111111111111');
+  exception when others then
+    v_raised := true;
+  end;
+  if not v_raised then
+    raise exception
+      'FAIL client_key: the same hand-booked fill was accepted twice';
+  end if;
+  raise notice 'PASS a hand-booked fill cannot be booked twice';
+
+  -- Unkeyed fills must stay unconstrained: the index is partial so a caller
+  -- that sends no key books exactly as it always did rather than being refused.
+  insert into public.transactions (
+    occurred_at, kind, instrument_id, quantity, price, cash_delta
+  )
+  values ('2026-09-09 15:00:00+00', 'buy', v_nvda, 1, 121, -121.00);
+  insert into public.transactions (
+    occurred_at, kind, instrument_id, quantity, price, cash_delta
+  )
+  values ('2026-09-09 15:00:00+00', 'buy', v_nvda, 1, 121, -121.00);
+  raise notice 'PASS two unkeyed fills are still allowed';
+
+  ---------------------------------------------------------------------------
   -- Fees are capitalised into cost basis, which is the UK CGT treatment.
   ---------------------------------------------------------------------------
   select id into v_other from public.instruments where symbol <> 'NVDA' limit 1;

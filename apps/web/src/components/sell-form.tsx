@@ -7,6 +7,7 @@ import {
   sellPosition,
   type SellActionState,
 } from "@/lib/actions/sell-position";
+import { useSubmitKey } from "@/components/use-submit-key";
 import type { OpenPositionRow } from "@/lib/data/portfolio";
 
 const initialState: SellActionState = { error: null };
@@ -28,6 +29,7 @@ export function SellForm({ position }: Props) {
     sellPosition,
     initialState,
   );
+  const submitKey = useSubmitKey();
   const [quantity, setQuantity] = useState(String(position.quantity));
   const [price, setPrice] = useState(
     position.markPrice != null
@@ -70,6 +72,12 @@ export function SellForm({ position }: Props) {
   return (
     <form className="research-form" action={formAction}>
       <input type="hidden" name="position_id" value={position.id} />
+      <input type="hidden" name="client_key" value={submitKey} />
+      <input
+        type="hidden"
+        name="instrument_id"
+        value={position.instrumentId}
+      />
       <p className="muted">
         Holding{" "}
         {position.quantity.toLocaleString(undefined, {

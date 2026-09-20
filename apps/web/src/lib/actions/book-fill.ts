@@ -5,6 +5,7 @@ import type { Database } from "@powerfund/db";
 
 import { requireOperator } from "@/lib/auth/operator";
 import { loadJournalDossierFields } from "@/lib/dossiers/versions";
+import { bookedByClientKey } from "@/lib/actions/already-booked";
 import { mandateGate } from "@/lib/mandate/enforce";
 import { copyEnterInvalidationToPosition } from "@/lib/positions/copy-invalidation";
 import { createClient } from "@/lib/supabase/server";
@@ -36,6 +37,8 @@ export async function bookFill(args: {
   logDecision: boolean;
   fees?: number;
   plannedActionId?: string | null;
+  /** One per booking-form mount, so a resubmit repairs instead of double-booking. */
+  clientKey?: string | null;
   mandateOverrideReason?: string | null;
 }): Promise<BookFillResult> {
   const denied = await requireOperator();
@@ -60,6 +63,26 @@ export async function bookFill(args: {
   }
 
   const supabase = await createClient();
+
+  // Before anything is written. A resubmit of the same form carries the key of
+  // the fill that already exists, and the honest answer to it is "this is
+  // booked", not a second ledger row or an error about a duplicate.
+  if (args.clientKey) {
+    const booked = await bookedByClientKey(
+      supabase,
+      args.clientKey,
+      args.instrumentId,
+    );
+    if (booked) {
+      return {
+        ok: true,
+        positionId: booked.positionId,
+        decisionId: booked.decisionId,
+        decisionType:
+          booked.decisionType ?? (booked.positionOpen ? "add" : "enter"),
+      };
+    }
+  }
 
   const { data: state, error: stateError } = await supabase
     .from("portfolio_state")
@@ -148,6 +171,7 @@ export async function bookFill(args: {
     cash_delta: cashDelta,
     decision_id: decisionId,
     planned_action_id: args.plannedActionId ?? null,
+    client_key: args.clientKey ?? null,
     mandate_override_reason:
       gate.violations.length > 0
         ? args.mandateOverrideReason?.trim() || null

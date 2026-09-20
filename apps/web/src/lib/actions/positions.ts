@@ -83,6 +83,7 @@ export async function savePosition(
     logDecision: alsoLogDecision,
     fees,
     mandateOverrideReason,
+    clientKey: emptyToNull(formData.get("client_key")),
   });
 
   if (!result.ok) {

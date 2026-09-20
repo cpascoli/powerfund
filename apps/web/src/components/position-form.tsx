@@ -7,6 +7,7 @@ import {
   type PositionActionState,
 } from "@/lib/actions/positions";
 import type { InstrumentWithTheme } from "@/lib/data/research";
+import { useSubmitKey } from "@/components/use-submit-key";
 
 const initialState: PositionActionState = { error: null };
 
@@ -21,6 +22,7 @@ type Props = {
 };
 
 export function PositionForm({ instruments, defaults }: Props) {
+  const submitKey = useSubmitKey();
   const [state, formAction, pending] = useActionState(
     savePosition,
     initialState,
@@ -32,6 +34,7 @@ export function PositionForm({ instruments, defaults }: Props) {
 
   return (
     <form className="research-form" action={formAction}>
+      <input type="hidden" name="client_key" value={submitKey} />
       <label>
         Instrument
         <select

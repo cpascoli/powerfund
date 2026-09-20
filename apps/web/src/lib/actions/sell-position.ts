@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { sellCashDelta } from "@powerfund/domain";
 import type { Database } from "@powerfund/db";
 
+import { bookedByClientKey } from "@/lib/actions/already-booked";
 import { requireOperator } from "@/lib/auth/operator";
 import { loadJournalDossierFields } from "@/lib/dossiers/versions";
 import { createClient } from "@/lib/supabase/server";
@@ -19,7 +20,7 @@ export type SellActionState = {
 export type BookSellResult =
   | {
       ok: true;
-      positionId: string;
+      positionId: string | null;
       decisionId: string | null;
       isFullExit: boolean;
     }
@@ -63,6 +64,8 @@ export async function bookSell(args: {
   rationale?: string | null;
   logDecision?: boolean;
   plannedActionId?: string | null;
+  /** One per booking-form mount, so a resubmit repairs instead of double-booking. */
+  clientKey?: string | null;
 }): Promise<BookSellResult> {
   const denied = await requireOperator();
   if (denied) return { ok: false, error: denied.error };
@@ -73,6 +76,24 @@ export async function bookSell(args: {
   }
 
   const supabase = await createClient();
+
+  // Before the position is even loaded: a resubmitted exit must not be measured
+  // against a holding it has already reduced.
+  if (args.clientKey && args.instrumentId) {
+    const booked = await bookedByClientKey(
+      supabase,
+      args.clientKey,
+      args.instrumentId,
+    );
+    if (booked) {
+      return {
+        ok: true,
+        positionId: booked.positionId,
+        decisionId: booked.decisionId,
+        isFullExit: !booked.positionOpen,
+      };
+    }
+  }
 
   // The position, by whichever handle the caller has. `status = open` on the
   // instrument lookup because a name can have been held, exited and re-entered.
@@ -166,6 +187,7 @@ export async function bookSell(args: {
     cash_delta: proceeds,
     decision_id: decisionId,
     planned_action_id: args.plannedActionId ?? null,
+    client_key: args.clientKey ?? null,
     notes: args.rationale,
   };
 
@@ -213,12 +235,14 @@ export async function sellPosition(
 
   const result = await bookSell({
     positionId,
+    instrumentId: emptyToNull(formData.get("instrument_id")),
     quantity,
     price,
     fees: feesRaw == null ? 0 : Number(feesRaw),
     soldAt,
     rationale: emptyToNull(formData.get("rationale")),
     logDecision: formData.get("log_decision") === "on",
+    clientKey: emptyToNull(formData.get("client_key")),
   });
 
   if (!result.ok) return { error: result.error };

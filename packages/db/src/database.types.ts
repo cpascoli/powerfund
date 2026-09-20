@@ -1215,6 +1215,7 @@ export type Database = {
         Row: {
           basis_delta: number | null
           cash_delta: number
+          client_key: string | null
           created_at: string
           currency: string
           decision_id: string | null
@@ -1235,6 +1236,7 @@ export type Database = {
         Insert: {
           basis_delta?: number | null
           cash_delta: number
+          client_key?: string | null
           created_at?: string
           currency?: string
           decision_id?: string | null
@@ -1255,6 +1257,7 @@ export type Database = {
         Update: {
           basis_delta?: number | null
           cash_delta?: number
+          client_key?: string | null
           created_at?: string
           currency?: string
           decision_id?: string | null
@@ -1378,6 +1381,14 @@ export type Database = {
         Returns: string
       }
       is_operator: { Args: never; Returns: boolean }
+      ledger_guard_status: {
+        Args: never
+        Returns: {
+          enabled: boolean
+          table_name: string
+          trigger_name: string
+        }[]
+      }
       reproject_fundamentals: { Args: never; Returns: number }
       save_dossier_versioned: {
         Args: {

@@ -136,6 +136,13 @@ Each was a real production defect. See the remediation log for the full story.
   Plan-time gating is an early warning, not the boundary: `restorePlannedAction`
   flips a status straight to `pending` with no gate, and `bookFill` / `bookSell`
   are what actually stand between a planned action and the ledger.
+- **Every booking path carries an idempotency key.** A queued confirm is keyed by
+  `planned_action_id`; a hand-booked fill or sale is keyed by `client_key`, one
+  per form mount. Both paths write the ledger *first* and can still fail after
+  it, returning `{ ok: false }` with the money already moved — so retrying is the
+  natural response and, unkeyed, the wrong one. Partial unique indexes enforce
+  both, and a null key is deliberately unconstrained: a fill must never be
+  refused because a convenience was missing.
 - **Watchlist membership is recorded as it changes, and only `archived` is a
   removal.** `watchlist_membership` is an append-only event log written by
   triggers on `instruments`; `watchlist_as_of(t)` is the projection. It exists
