@@ -4,7 +4,7 @@ import {
   factorExposures,
   type FactorKey,
 } from "./risk";
-import { utcDay } from "./dates";
+import { anchorSession, fillSessionDate } from "./dates";
 import type { TransactionKind } from "./types";
 
 export type HoldingLedgerRow = {
@@ -135,13 +135,6 @@ function closeBefore(
 }
 
 /** First session on or after the ledger day. Weekend/holiday fills wait until then. */
-function sessionDate(utc: string, walkDays: string[]): string | null {
-  for (const date of walkDays) {
-    if (date >= utc) return date;
-  }
-  return null;
-}
-
 function factorLabel(key: FactorKey | "unclassified"): string {
   switch (key) {
     case "ai_capex":
@@ -263,7 +256,12 @@ export function contributionFromLedger(
   const txsBySession = new Map<string, HoldingLedgerRow[]>();
   for (const row of ledger) {
     if (row.instrumentId == null) continue;
-    const session = sessionDate(utcDay(row.occurredAt), walkDays);
+    // The New York session the booking belongs to, by the same rule the snapshots
+    // and the flow series use. Bucketing on the UTC day put anything booked
+    // after 20:00 ET onto the next session, so contribution attributed a fill to
+    // a day the NAV series said the money was not yet in — the same divergence
+    // that made a snapshot publish a drawdown that never happened, one layer up.
+    const session = anchorSession(row.occurredAt, walkDays);
     if (session == null) continue;
     const list = txsBySession.get(session) ?? [];
     list.push(row);
@@ -344,7 +342,7 @@ export function contributionFromLedger(
     if (windowDays.has(date)) {
       let cash = 0;
       for (const row of ledger) {
-        if (utcDay(row.occurredAt) <= date) cash += Number(row.cashDelta);
+        if (fillSessionDate(row.occurredAt) <= date) cash += Number(row.cashDelta);
       }
       let deployed = 0;
       for (const value of endMvById.values()) deployed += value;

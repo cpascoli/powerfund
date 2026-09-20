@@ -230,7 +230,7 @@ kind of gate for sells).
 | `withActor` double prefix (P2) | **Open, worsened** | Live rows read `[agent:chatgpt] [agent:chatgpt]` (ISRG, MRCY) |
 | Signals 65% noise (P2) | **Open, worse** | 351 rows; **296 `data_completeness`**, 256 `X → X` (73%) |
 | `bookFill` unplanned-fill retry (P2) | **Open** | Unchanged |
-| `listDecisions` unbounded (P2) | **Open** | No `.limit()`/`.range()`; 57 rows today |
+| ~~`listDecisions` unbounded (P2)~~ | **Closed 20 Sep** | Paged with `.range()` |
 | `instruments.status='active'` dead (P2) | **Open** | 55/55 `watchlist`, 8 of them owned |
 | `agent_idempotency_keys` empty (P2) | **Open** | **0 rows** after ~60 agent writes |
 | DATA-2 `price_basis` (P2) | **Open** | No column |
@@ -298,7 +298,7 @@ commit history reads like reasoning rather than changelog. Keep that.
 |---|---|---|
 | **P0** | Queue confirm | `confirmPlannedAction` ignores `action_type` and always calls `bookFill`. A `reduce`/`sell` confirmed from the queue books a **buy**. Route by type: `sell`/`reduce` → the sell path (`sellPosition` with the planned action id), `buy`/`add` → `bookFill`. Refuse to render a Confirm-as-fill form for a sell row. Add a test that a queued `sell` produces a `sell` transaction and a negative quantity delta. |
 | **P0** | Mandate gate | `mandateGate` evaluates every planned action as a purchase. `createPlannedAction`/`updatePlannedAction` must skip the buy gate for `sell`/`reduce` (or run a sell-specific check: position exists, quantity ≤ held). Otherwise the kill-switch halt blocks de-risking above the Phase-1 cap. |
-| **P1** | Session vs UTC day | `contributionFromLedger` (`holdings.ts:266,347`) and `fillSession` (`decision-returns.ts:55`) bucket fills by **UTC** day; snapshots and flows bucket by `fillSessionDate` (New York day). A fill booked 20:00–24:00 ET lands on the *next* session for contribution and decision-return maths while the NAV series puts it on the booking day. Every live fill so far was booked before 19:30 ET, so the series agree today by luck. This is the 2 Sep P0 in miniature; use one function. |
+| ~~**P1**~~ | Session vs UTC day | ~~`contributionFromLedger` and `fillSession` bucket fills by **UTC** day while snapshots and flows use `fillSessionDate`.~~ **Done:** decision returns 18 Sep, contribution 20 Sep. `anchorSession` moved to `dates.ts` and is now the one rule both use, which closes §7.7 with it — `holdings.ts` had its own copy. Verified against production: 0 live ledger rows have a UTC day differing from their New York session, so the rule is corrected without moving a published number. |
 | **P1** | Signals | `data_completeness` transitions written as signals. 296/351 rows. Stop writing them; the setup row already carries `stale`/`completeness`. Add a `scorer_runs` (or reuse a job-log) row per run with counts so pipeline health is visible without polluting the inbox. |
 | **P1** | Holiday calendar | `lastCompletedCashSession`/`lastWeekdayOnOrBefore` know weekends only. Measured effects: 32 spurious signals on 8 Sep; `bars-if-stale` will re-ingest on every US holiday; `priceDataStale` gates ritual 8 for a day. SPY's stored bars are already the calendar for snapshots — use them here too, with a small static holiday list for the *next* session (bars cannot tell you a holiday is coming). |
 | **P1** | Benchmarks | Label says TR, data is PR. Fix the label now (one line), the data when a dividend-adjusted source exists. |
@@ -306,7 +306,7 @@ commit history reads like reasoning rather than changelog. Keep that.
 | **P2** | `withActor` | Stacks `[agent:x]` on every PATCH with `actor_name`. Live: ISRG and MRCY planned actions read `[agent:chatgpt] [agent:chatgpt]`. Prepend only when the text does not already start with the tag. |
 | **P2** | `instruments.status` | Never set to `active`; `archived` only read as an exclusion. Add: `bookFill` → `active`; last sell → back to `watchlist`; an archive operation on the agent API. |
 | ~~**P2**~~ | `bookFill` retry | ~~Post-ledger failures return `{ ok: false }` after money moved; unplanned fills have no idempotency key.~~ **Done 2026-09-20:** `client_key`, one per form mount, on the manual fill form and the position sell form, with a partial unique index. Measured first — 2 of the 8 live buys took the unkeyed route, and the sell form had no key at all. |
-| **P2** | `listDecisions` | Unbounded select loaded on every Briefing render. 57 rows today; PostgREST truncates at 1,000 silently. |
+| ~~**P2**~~ | `listDecisions` | ~~Unbounded select.~~ **Done 20 Sep** — paged with `.range()`, as `gradedDecisionIds` already was. It rose in priority on the way: this now feeds the grading worklist, so a silent truncation would drop decisions that are owed a grade, not just Briefing rows. |
 | **P2** | Agent idempotency | Server accepts `Idempotency-Key` but does not require it on mutating routes. Require it for `createDecision`, `createPlannedAction`, `createReviewTask`, `completeReviewTask`. |
 | **P2** | `computeDrawdown` NAV | Raw-peak NAV drawdown vs unitized elsewhere. Pick the unitized one. |
 | **P2** | `verify_book_against_ledger()` | Exists, tested in `ledger.sql`, **never run against production**. Should run after `snapshot:portfolio` in the scheduled job and fail the run if any row is `not ok`. Cheap; catches a `positions`/`transactions` split-brain the day it happens. |
@@ -343,7 +343,9 @@ Ordered by how much they block a ritual.
    dates.ts did not.
 5. **`documents` exists and is unused.** Decide.
 6. **Ledger verification is test-only.** Run it in production nightly.
-7. **Two session functions for one concept.** `utcDay` vs `fillSessionDate`.
+7. ~~**Two session functions for one concept.**~~ **Closed 20 Sep.** `anchorSession`
+   lives in `dates.ts`; `holdings.ts`'s private `sessionDate` is gone and decision
+   returns import the same one.
 
 ## 8. Model and logic gaps
 

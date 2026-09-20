@@ -202,3 +202,79 @@ describe("contributionFromLedger", () => {
     expect((defence?.pnlUsd ?? 0) + (capex?.pnlUsd ?? 0)).toBe(100);
   });
 });
+
+/**
+ * The 18 September review's session-vs-UTC finding, in the half that survived
+ * until 20 September. A fill booked after 20:00 ET is already tomorrow in UTC,
+ * so bucketing on the UTC day attributed it to a session the NAV series said the
+ * money was not yet in. Every live fill so far was booked before 19:30 ET, so
+ * the two agreed by luck rather than by construction — which is exactly what was
+ * true of the snapshot mislabelling that published a 25.1% drawdown that never
+ * happened.
+ */
+describe("contributionFromLedger session bucketing", () => {
+  const twoDays = ["2026-08-12", "2026-08-13"];
+
+  it("attributes a 23:00 ET fill to that session, not the next", () => {
+    // 03:00Z on the 13th is 23:00 ET on the 12th.
+    const report = contributionFromLedger({
+      from: "2026-08-12",
+      to: "2026-08-13",
+      tradingDays: twoDays,
+      instruments: [vrt],
+      ledger: [buy("2026-08-13T03:00:00.000Z", 10, 100)],
+      bars: bars([
+        ["2026-08-12", 100],
+        ["2026-08-13", 110],
+      ]),
+    });
+
+    // Bought at 100 on the 12th and marked at 110 on the 13th: $100 of gain.
+    // Under the UTC reading the fill landed on the 13th and earned nothing.
+    expect(report.tickers[0]?.pnlUsd).toBeCloseTo(100, 6);
+  });
+
+  it("still attributes a normal afternoon fill to its own session", () => {
+    // 18:00Z on the 12th is 14:00 ET the same day — the shape of every live
+    // fill so far, which must not move.
+    const report = contributionFromLedger({
+      from: "2026-08-12",
+      to: "2026-08-13",
+      tradingDays: twoDays,
+      instruments: [vrt],
+      ledger: [buy("2026-08-12T18:00:00.000Z", 10, 100)],
+      bars: bars([
+        ["2026-08-12", 100],
+        ["2026-08-13", 110],
+      ]),
+    });
+    expect(report.tickers[0]?.pnlUsd).toBeCloseTo(100, 6);
+  });
+
+  it("counts the cash outflow on the booking session too", () => {
+    // Two places bucketed by UTC day, not one: the fill, and the running cash
+    // that NAV weight divides by. With only the fill fixed, the outflow would
+    // still land a session late, NAV would read $11,000 instead of $10,000, and
+    // the weight would come out 9.1% instead of 10%.
+    const report = contributionFromLedger({
+      from: "2026-08-12",
+      to: "2026-08-12",
+      tradingDays: ["2026-08-12"],
+      instruments: [vrt],
+      ledger: [
+        {
+          occurredAt: "2026-08-11T14:00:00.000Z",
+          kind: "deposit",
+          instrumentId: null,
+          quantity: null,
+          cashDelta: 10_000,
+          realizedPnl: null,
+        },
+        buy("2026-08-13T03:00:00.000Z", 10, 100),
+      ],
+      bars: bars([["2026-08-12", 100]]),
+    });
+
+    expect(report.tickers[0]?.avgWeightPctNav).toBeCloseTo(10, 4);
+  });
+});

@@ -1,4 +1,3 @@
-import { fillSessionDate } from "./dates";
 import { excessReturn, indexReturn } from "./performance";
 import type { DecisionType, TransactionKind } from "./types";
 
@@ -107,30 +106,6 @@ export function addCalendarDays(date: string, days: number): string {
     throw new Error(`Invalid date: ${date}`);
   }
   return new Date(start + days * 86_400_000).toISOString().slice(0, 10);
-}
-
-/**
- * The trading session that starts the clock for an instant.
- *
- * Buckets on the New York calendar day via `fillSessionDate`, not the UTC day.
- * The UTC reading put anything booked after 20:00 ET onto the *next* session,
- * while `reconstructSnapshots` and the flow series put it on the booking day, so
- * the return was measured from a session the NAV series said the money was not
- * yet in. Every live fill so far was booked before 19:30 ET, so the two agreed
- * by luck rather than by construction. One rule for what session an instant
- * belongs to, as the snapshot invariant already requires of flows and marks.
- *
- * The forward roll remains, and now only covers a day with no session at all --
- * a weekend instant that `fillSessionDate` returns unchanged, or a market
- * holiday, where the first session on or after the day is the first close that
- * can mark it.
- */
-export function anchorSession(at: string, tradingDays: string[]): string | null {
-  const day = at.length <= 10 ? at : fillSessionDate(at);
-  for (const date of tradingDays) {
-    if (date >= day) return date;
-  }
-  return null;
 }
 
 function closeOnOrBefore(

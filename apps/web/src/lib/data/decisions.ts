@@ -74,23 +74,43 @@ function attachVersion(
   };
 }
 
+const DECISION_PAGE = 1000;
+
+/**
+ * Every decision, paged.
+ *
+ * PostgREST caps a response at 1,000 rows and says nothing about it, so an
+ * unbounded select returns a truncated list that looks complete. 57 rows today
+ * at roughly eleven a week, which is years of headroom — but the consequence
+ * grew when calibration arrived: this now feeds the grading worklist, and a
+ * silently short list means decisions that are owed a grade never appear. The
+ * same paging `gradedDecisionIds` already uses.
+ */
+async function listAllDecisionRows(supabase: DbClient): Promise<DecisionRow[]> {
+  const rows: DecisionRow[] = [];
+  for (let offset = 0; ; offset += DECISION_PAGE) {
+    const { data, error } = await supabase
+      .from("decisions")
+      .select(DECISION_COLUMNS)
+      .order("action_at", { ascending: false })
+      .range(offset, offset + DECISION_PAGE - 1);
+    if (error) {
+      throw new Error(`Failed to load decisions: ${error.message}`);
+    }
+    const page = (data as DecisionRow[] | null) ?? [];
+    rows.push(...page);
+    if (page.length < DECISION_PAGE) return rows;
+  }
+}
+
 export async function listDecisions(
   client?: DbClient,
 ): Promise<DecisionListItem[]> {
   const supabase = await resolveDb(client);
-  const [{ data, error }, instruments] = await Promise.all([
-    supabase
-      .from("decisions")
-      .select(DECISION_COLUMNS)
-      .order("action_at", { ascending: false }),
+  const [rows, instruments] = await Promise.all([
+    listAllDecisionRows(supabase),
     listInstrumentsWithThemes(client),
   ]);
-
-  if (error) {
-    throw new Error(`Failed to load decisions: ${error.message}`);
-  }
-
-  const rows = (data as DecisionRow[] | null) ?? [];
   const versions = await versionMap(
     supabase,
     rows
