@@ -128,6 +128,73 @@ async function decisionMemories(supabase: DbClient): Promise<Loaded> {
             .map((outcome) => `${outcome.horizon_days}d ${outcome.thesis_grade}`)
             .join(" · ")
         : null;
+    // A grade is its own memory as well as part of the decision's.
+    //
+    // Folded only into the decision, the record reads correctly — "what we did,
+    // why, and how it turned out" belongs together — but the *act* of grading
+    // leaves no trace on the axis. The first calibration graded 15 decisions on
+    // 19 September and that day showed three dossier versions and nothing else,
+    // because every grade is filed under an August decision date. A ritual that
+    // happened has to be visible on the day it happened, or the page cannot
+    // answer "what did we conclude this week".
+    for (const outcome of graded) {
+      const gradeId = `grade:${outcome.id}`;
+      const horizon =
+        outcome.horizon_days == null ? "off-clock" : `${outcome.horizon_days}d`;
+      const dimensions = [
+        `thesis ${outcome.thesis_grade}`,
+        outcome.timing_grade ? `timing ${outcome.timing_grade}` : null,
+        outcome.sizing_grade ? `sizing ${outcome.sizing_grade}` : null,
+        outcome.risk_management_grade
+          ? `risk ${outcome.risk_management_grade}`
+          : null,
+      ]
+        .filter((part): part is string => part != null)
+        .join(" · ");
+      events.push({
+        id: gradeId,
+        kind: "decision",
+        at: outcome.recorded_at,
+        symbol: row.symbol,
+        title: `${row.symbol ?? "—"} · ${row.decision_type} graded`,
+        summary: dimensions,
+        badge: horizon,
+        future: false,
+      });
+      details.set(gradeId, {
+        id: gradeId,
+        kind: "decision",
+        at: outcome.recorded_at,
+        symbol: row.symbol,
+        title: `${row.symbol ?? "—"} · ${row.decision_type} graded at ${horizon}`,
+        fields: [
+          { label: "Thesis", value: outcome.thesis_grade },
+          ...(outcome.timing_grade
+            ? [{ label: "Timing", value: outcome.timing_grade }]
+            : []),
+          ...(outcome.sizing_grade
+            ? [{ label: "Sizing", value: outcome.sizing_grade }]
+            : []),
+          ...(outcome.risk_management_grade
+            ? [{ label: "Risk management", value: outcome.risk_management_grade }]
+            : []),
+          { label: "Lesson", value: outcome.lessons },
+          {
+            label: "Judged on",
+            // The point-in-time rule: a grade is about the horizon, not about
+            // everything known by the time someone got round to writing it.
+            value:
+              outcome.horizon_days == null
+                ? "An off-clock observation, not a horizon grade."
+                : `Evidence available through ${outcome.horizon_days} days after the decision.`,
+          },
+          { label: "The decision", value: firstLine(row.thesis, 400) ?? "—" },
+        ],
+        href: row.symbol ? `/memory?symbol=${row.symbol}` : "/memory",
+        hrefLabel: row.symbol ? `All ${row.symbol} memory` : "Memory",
+      });
+    }
+
     const id = `decision:${row.id}`;
     events.push({
       id,
