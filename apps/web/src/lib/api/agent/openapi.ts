@@ -450,6 +450,44 @@ export function agentOpenApiDocument(origin: string) {
           responses: { "422": errorResponse },
         }),
       },
+      "/api/v1/agent/watchlist/{symbol}": {
+        patch: op({
+          operationId: "setWatchlistArchived",
+          summary: "Archive or restore a watchlist name",
+          description:
+            "Ritual 5 hygiene. archived:true drops a name from the opportunity set, archived:false restores it. Refused while a position is open — exit first. `active` and `watchlist` are not settable: they follow the book when a position opens or closes.",
+          scope: "powerfund:watchlist:write",
+          mutating: true,
+          parameters: [
+            {
+              name: "symbol",
+              in: "path",
+              required: true,
+              description: "Ticker, e.g. SNDK.",
+              schema: { type: "string" },
+            },
+          ],
+          requestBody: {
+            required: true,
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  required: ["archived"],
+                  properties: {
+                    archived: {
+                      type: "boolean",
+                      description:
+                        "true archives the name, false restores it to the watchlist.",
+                    },
+                  },
+                },
+                example: { archived: true },
+              },
+            },
+          },
+        }),
+      },
       "/api/v1/agent/calibration": {
         get: op({
           operationId: "getCalibrationStatus",

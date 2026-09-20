@@ -204,3 +204,90 @@ export async function addWatchlistCompany(
     has_dossier: false,
   };
 }
+
+export type ArchiveWatchlistCompanyResult = {
+  symbol: string;
+  status: "archived" | "watchlist";
+  changed: boolean;
+};
+
+/**
+ * Archive a name, or bring an archived one back.
+ *
+ * The only status an operator or agent sets by hand. `active` and `watchlist`
+ * follow the book automatically — a trigger on `positions` moves a name to
+ * `active` when a position opens and back to `watchlist` when the last unit
+ * goes — so setting either here would be overwriting a derived value with a
+ * guess.
+ *
+ * Archiving is a judgement about whether a name is worth watching at all, and
+ * it is what finally makes ritual 5 (watchlist hygiene) actionable: before
+ * this, 'archived' could only be read as an exclusion and never written.
+ *
+ * Refused while a position is open. Archiving a name we hold is almost
+ * certainly a mis-typed symbol, and the alternative — letting it through — hides
+ * a held position from every view that filters archived names out. The exit
+ * comes first.
+ */
+export async function setWatchlistArchived(
+  supabase: DbClient,
+  input: { symbol: string; archived: boolean },
+): Promise<ArchiveWatchlistCompanyResult> {
+  const symbol = normalizeSymbol(input.symbol);
+
+  const { data, error } = await supabase
+    .from("instruments")
+    .select("id, symbol, status, is_benchmark")
+    .eq("symbol", symbol)
+    .maybeSingle();
+  if (error) {
+    throw new Error(`Failed to look up instrument: ${error.message}`);
+  }
+  const instrument = data as {
+    id: string;
+    symbol: string;
+    status: string;
+    is_benchmark: boolean;
+  } | null;
+  if (!instrument) {
+    throw notFound("UNKNOWN_SYMBOL", `Unknown symbol: ${symbol}.`, { symbol });
+  }
+  if (instrument.is_benchmark) {
+    throw validationError(
+      `${symbol} is a benchmark. SPY's bars are the trading calendar, so archiving it would break the session clock.`,
+      { symbol },
+    );
+  }
+
+  const next = input.archived ? "archived" : "watchlist";
+  if (instrument.status === next) {
+    return { symbol, status: next, changed: false };
+  }
+
+  if (input.archived) {
+    const { data: open } = await supabase
+      .from("positions")
+      .select("id")
+      .eq("instrument_id", instrument.id)
+      .eq("status", "open")
+      .limit(1)
+      .maybeSingle();
+    if (open) {
+      throw conflict(
+        "POSITION_OPEN",
+        `${symbol} is held. Exit the position before archiving it, or it disappears from every view that hides archived names while the book still carries it.`,
+        { symbol },
+      );
+    }
+  }
+
+  const { error: updateError } = await supabase
+    .from("instruments")
+    .update({ status: next })
+    .eq("id", instrument.id);
+  if (updateError) {
+    throw new Error(`Failed to update instrument: ${updateError.message}`);
+  }
+
+  return { symbol, status: next, changed: true };
+}

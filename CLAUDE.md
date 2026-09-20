@@ -143,14 +143,22 @@ Each was a real production defect. See the remediation log for the full story.
   natural response and, unkeyed, the wrong one. Partial unique indexes enforce
   both, and a null key is deliberately unconstrained: a fill must never be
   refused because a convenience was missing.
+- **`instruments.status` follows the book; only `archived` is set by hand.** A
+  trigger on `positions` moves a name to `active` when a position opens and back
+  to `watchlist` when the last unit goes, because `positions` is itself a
+  projection `apply_transaction` maintains — application code would be reacting
+  to something the database already did. `archived` is an operator judgement and
+  the sync never touches it, so a fill cannot quietly un-archive a name.
+  Archiving is refused while a position is open (`setWatchlistArchived`).
 - **Watchlist membership is recorded as it changes, and only `archived` is a
   removal.** `watchlist_membership` is an append-only event log written by
   triggers on `instruments`; `watchlist_as_of(t)` is the projection. It exists
-  because every scorer replay before it ran on the *surviving* universe. When
-  `bookFill` starts moving held names to `active` (review item 8), that must not
-  write a removal: it would erase exactly the names that worked from the record
-  of what we were choosing from — the same survivorship bias, sign reversed, and
-  indistinguishable from data. `occurred_at` is when membership changed;
+  because every scorer replay before it ran on the *surviving* universe. Held
+  names move to `active` as of 2026-09-20 and that writes **no** removal: it
+  would erase exactly the names that worked from the record of what we were
+  choosing from — the same survivorship bias, sign reversed, and
+  indistinguishable from data. `instrument_status.sql` asserts it through the
+  real trigger chain rather than by setting the status directly. `occurred_at` is when membership changed;
   `created_at` uses `clock_timestamp()` so two events in one transaction stay
   ordered. Seeded rows carry `source = 'seeded'` because they are dated from
   `instruments.created_at`, which is a lower bound, not an observation.

@@ -90,6 +90,11 @@ export async function GET(request: Request) {
               method: "GET",
               path: "/api/v1/agent/calibration",
             },
+            {
+              operationId: "setWatchlistArchived",
+              method: "PATCH",
+              path: "/api/v1/agent/watchlist/{symbol}",
+            },
             { operationId: "createDecision", method: "POST", path: "/api/v1/agent/decisions" },
             {
               operationId: "recordDecisionOutcome",

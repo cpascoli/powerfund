@@ -231,7 +231,7 @@ kind of gate for sells).
 | Signals 65% noise (P2) | **Open, worse** | 351 rows; **296 `data_completeness`**, 256 `X → X` (73%) |
 | `bookFill` unplanned-fill retry (P2) | **Open** | Unchanged |
 | ~~`listDecisions` unbounded (P2)~~ | **Closed 20 Sep** | Paged with `.range()` |
-| `instruments.status='active'` dead (P2) | **Open** | 55/55 `watchlist`, 8 of them owned |
+| ~~`instruments.status='active'` dead (P2)~~ | **Closed 20 Sep** | 8 owned names now `active` |
 | `agent_idempotency_keys` empty (P2) | **Open** | **0 rows** after ~60 agent writes |
 | DATA-2 `price_basis` (P2) | **Open** | No column |
 
@@ -304,7 +304,7 @@ commit history reads like reasoning rather than changelog. Keep that.
 | **P1** | Benchmarks | Label says TR, data is PR. Fix the label now (one line), the data when a dividend-adjusted source exists. |
 | **P1** | `updatePlannedAction` | `cancelled` → `pending` revival is exempt from the open-status check and the gate re-runs only on `planned_usd`/`action_type` change. A cancelled buy that now breaches a cap can be revived ungated. Re-run the gate whenever status becomes `pending`. |
 | **P2** | `withActor` | Stacks `[agent:x]` on every PATCH with `actor_name`. Live: ISRG and MRCY planned actions read `[agent:chatgpt] [agent:chatgpt]`. Prepend only when the text does not already start with the tag. |
-| **P2** | `instruments.status` | Never set to `active`; `archived` only read as an exclusion. Add: `bookFill` → `active`; last sell → back to `watchlist`; an archive operation on the agent API. |
+| ~~**P2**~~ | `instruments.status` | ~~Never set to `active`; `archived` only read as an exclusion.~~ **Done 20 Sep.** A trigger on `positions` syncs `active`/`watchlist`, backfilling the eight owned names; `setWatchlistArchived` on the agent API writes `archived` and refuses while a position is open. Going active writes no watchlist-membership removal, asserted through the real trigger chain. |
 | ~~**P2**~~ | `bookFill` retry | ~~Post-ledger failures return `{ ok: false }` after money moved; unplanned fills have no idempotency key.~~ **Done 2026-09-20:** `client_key`, one per form mount, on the manual fill form and the position sell form, with a partial unique index. Measured first — 2 of the 8 live buys took the unkeyed route, and the sell form had no key at all. |
 | ~~**P2**~~ | `listDecisions` | ~~Unbounded select.~~ **Done 20 Sep** — paged with `.range()`, as `gradedDecisionIds` already was. It rose in priority on the way: this now feeds the grading worklist, so a silent truncation would drop decisions that are owed a grade, not just Briefing rows. |
 | **P2** | Agent idempotency | Server accepts `Idempotency-Key` but does not require it on mutating routes. Require it for `createDecision`, `createPlannedAction`, `createReviewTask`, `completeReviewTask`. |
@@ -430,7 +430,8 @@ a single afternoon and remove the two P0s.
 7. **Holiday-aware session clock.** Use SPY bars as the calendar where a
    store exists; a static NYSE holiday list for forward dates. Confirm the
    `bars-if-stale` job does not re-ingest on Columbus Day (12 Oct).
-8. **`instruments.status` lifecycle** (`active` on fill, `watchlist` on exit,
+8. ~~**`instruments.status` lifecycle**~~ — **done 20 Sep**, by trigger rather
+   than in the booking actions, plus an archive operation on the agent API.
    `archive` op on the agent API) — unblocks ritual 5 and makes Explore
    distinguish owned from watched.
 9. ~~**Start `watchlist_membership` today.**~~ — **done 18 Sep** (`af6d08d`),
