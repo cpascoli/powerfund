@@ -4,6 +4,17 @@ import { AGENT_SCOPES, READ_SCOPES, WRITE_SCOPES } from "./scopes";
 /** GPT Actions truncate endpoint summary/description at 300 characters. */
 export const GPT_ACTION_TEXT_MAX = 300;
 
+/**
+ * Callers that share one API key have to name themselves. Omitting the field
+ * leaves the route to stamp that key's name, which is how a second agent
+ * shows up as the key.
+ */
+const actorNameProperty = {
+  type: "string",
+  description:
+    "Who is writing. Send the name you go by on every call. The server stamps [agent:<actor_name>] onto the rationale and strips any tag already in the text. If you omit it, the API key name is stamped instead. Do not write the tag into the rationale.",
+};
+
 const jsonObjectSchema = {
   type: "object",
   properties: {},
@@ -907,7 +918,7 @@ export function agentOpenApiDocument(origin: string) {
           operationId: "createPlannedAction",
           summary: "Propose a planned trade",
           description:
-            "Inserts a pending intended trade. Send action_type plus planned_usd or target_weight_pct. Does not book a fill or create a transaction.",
+            "Inserts a pending intended trade. Send action_type plus planned_usd or target_weight_pct. Does not book a fill or create a transaction. Send actor_name as the name you go by; the server stamps the rationale.",
           scope: "powerfund:deployment:write",
           mutating: true,
           requestBody: {
@@ -941,6 +952,7 @@ export function agentOpenApiDocument(origin: string) {
                       description: "Optional date deadline.",
                     },
                     rationale: { type: "string" },
+                    actor_name: actorNameProperty,
                   },
                 },
                 example: {
@@ -960,7 +972,7 @@ export function agentOpenApiDocument(origin: string) {
           operationId: "updatePlannedAction",
           summary: "Update a planned trade",
           description:
-            "Update an open planned trade. Status may be pending, deferred, or cancelled. Confirming a fill is forbidden.",
+            "Update an open planned trade. Status may be pending, deferred, or cancelled. Confirming a fill is forbidden. Send actor_name as the name you go by; the server stamps the rationale.",
           scope: "powerfund:deployment:write",
           mutating: true,
           parameters: [
@@ -982,6 +994,7 @@ export function agentOpenApiDocument(origin: string) {
                     window_label: { type: "string" },
                     due_by: { type: "string", format: "date" },
                     rationale: { type: "string" },
+                    actor_name: actorNameProperty,
                     status: {
                       type: "string",
                       enum: ["pending", "deferred", "cancelled"],

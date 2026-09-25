@@ -160,6 +160,29 @@ describe("planned action mutations", () => {
     expect(writes.at(-1)?.rationale).toBe("[agent:chatgpt]\nBody.");
   });
 
+  it("stamps the caller's actor_name onto a new rationale", async () => {
+    await createPlannedAction(db(), {
+      symbol: "VRT",
+      action_type: "buy",
+      planned_usd: 2_000,
+      rationale: "Starter only.",
+      actor_name: "PowerFundAgent",
+    });
+    expect(writes.at(-1)?.rationale).toBe(
+      "[agent:PowerFundAgent]\nStarter only.",
+    );
+  });
+
+  it("does not invent an actor when the caller sends none", async () => {
+    await createPlannedAction(db(), {
+      symbol: "VRT",
+      action_type: "buy",
+      planned_usd: 2_000,
+      rationale: "Starter only.",
+    });
+    expect(writes.at(-1)?.rationale).toBe("Starter only.");
+  });
+
   it("tells the gate which side each action type is", async () => {
     for (const [actionType, side] of [
       ["buy", "buy"],

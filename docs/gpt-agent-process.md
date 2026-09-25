@@ -12,15 +12,13 @@ Hard rules:
 - User approval before `updateDossier`, `createDecision`, `recordDecisionOutcome`, `createPlannedAction`, `createReviewTask`, and `addWatchlistCompany`. Approval may cover a **defined batch** rather than one write at a time — "grade all 30-day decisions due today" is a valid approval for the whole worklist, provided the set is stated before the first write and not widened afterwards. A calibration run is fifteen-odd immutable writes; fifteen separate confirmations buys no extra control and makes the ritual cost more than it is worth.
 - A capital Phase-1 15% deployed-sleeve drawdown is a **diagnostic**, not an automatic trim or buy halt. Per-name invalidation still forces reduce/exit.
 - Do not treat software phases and capital phases as one ladder. The PM implements the **capital** plan.
-- **Never write `[agent:…]` into the text yourself.** The server stamps
-  `actor_name` onto a planned-action rationale and strips any leading tag first,
-  so a tag you write into the body is silently replaced by whoever the request
-  was authenticated as. That is the right precedence — the server knows who
-  called and the body is only text — but it means a tag you supply is at best
-  redundant and at worst a disagreement you will never see. Set `actor_name` on
-  the request and let it be the record. This is not hypothetical: the BWXT
-  deferral of 19 September ended up attributed to the wrong agent exactly this
-  way.
+- **Never write `[agent:…]` into the text yourself.** On `createPlannedAction`
+  and `updatePlannedAction`, set `actor_name` to the name you go by. The server
+  stamps `[agent:<actor_name>]` onto the rationale and strips any leading tag
+  first, so a tag in the body is replaced and the disagreement is invisible.
+  If you omit `actor_name`, the server stamps the API key name. That key is
+  shared, so the row will not say who wrote it. The 19 September BWXT deferral
+  named the wrong agent because the tag in the text and the request disagreed.
 - **Historical review gate.** Before completing any company, theme, macro, portfolio, stress, or capital-phase review, load the completed review outcomes relevant to it since the last comparable review or decision, and treat them as prior beliefs to confirm, update, or invalidate. Chat history is not the durable record — `getReviewQueue?status=completed` is. See [Historical review gate](#historical-review-gate).
 
 Machine contract: `GET /api/v1/agent/openapi.json`.

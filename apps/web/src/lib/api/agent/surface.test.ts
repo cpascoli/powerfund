@@ -186,10 +186,19 @@ describe("API surfaces", () => {
     });
     const plannedBody = agentDoc.paths["/api/v1/agent/planned-actions"].post
       .requestBody as Record<string, any>;
-    expect(plannedBody.content["application/json"].schema.required).toEqual([
-      "symbol",
-      "action_type",
-    ]);
+    const plannedSchema = plannedBody.content["application/json"].schema;
+    expect(plannedSchema.required).toEqual(["symbol", "action_type"]);
+    const updatePlanned = agentDoc.paths["/api/v1/agent/planned-actions/{id}"]
+      .patch.requestBody as Record<string, any>;
+    const updateSchema = updatePlanned.content["application/json"].schema;
+    for (const schema of [plannedSchema, updateSchema]) {
+      const actor = schema.properties.actor_name;
+      expect(actor.type).toBe("string");
+      expect(actor.default).toBeUndefined();
+      expect(schema.required ?? []).not.toContain("actor_name");
+      expect(actor.description).not.toMatch(/PowerFundAgent/);
+      expect(actor.description.length).toBeLessThanOrEqual(GPT_ACTION_TEXT_MAX);
+    }
 
     const createResponses = agentDoc.paths["/api/v1/agent/review-tasks"].post
       .responses as Record<string, any>;

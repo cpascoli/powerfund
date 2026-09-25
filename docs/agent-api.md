@@ -76,11 +76,14 @@ Idempotency-Key: <uuid>
 
 That includes `POST` decisions, decisions/{id}/outcome, planned-actions, review-tasks, review-tasks complete, and watchlist, plus `PATCH` planned-actions, review-tasks, and dossiers. A retry with the same key and body returns the original result. A reused key with a different body returns `409 IDEMPOTENCY_KEY_REUSED`.
 
-**`actor_name` is the attribution, not the text.** A planned-action rationale is
-stamped `[agent:<actor_name>]` by the server, which strips any leading tag before
-adding its own. So a tag written into the body is replaced by whoever the request
-was made as, with no error. Send `actor_name` and leave the body clean — writing
-both is how the 19 September BWXT deferral came to name the wrong agent.
+**`actor_name` is the attribution, not the text.** `createPlannedAction` and
+`updatePlannedAction` take an optional `actor_name`. The server stamps
+`[agent:<actor_name>]` onto the rationale and strips any leading tag first, so a
+tag written into the body is replaced, with no error. Send the name you go by
+and leave the body clean. There is no endpoint default for a particular agent:
+if you omit the field, the API key name is stamped, and that key is shared.
+Writing a tag that disagrees with `actor_name` is how the 19 September BWXT
+deferral came to name the wrong agent.
 
 ## Example curl
 
@@ -170,7 +173,8 @@ curl -sS -X POST -H "Authorization: Bearer $TOKEN" \
   }' \
   "$ORIGIN/api/v1/agent/decisions/DECISION_UUID/outcome"
 
-# Propose a second tranche (does not trade)
+# Propose a second tranche (does not trade).
+# actor_name is whoever is writing. Another agent sends its own name.
 curl -sS -X POST -H "Authorization: Bearer $TOKEN" \
   -H "Content-Type: application/json" \
   -H "Idempotency-Key: 22222222-2222-2222-2222-222222222222" \
@@ -179,15 +183,16 @@ curl -sS -X POST -H "Authorization: Bearer $TOKEN" \
     "action_type": "add",
     "planned_usd": 15000,
     "window_label": "price_below:290",
-    "rationale": "Second tranche if thesis remains intact"
+    "rationale": "Second tranche if thesis remains intact",
+    "actor_name": "chatgpt"
   }' \
   "$ORIGIN/api/v1/agent/planned-actions"
 
-# Defer a queued action
+# Defer a queued action. Send actor_name again so the stamp stays yours.
 curl -sS -X PATCH -H "Authorization: Bearer $TOKEN" \
   -H "Content-Type: application/json" \
   -H "Idempotency-Key: 55555555-5555-5555-5555-555555555555" \
-  -d '{"status":"deferred"}' \
+  -d '{"status":"deferred","actor_name":"chatgpt"}' \
   "$ORIGIN/api/v1/agent/planned-actions/PLAN_ACTION_UUID"
 
 # Review queue (evaluates triggers, then lists)
