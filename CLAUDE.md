@@ -23,7 +23,7 @@ not live gates.
 ## Layout
 
 ```
-apps/web         Next.js app + public /api/v1 + private /api/v1/agent
+apps/web         Next.js app + public /api/v1 + private /api/v1/agent + /api/v1/mcp
 apps/worker      ingest (bars, fundamentals), snapshot, scorer, replay
 packages/domain  all pure logic — money, mandate, performance, vintages, scoring
 packages/db      generated Supabase types
@@ -122,6 +122,17 @@ Each was a real production defect. See the remediation log for the full story.
   RLS refuses silently, so book-backed routes must say so rather than render a
   zeroed book.
 - **Every write goes through `requireOperator()`** as well as RLS.
+- **MCP tools call the agent routes; they never reimplement them.**
+  `/api/v1/mcp` runs the `/api/v1/agent/*` handlers in-process
+  (`InProcessAgentClient`), so validation, scopes and idempotency are REST's
+  own. A rule added to a route applies to both surfaces for free; a rule added
+  to a tool applies to one. The principal crosses via `AsyncLocalStorage`, which
+  HTTP cannot forge. Plain HTTP to the agent API still needs a key. A new agent
+  operation needs a tool (`tools.test.ts`) and a regenerated
+  `docs/mcp-tools.md` (`UPDATE_MCP_CATALOG=1 pnpm test -- catalog`). OAuth for
+  MCP clients is PowerFund's own (`lib/oauth`); tokens are resource-bound, so a
+  Deploy Preview's grant never works in production. Previews still write the
+  production database, so grant them read-only.
 - **A planned action has a direction, and every risk rule is a rule about one
   side.** `mandateGate` takes a required `side`; a `sell` skips the caps and the
   kill-switch entirely and is gated only on holding the thing, because every one

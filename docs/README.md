@@ -14,6 +14,9 @@ Intelligence for managing and growing capital in the markets — starting with p
 | [deploy.md](./deploy.md) | GitHub → Netlify CI and remote Supabase |
 | [agent-api.md](./agent-api.md) | Private authenticated API for AI agents (ChatGPT / MCP) |
 | [gpt-agent-process.md](./gpt-agent-process.md) | How a GPT should run the book against that API (cadence, Briefing objects, rituals) |
+| [mcp-architecture.md](./mcp-architecture.md) | The MCP server over the agent API: transport, in-process adapter, OAuth, observability |
+| [mcp-tools.md](./mcp-tools.md) | MCP tool catalog (generated from the tool definitions) and the design behind it |
+| [gpt-to-plugin-migration.md](./gpt-to-plugin-migration.md) | Runbook: PowerFundAgent GPT → PowerFund plugin, phases A–L, testing, rollback |
 
 ## Reviews
 

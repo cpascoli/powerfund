@@ -24,3 +24,4 @@ Suggested sections:
 | [0005](./0005-free-market-data-vendors.md) | Free-tier market data (Tiingo + Yahoo) | Accepted |
 | [0006](./0006-netlify-scheduled-ingest.md) | EOD ingest via GitHub Actions | Accepted |
 | [0007](./0007-transactions-ledger.md) | Transactions ledger as the source of truth for the book | Accepted |
+| [0008](./0008-mcp-server-over-agent-api.md) | MCP server over the agent API, with PowerFund as its own OAuth server | Accepted |
