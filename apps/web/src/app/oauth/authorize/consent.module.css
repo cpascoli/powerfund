@@ -1,0 +1,43 @@
+.facts {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0.35rem 0.9rem;
+  margin: 1.1rem 0;
+  font-size: 0.9rem;
+}
+
+.facts dt {
+  color: var(--muted);
+}
+
+.facts dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.scopes h2 {
+  margin: 1rem 0 0.35rem;
+  font-size: 0.8rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.scopes ul {
+  margin: 0;
+  padding-left: 1.1rem;
+  font-size: 0.92rem;
+  line-height: 1.5;
+}
+
+button.secondary {
+  background: var(--bg-elevated) !important;
+  color: var(--ink) !important;
+  border: 1px solid var(--line) !important;
+}
+
+button.deny {
+  background: none !important;
+  color: var(--danger) !important;
+  border: 1px solid var(--line) !important;
+}

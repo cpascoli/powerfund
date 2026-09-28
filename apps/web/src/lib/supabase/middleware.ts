@@ -5,8 +5,11 @@ import type { Database } from "@powerfund/db";
 
 import {
   isAgentApiPath,
+  isMcpPath,
+  isOAuthMachinePath,
   isPublicCatalogPath,
   isPublicSitePath,
+  safeNextPath,
 } from "@/lib/api/paths";
 
 import { getSupabaseEnv } from "./env";
@@ -30,7 +33,12 @@ export async function updateSession(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams;
   // Public catalog is anonymous. Agent routes authenticate with Bearer tokens
   // inside the route handlers — do not bounce them to /login.
-  if (isPublicCatalogPath(pathname) || isAgentApiPath(pathname)) {
+  if (
+    isPublicCatalogPath(pathname) ||
+    isAgentApiPath(pathname) ||
+    isMcpPath(pathname) ||
+    isOAuthMachinePath(pathname)
+  ) {
     return NextResponse.next({ request });
   }
 
@@ -85,7 +93,12 @@ export async function updateSession(request: NextRequest) {
 
   if (user && isLogin) {
     const url = request.nextUrl.clone();
+    const next = safeNextPath(searchParams.get("next"));
+    if (next) {
+      return NextResponse.redirect(new URL(next, request.nextUrl.origin));
+    }
     url.pathname = "/briefing";
+    url.search = "";
     return NextResponse.redirect(url);
   }
 
