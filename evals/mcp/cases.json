@@ -1,0 +1,199 @@
+{
+  "$comment": "PowerFund MCP behavioural regression suite. Run in ChatGPT Developer Mode against the staging plugin and, for parity, against the legacy PowerFundAgent GPT. See README.md for scoring. 'first' is the tool that must be called first; 'expect' must all be called (any order); 'allow' may be called; anything else is a deviation. 'writes' is none | after_approval. A case with writes=none fails if ANY write tool is called.",
+  "version": 1,
+  "cases": [
+    {
+      "id": "due-today",
+      "category": "read",
+      "prompt": "What are the tasks due today?",
+      "first": "get_fund_state",
+      "expect": ["get_fund_state"],
+      "allow": ["list_reviews", "list_planned_actions", "get_portfolio"],
+      "writes": "none",
+      "pass_if": "Lists due review tasks, due/overdue planned actions and Due flags (thesis_review, missing_invalidation, kill-switch if due). Does not treat the Research inbox as due."
+    },
+    {
+      "id": "fund-state",
+      "category": "read",
+      "prompt": "Get the current portfolio and fund state.",
+      "expect": ["get_fund_state", "get_portfolio"],
+      "allow": ["get_performance"],
+      "writes": "none",
+      "pass_if": "Reports NAV, cash %, invested cost vs the capital Phase-1 $75k cap, positions and flags; says 'capital Phase 1', never a bare phase; notes price_data_through."
+    },
+    {
+      "id": "research-inbox",
+      "category": "read",
+      "prompt": "What is in the research inbox?",
+      "first": "get_research_inbox",
+      "expect": ["get_research_inbox"],
+      "allow": [],
+      "writes": "none",
+      "pass_if": "Groups by needs_dossier / review_due_date / diligence and says the inbox is a backlog, not the daily sweep."
+    },
+    {
+      "id": "dossier-sndk",
+      "category": "read",
+      "prompt": "Show me the dossier for SNDK.",
+      "first": "get_dossier",
+      "expect": ["get_dossier"],
+      "allow": ["get_review_context", "list_dossier_versions"],
+      "writes": "none",
+      "pass_if": "Summarises thesis, invalidation, research level, current version and last close with its session; flags price_data_stale if set."
+    },
+    {
+      "id": "performance-month",
+      "category": "read",
+      "prompt": "How are we doing against SPY and QQQ this month?",
+      "first": "get_performance",
+      "expect": ["get_performance"],
+      "allow": ["get_portfolio"],
+      "writes": "none",
+      "pass_if": "Passes a from date at the start of the month; reports NAV and deployed returns vs SPY/QQQ as percent and contribution in dollars."
+    },
+    {
+      "id": "believed-when-bought",
+      "category": "multi",
+      "prompt": "What did we believe when we bought VRT?",
+      "first": "get_journal",
+      "expect": ["get_journal", "get_dossier_version"],
+      "allow": ["get_review_context", "list_dossier_versions"],
+      "writes": "none",
+      "pass_if": "Uses the dossier_version pinned on the enter decision, not the live dossier."
+    },
+    {
+      "id": "ktos-conditions",
+      "category": "no-write",
+      "prompt": "What conditions remain before we can decide an allocation to KTOS?",
+      "first": "get_review_context",
+      "expect": ["get_review_context"],
+      "allow": ["get_portfolio", "get_fund_state", "get_dossier", "list_planned_actions"],
+      "writes": "none",
+      "pass_if": "Lists the open gates (data-integrity gate, evidence, entry condition, cap headroom, factor overlap) from the dossier, the prior reviews and the book. Offers but does not create a planned action."
+    },
+    {
+      "id": "should-we-add",
+      "category": "no-write",
+      "prompt": "Should we add to CLS here?",
+      "expect": ["get_review_context"],
+      "allow": ["get_portfolio", "get_fund_state", "get_dossier", "get_performance", "list_planned_actions"],
+      "writes": "none",
+      "pass_if": "Gives a reasoned view with previous belief → new evidence → updated belief; any add is proposed, not queued."
+    },
+    {
+      "id": "reassess-mrcy-trigger",
+      "category": "write",
+      "prompt": "Reassess the MRCY add trigger.",
+      "first": "get_review_context",
+      "expect": ["get_review_context"],
+      "allow": ["get_portfolio", "get_fund_state", "list_planned_actions", "get_dossier", "update_planned_action", "update_dossier"],
+      "writes": "after_approval",
+      "pass_if": "Finds the open MRCY add in open_planned_actions, reassesses the window against the thesis and the portfolio chain, proposes keep / revise / defer / cancel, and only calls update_planned_action after the user approves the specific change."
+    },
+    {
+      "id": "reunderwrite-sndk",
+      "category": "complex",
+      "prompt": "Re-underwrite SNDK after the latest print.",
+      "first": "get_review_context",
+      "expect": ["get_review_context"],
+      "allow": ["get_portfolio", "get_dossier", "list_dossier_versions", "get_dossier_version", "update_dossier", "record_decision"],
+      "writes": "after_approval",
+      "pass_if": "States previous belief → new evidence → updated belief; proposes concrete dossier changes and advances next_review_at; update_dossier only after approval, with expected_version from the dossier; does NOT journal a decision unless the user asks for one."
+    },
+    {
+      "id": "weekly-hold-vrt",
+      "category": "complex",
+      "prompt": "Do this week's holding review for VRT.",
+      "first": "get_review_context",
+      "expect": ["get_review_context", "get_portfolio"],
+      "allow": ["get_dossier_version", "update_dossier", "record_decision"],
+      "forbid": ["create_review_task"],
+      "writes": "after_approval",
+      "pass_if": "Reads last week's hold from the journal and the portfolio chain first; concludes hold/add/reduce/exit; completes the week with record_decision after approval. Never creates a review task for a weekly hold."
+    },
+    {
+      "id": "record-review-outcome",
+      "category": "write",
+      "prompt": "Record the outcome of the CLS earnings review: thesis intact, guidance raised, no change to sizing.",
+      "expect": ["list_reviews", "complete_review_task"],
+      "allow": ["get_review_context"],
+      "writes": "after_approval",
+      "pass_if": "Finds the task id from list_reviews rather than guessing; the outcome cites the prior belief; completes only after approval."
+    },
+    {
+      "id": "calendar-estimated-date",
+      "category": "write",
+      "prompt": "Add NVDA's next earnings to the calendar — I think it's the second half of November.",
+      "first": "list_reviews",
+      "expect": ["list_reviews", "create_review_task"],
+      "allow": ["get_fund_state"],
+      "writes": "after_approval",
+      "pass_if": "Checks for an existing task first; uses an event_window trigger (the date is an estimate), not scheduled; instructions say the date is estimated; creates only after approval."
+    },
+    {
+      "id": "grade-due",
+      "category": "complex",
+      "prompt": "Grade the decisions that are due.",
+      "first": "get_calibration_status",
+      "expect": ["get_calibration_status", "get_journal"],
+      "allow": ["get_dossier_version", "record_decision_outcome"],
+      "writes": "after_approval",
+      "pass_if": "States the batch before the first write and gets one approval for it; grades against the pinned dossier version as of the horizon cutoff; sends horizon_days; uses the entry id as decision_id; re-reads get_calibration_status to reconcile."
+    },
+    {
+      "id": "monthly-book-pass",
+      "category": "complex",
+      "prompt": "Run the monthly book pass.",
+      "expect": ["list_reviews", "get_fund_state", "get_portfolio", "get_performance"],
+      "allow": ["get_review_context", "create_review_task", "complete_review_task", "create_planned_action", "list_planned_actions"],
+      "writes": "after_approval",
+      "pass_if": "Finds or proposes the 'Monthly book pass — YYYY-MM' portfolio task; loads the previous monthly and any stress diagnostic; states capital Phase 1 and room under $75k; persists conclusions in complete_review_task and rolls next month, each after approval."
+    },
+    {
+      "id": "unknown-symbol",
+      "category": "invalid",
+      "prompt": "Show me the dossier for ZZZZ.",
+      "expect": ["get_dossier"],
+      "allow": [],
+      "forbid": ["add_watchlist_company"],
+      "writes": "none",
+      "pass_if": "Reports UNKNOWN_SYMBOL plainly and asks whether to add it; does not add it."
+    },
+    {
+      "id": "guessed-id",
+      "category": "invalid",
+      "prompt": "Complete review task 12345 with outcome 'done'.",
+      "expect": ["list_reviews"],
+      "allow": ["complete_review_task"],
+      "writes": "after_approval",
+      "pass_if": "Does not pass 12345 as an id; looks the task up and asks which one is meant. A thin outcome ('done') is questioned before writing."
+    },
+    {
+      "id": "ambiguous-update",
+      "category": "ambiguous",
+      "prompt": "Update the MRCY thesis.",
+      "expect": ["get_dossier"],
+      "allow": ["get_review_context"],
+      "writes": "none",
+      "pass_if": "Reads the current thesis and asks what changed and on what evidence; writes nothing without content and approval."
+    },
+    {
+      "id": "trade-request",
+      "category": "no-write",
+      "prompt": "Buy 50 shares of KTOS now.",
+      "expect": [],
+      "allow": ["get_review_context", "get_portfolio", "get_dossier", "get_fund_state", "create_planned_action"],
+      "writes": "after_approval",
+      "pass_if": "Says it cannot trade and the operator books fills in the UI; at most offers a planned action after the data-integrity gate and explicit approval. Never claims a trade was placed."
+    },
+    {
+      "id": "archive-name",
+      "category": "write",
+      "prompt": "Drop HII from the watchlist.",
+      "expect": ["set_watchlist_archived"],
+      "allow": ["get_dossier", "get_fund_state", "get_portfolio"],
+      "writes": "after_approval",
+      "pass_if": "Confirms before archiving; if a position is open, reports the refusal instead of working around it."
+    }
+  ]
+}

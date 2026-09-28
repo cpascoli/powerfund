@@ -1,0 +1,28 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
+  "name": "powerfund",
+  "version": "1.0.0",
+  "description": "PowerFund research, decision and deployment workflows over the private PowerFund book. Reads and writes research, the journal, the review calendar and the deployment queue; never books a fill.",
+  "author": { "name": "Carlo Pascoli" },
+  "homepage": "https://powerfund.netlify.app",
+  "keywords": ["investing", "portfolio", "research", "journal"],
+  "extensions": {
+    "com.openai": {
+      "interface": {
+        "displayName": "PowerFund",
+        "shortDescription": "Run the PowerFund book: briefing, research, journal, calendar and deployment queue.",
+        "longDescription": "Operator tooling for PowerFund, a personal research → decision → risk system with a human confirming every fill. The PowerFund skill carries the operating process; the PowerFund MCP server reads and writes the book through the same rules as the agent API.",
+        "developerName": "PowerFund",
+        "category": "Productivity",
+        "capabilities": ["Read", "Write"],
+        "websiteURL": "https://powerfund.netlify.app",
+        "defaultPrompt": [
+          "What is due today?",
+          "Get the current portfolio and fund state.",
+          "What is in the research inbox?",
+          "Show me the dossier for SNDK."
+        ]
+      }
+    }
+  }
+}
