@@ -1,0 +1,9 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/mcp.schema.json",
+  "mcpServers": {
+    "powerfund": {
+      "type": "streamable-http",
+      "url": "https://powerfund.netlify.app/api/v1/mcp"
+    }
+  }
+}

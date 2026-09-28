@@ -40,3 +40,6 @@ apps/*/.netlify
 
 # Shell scripts
 *.sh
+
+# Assembled plugin packages (plugins/powerfund/build.sh)
+plugins/dist/
