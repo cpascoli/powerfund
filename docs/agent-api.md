@@ -1,6 +1,6 @@
 # Agent API
 
-Private, authenticated domain API for AI agents (ChatGPT, MCP, etc.). It is **not** the public catalog and **not** trade execution. Operating rituals (daily sweep, weekly holds, calendar fill, new names): [gpt-agent-process.md](./gpt-agent-process.md).
+Private, authenticated domain API for AI agents (ChatGPT Actions, HTTP clients, and — in-process — the [MCP server](./mcp-architecture.md)). It is **not** the public catalog and **not** trade execution. Operating rituals (daily sweep, weekly holds, calendar fill, new names): [gpt-agent-process.md](./gpt-agent-process.md).
 
 Public anonymous catalog: [`/api/v1`](https://powerfund.netlify.app/api/v1) — weights and research text only.
 
@@ -62,9 +62,15 @@ Send:
 Authorization: Bearer <secret>
 ```
 
-### Upgrade path
+### OAuth and MCP
 
-This is not an OAuth authorization server. The same scope strings are the contract. A later ChatGPT/MCP OAuth connector can issue tokens that carry those scopes; route handlers keep checking scopes, not which IdP minted the token. Human UI login stays Supabase cookies + `app_users.role`.
+These routes accept agent keys only; that has not changed. The MCP server at
+`/api/v1/mcp` is where OAuth lives. PowerFund's own authorization server issues
+tokens carrying these same scope strings to clients the operator approves, such
+as ChatGPT, and the MCP tools run these route handlers in-process as that
+principal. Route handlers keep checking scopes, not which issuer minted the
+token. Human UI login stays Supabase cookies + `app_users.role`. See
+[mcp-architecture.md](./mcp-architecture.md#authentication).
 
 ## Idempotency
 
@@ -340,29 +346,15 @@ narrow the window, because a truncated history is a partial chain of reasoning.
 
 ## MCP / ChatGPT mapping
 
-These `operationId`s are stable tool names. A later MCP server can wrap each HTTP operation without changing domain semantics:
-
-| MCP tool | HTTP |
-|----------|------|
-| `getFundState` | `GET /api/v1/agent/state` |
-| `getPortfolio` | `GET /api/v1/agent/portfolio` |
-| `getPerformance` | `GET /api/v1/agent/performance` |
-| `getJournal` | `GET /api/v1/agent/journal` |
-| `getPlannedActions` | `GET /api/v1/agent/deployment-queue` |
-| `getReviewQueue` | `GET /api/v1/agent/review-queue` |
-| `getResearchInbox` | `GET /api/v1/agent/research` |
-| `getCompanyDossier` | `GET /api/v1/agent/companies/{symbol}` |
-| `getDossierVersions` | `GET /api/v1/agent/companies/{symbol}/versions` |
-| `getDossierVersion` | `GET /api/v1/agent/companies/{symbol}/versions/{version}` |
-| `updateDossier` | `PATCH /api/v1/agent/companies/{symbol}/dossier` |
-| `createDecision` | `POST /api/v1/agent/decisions` |
-| `recordDecisionOutcome` | `POST /api/v1/agent/decisions/{id}/outcome` |
-| `createPlannedAction` | `POST /api/v1/agent/planned-actions` |
-| `updatePlannedAction` | `PATCH /api/v1/agent/planned-actions/{id}` |
-| `createReviewTask` | `POST /api/v1/agent/review-tasks` |
-| `updateReviewTask` | `PATCH /api/v1/agent/review-tasks/{id}` |
-| `completeReviewTask` | `POST /api/v1/agent/review-tasks/{id}/complete` |
-| `addWatchlistCompany` | `POST /api/v1/agent/watchlist` |
+The MCP server (`/api/v1/mcp`) exposes these operations as **goal-named tools**,
+not one tool per route: `getFundState` → `get_fund_state`, `createDecision` →
+`record_decision`, the historical review gate's four reads → one
+`get_review_context`, and so on. Every operation here has a tool, and a test
+fails if one is added without one. The tools call these route handlers
+in-process, so validation, scopes and idempotency are identical on both
+surfaces. The full mapping, schemas and annotations are in
+[mcp-tools.md](./mcp-tools.md); design, auth and deployment are in
+[mcp-architecture.md](./mcp-architecture.md).
 
 Do not generate tools for table CRUD, SQL, or fill confirmation.
 
