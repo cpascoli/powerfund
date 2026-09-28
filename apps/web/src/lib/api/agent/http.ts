@@ -9,6 +9,7 @@ import {
 
 import { authenticateAgent, requireScope, type AgentPrincipal } from "./auth";
 import { AgentApiError } from "./errors";
+import { currentInternalPrincipal } from "./internal-principal";
 import {
   loadIdempotency,
   readIdempotencyKey,
@@ -161,7 +162,9 @@ export async function handleAgentRequest(
 
   let remaining = RATE_LIMIT_MAX;
   try {
-    const principal = authenticateAgent(request);
+    // In-process callers (the MCP server) authenticate before they get here;
+    // everything arriving over HTTP still has to present an agent key.
+    const principal = currentInternalPrincipal() ?? authenticateAgent(request);
     const limited = rateLimit(`agent:${principal.name}:${clientKey(request)}`);
     remaining = limited.remaining;
     if (!limited.ok) {
