@@ -780,6 +780,145 @@ export type Database = {
           },
         ]
       }
+      oauth_authorization_codes: {
+        Row: {
+          client_id: string
+          code_challenge: string
+          code_hash: string
+          created_at: string
+          expires_at: string
+          redirect_uri: string
+          resource: string
+          scopes: string[]
+          used_at: string | null
+          user_id: string
+        }
+        Insert: {
+          client_id: string
+          code_challenge: string
+          code_hash: string
+          created_at?: string
+          expires_at: string
+          redirect_uri: string
+          resource: string
+          scopes: string[]
+          used_at?: string | null
+          user_id: string
+        }
+        Update: {
+          client_id?: string
+          code_challenge?: string
+          code_hash?: string
+          created_at?: string
+          expires_at?: string
+          redirect_uri?: string
+          resource?: string
+          scopes?: string[]
+          used_at?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "oauth_authorization_codes_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "oauth_clients"
+            referencedColumns: ["client_id"]
+          },
+        ]
+      }
+      oauth_clients: {
+        Row: {
+          client_id: string
+          client_name: string | null
+          created_at: string
+          id: string
+          metadata: Json
+          redirect_uris: string[]
+          refreshed_at: string
+          registration: string
+        }
+        Insert: {
+          client_id: string
+          client_name?: string | null
+          created_at?: string
+          id?: string
+          metadata?: Json
+          redirect_uris: string[]
+          refreshed_at?: string
+          registration: string
+        }
+        Update: {
+          client_id?: string
+          client_name?: string | null
+          created_at?: string
+          id?: string
+          metadata?: Json
+          redirect_uris?: string[]
+          refreshed_at?: string
+          registration?: string
+        }
+        Relationships: []
+      }
+      oauth_tokens: {
+        Row: {
+          client_id: string
+          code_hash: string | null
+          created_at: string
+          expires_at: string
+          family_id: string
+          id: string
+          kind: string
+          last_used_at: string | null
+          principal_name: string
+          resource: string
+          revoked_at: string | null
+          scopes: string[]
+          token_hash: string
+          user_id: string
+        }
+        Insert: {
+          client_id: string
+          code_hash?: string | null
+          created_at?: string
+          expires_at: string
+          family_id: string
+          id?: string
+          kind: string
+          last_used_at?: string | null
+          principal_name: string
+          resource: string
+          revoked_at?: string | null
+          scopes: string[]
+          token_hash: string
+          user_id: string
+        }
+        Update: {
+          client_id?: string
+          code_hash?: string | null
+          created_at?: string
+          expires_at?: string
+          family_id?: string
+          id?: string
+          kind?: string
+          last_used_at?: string | null
+          principal_name?: string
+          resource?: string
+          revoked_at?: string | null
+          scopes?: string[]
+          token_hash?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "oauth_tokens_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "oauth_clients"
+            referencedColumns: ["client_id"]
+          },
+        ]
+      }
       planned_actions: {
         Row: {
           action_type: Database["public"]["Enums"]["planned_action_type"]

@@ -1,12 +1,16 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 
+import { safeNextPath } from "@/lib/api/paths";
 import { createClient } from "@/lib/supabase/client";
 
 export function LoginForm() {
   const router = useRouter();
+  // Set by pages that send a signed-out operator here and need them back,
+  // such as the OAuth consent page.
+  const next = safeNextPath(useSearchParams().get("next"));
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -26,7 +30,7 @@ export function LoginForm() {
       return;
     }
 
-    router.replace("/briefing");
+    router.replace(next ?? "/briefing");
     router.refresh();
   }
 

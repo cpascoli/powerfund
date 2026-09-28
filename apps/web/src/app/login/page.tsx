@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { Suspense } from "react";
 
 import { LoginForm } from "@/components/login-form";
 import { SiteFooter } from "@/components/site-footer";
@@ -19,7 +20,10 @@ export default function LoginPage() {
           Research OS for the live book. The public site does not need an
           account.
         </p>
-        <LoginForm />
+        {/* LoginForm reads ?next=; useSearchParams needs a boundary. */}
+        <Suspense>
+          <LoginForm />
+        </Suspense>
       </div>
       <SiteFooter />
     </div>
