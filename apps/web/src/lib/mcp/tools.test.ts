@@ -300,6 +300,31 @@ describe("tool handlers shape the REST call", () => {
   });
 });
 
+describe("planned-action sizing", () => {
+  const create = POWERFUND_TOOLS.find((row) => row.name === "create_planned_action")!;
+  const update = POWERFUND_TOOLS.find((row) => row.name === "update_planned_action")!;
+  const base = { symbol: "KTOS", action_type: "buy", rationale: "Starter." };
+
+  it("requires exactly one sizing field on create", async () => {
+    for (const sizing of [{}, { planned_usd: 5000, target_weight_pct: 2 }]) {
+      const client = fakeAgentClient();
+      await expect(
+        create.handler({ ...base, ...sizing } as never, { client, write: {} }),
+      ).rejects.toThrow(/exactly one/);
+      expect(client.calls).toEqual([]);
+    }
+    await expect(run(create, { ...base, target_weight_pct: 2 })).resolves.toHaveLength(1);
+  });
+
+  it("allows at most one on update", async () => {
+    const client = fakeAgentClient();
+    await expect(
+      update.handler({ planned_action_id: PLAN_ID, planned_usd: 1, target_weight_pct: 1 } as never, { client, write: {} }),
+    ).rejects.toThrow(/at most one/);
+    expect(client.calls).toEqual([]);
+  });
+});
+
 describe("get_review_context", () => {
   const tool = POWERFUND_TOOLS.find((row) => row.name === "get_review_context")!;
 

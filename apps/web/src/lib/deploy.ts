@@ -66,15 +66,16 @@ export function mcpWriteMode(env: DeployEnv = deployEnv()): McpWriteMode {
 /**
  * Whether OAuth dynamic client registration is open here.
  *
- * Off in production. ChatGPT (and Claude) identify themselves with Client ID
- * Metadata Documents; DCR there would only let anyone mint client rows in the
- * production database and one per connection. Previews and local stacks keep
- * it for MCP Inspector and CLI clients. Because previews share the production
- * database, turning it off also means production refuses to authorize any
- * dynamically registered client — including one a preview registered.
- * POWERFUND_OAUTH_ALLOW_DCR=true re-enables it in production.
+ * Only on a local stack (no Netlify context, or `netlify dev`) by default.
+ * ChatGPT and Claude identify themselves with Client ID Metadata Documents,
+ * so no real client needs DCR. Anywhere else it would let anonymous callers
+ * insert rows into the production database, since Deploy Previews share it,
+ * with nothing but a per-instance rate limit in the way. Where it is closed,
+ * consent also refuses any dynamically registered client that already exists.
+ * MCP Inspector against a deployed site uses an agent key instead.
+ * POWERFUND_OAUTH_ALLOW_DCR=true opens it deliberately.
  */
 export function dynamicRegistrationEnabled(env: DeployEnv = deployEnv()): boolean {
-  if (env.context === "production") return env.oauthAllowDcr === "true";
-  return true;
+  if (env.oauthAllowDcr === "true") return true;
+  return env.context === "" || env.context === "dev";
 }

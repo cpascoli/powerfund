@@ -1,4 +1,4 @@
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 
 import { isAgentScope, type AgentScope } from "@/lib/api/agent/scopes";
 import type { AgentPrincipal } from "@/lib/api/agent/auth";
@@ -119,17 +119,23 @@ export async function exchangeToken(
     const verifier = required(params, "code_verifier");
     const codeHash = hashSecret(code);
 
-    const consumed = await store.consumeCode(codeHash, now);
-    if (consumed.status === "missing") {
+    // Validate first, consume last. Consuming before validating let anyone
+    // holding an intercepted code (but not the verifier) burn it and deny
+    // the real client; and consuming before inserting left a window in which
+    // a concurrent replay revoked nothing and the first exchange then minted
+    // live tokens. Now tokens are inserted, bound to the code, *before* the
+    // conditional consume, so whichever request loses the consume can revoke
+    // everything issued from the code, including the winner's.
+    const row = await store.getCode(codeHash);
+    if (!row) {
       throw new OAuthTokenError("invalid_grant", "Unknown authorization code.");
     }
-    if (consumed.status === "replayed") {
+    if (row.used_at) {
       // A code presented twice was intercepted or the client is broken;
       // either way, nothing it produced should keep working.
       await store.revokeIssuedFromCode(codeHash, now);
       throw new OAuthTokenError("invalid_grant", "Authorization code was already used.");
     }
-    const row = consumed.code;
     if (Date.parse(row.expires_at) <= now.getTime()) {
       throw new OAuthTokenError("invalid_grant", "Authorization code has expired.");
     }
@@ -149,7 +155,7 @@ export async function exchangeToken(
     if (!client) {
       throw new OAuthTokenError("invalid_client", "Unknown client.");
     }
-    return issuePair(store, {
+    const issued = await issuePair(store, {
       clientId,
       userId: row.user_id,
       principalName: principalNameFor(client),
@@ -159,6 +165,12 @@ export async function exchangeToken(
       codeHash,
       now,
     });
+    const consumed = await store.consumeCode(codeHash, now);
+    if (consumed.status !== "consumed") {
+      await store.revokeIssuedFromCode(codeHash, now);
+      throw new OAuthTokenError("invalid_grant", "Authorization code was already used.");
+    }
+    return issued;
   }
 
   if (grant === "refresh_token") {
@@ -197,12 +209,11 @@ export async function exchangeToken(
       }
       scopes = asked;
     }
-    if (!(await store.revokeToken(row.id, now))) {
-      // Lost a race with another refresh of the same token: same as reuse.
-      await store.revokeFamily(row.family_id, now);
-      throw new OAuthTokenError("invalid_grant", "Refresh token was already used.");
-    }
-    return issuePair(store, {
+    // Insert the new pair into the family *before* retiring the old token.
+    // If two refreshes race, the loser's family revocation then always
+    // covers the winner's new tokens; revoking first let the winner's pair
+    // be inserted after the family was killed and survive.
+    const issued = await issuePair(store, {
       clientId,
       userId: row.user_id,
       principalName: row.principal_name,
@@ -212,6 +223,12 @@ export async function exchangeToken(
       codeHash: row.code_hash,
       now,
     });
+    if (!(await store.revokeToken(row.id, now))) {
+      // Lost a race with another refresh of the same token: same as reuse.
+      await store.revokeFamily(row.family_id, now);
+      throw new OAuthTokenError("invalid_grant", "Refresh token was already used.");
+    }
+    return issued;
   }
 
   throw new OAuthTokenError(
@@ -242,6 +259,15 @@ export type AccessTokenCheck =
 const TOUCH_INTERVAL_MS = 5 * 60 * 1000;
 
 /**
+ * Stable identity for an OAuth client's namespaces (idempotency, rate
+ * limits). The principal *name* is derived from the client's self-chosen
+ * display name, so two clients can share it; the client id cannot collide.
+ */
+export function oauthPrincipalId(clientId: string): string {
+  return `oauth:${createHash("sha256").update(clientId).digest("hex").slice(0, 24)}`;
+}
+
+/**
  * Resolves a bearer token at the MCP endpoint. Checked on every request:
  * existence, kind, expiry, revocation, the resource it was minted for, and
  * that the approving account is still the operator — demoting an account
@@ -267,7 +293,7 @@ export async function verifyAccessToken(
   const scopes = row.scopes.filter(isAgentScope) as AgentScope[];
   return {
     ok: true,
-    principal: { name: row.principal_name, scopes },
+    principal: { name: row.principal_name, scopes, id: oauthPrincipalId(row.client_id) },
     token: row,
   };
 }

@@ -344,7 +344,7 @@ describe("tools/call", () => {
     });
     const error = json!.result.structuredContent.error;
     expect(error).toMatchObject({ source: "mcp", code: "TIMEOUT", retryable: true });
-    expect(error.message).toMatch(/may still have landed/);
+    expect(error.message).toMatch(/never writes twice/);
   });
 
   it("derives a stable idempotency key for writes, and none for reads", async () => {
@@ -358,7 +358,7 @@ describe("tools/call", () => {
       deps: { now: fixed },
     });
     const key = first.calls[0]!.write!.idempotencyKey!;
-    expect(key).toMatch(/^mcp:record_decision:2026-09-28T10:/);
+    expect(key).toMatch(/^mcp:record_decision:[0-9a-f]{40}$/);
     expect(key.length).toBeLessThanOrEqual(128);
     expect(second.calls[0]!.write!.idempotencyKey).toBe(key);
 

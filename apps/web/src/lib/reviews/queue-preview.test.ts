@@ -62,6 +62,23 @@ describe("evaluate=preview on the review queue", () => {
     expect(mocks.latch).not.toHaveBeenCalled();
   });
 
+  it("pages pending correctly after previewed rows leave it", async () => {
+    // Stored: two pending. One is previewed due, so a pending page of 1 must
+    // be the other one, and must not claim to be complete when it is not.
+    mocks.listRows.mockImplementation(async (_db: unknown, statuses?: string[], options?: { limit?: number }) => {
+      const all = [row("fired", "pending"), row("later", "pending"), row("last", "pending")].filter(
+        (candidate) => !statuses || statuses.includes(candidate.status),
+      );
+      return options?.limit != null ? all.slice(0, options.limit) : all;
+    });
+    const body = await getReviewQueue(
+      db,
+      parseReviewQueueFilter(new URLSearchParams("status=pending&evaluate=preview&limit=1")),
+    );
+    expect(body.tasks.map((task) => task.id)).toEqual(["later"]);
+    expect(body.truncated).toBe(true);
+  });
+
   it("still latches by default, so the GPT and the Briefing behave as before", async () => {
     await getReviewQueue(db, parseReviewQueueFilter(new URLSearchParams("status=due")));
     expect(mocks.latch).toHaveBeenCalledTimes(1);

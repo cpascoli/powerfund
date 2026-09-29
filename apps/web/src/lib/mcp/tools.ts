@@ -566,7 +566,7 @@ const createPlannedAction = defineTool({
   name: "create_planned_action",
   title: "Queue an intended trade",
   description:
-    "Queue an intended buy/add/reduce/sell after the user approves it and, for buy or add, after the dossier/data-integrity gate has passed. Send planned_usd or target_weight_pct. This is an intention on the deployment queue only: it never books a fill, and the mandate gate may still refuse it. A human confirms every fill in the PowerFund UI.",
+    "Queue an intended buy/add/reduce/sell after the user approves it and, for buy or add, after the dossier/data-integrity gate has passed. Send exactly one of planned_usd or target_weight_pct. This is an intention on the deployment queue only: it never books a fill, and the mandate gate may still refuse it. A human confirms every fill in the PowerFund UI.",
   inputSchema: {
     symbol,
     action_type: z.enum(PLANNED_ACTION_TYPES).describe("buy for a first entry, add for a later tranche."),
@@ -585,7 +585,14 @@ const createPlannedAction = defineTool({
   scopes: ["powerfund:deployment:write"],
   annotations: APPEND,
   operations: ["createPlannedAction"],
-  handler: (args, { client, write }) => client.createPlannedAction(compact({ ...args }), write),
+  handler: async (args, { client, write }) => {
+    // Exactly one sizing: with both, the API silently prefers planned_usd;
+    // with neither, it refuses later with a less useful message.
+    if ((args.planned_usd == null) === (args.target_weight_pct == null)) {
+      throw new ToolInputError("Give exactly one of planned_usd or target_weight_pct.");
+    }
+    return client.createPlannedAction(compact({ ...args }), write);
+  },
 });
 
 const updatePlannedAction = defineTool({
@@ -607,7 +614,10 @@ const updatePlannedAction = defineTool({
   scopes: ["powerfund:deployment:write"],
   annotations: MODIFY,
   operations: ["updatePlannedAction"],
-  handler: (args, { client, write }) => {
+  handler: async (args, { client, write }) => {
+    if (args.planned_usd != null && args.target_weight_pct != null) {
+      throw new ToolInputError("Give at most one of planned_usd or target_weight_pct.");
+    }
     const { planned_action_id, ...body } = args;
     return client.updatePlannedAction(planned_action_id, compact(body), write);
   },

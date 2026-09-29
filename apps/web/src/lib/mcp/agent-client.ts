@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
 
+import { MCP_KEY_PREFIX } from "@/lib/api/agent/idempotency";
 import { runAsInternalPrincipal } from "@/lib/api/agent/internal-principal";
 import type { AgentPrincipal } from "@/lib/api/agent/auth";
 
@@ -264,26 +265,23 @@ export class InProcessAgentClient implements PowerFundAgentClient {
 }
 
 /**
- * Idempotency key for a write made through MCP.
+ * Idempotency key for a write made through MCP: the tool and its exact
+ * arguments. A model that sees a timeout retries with the same arguments, so
+ * the retry carries the same key and the agent API either replays the first
+ * result or reports it still running; it never writes twice.
  *
- * A model that sees a timeout retries the call, and without a key the REST
- * API would treat the retry as a second write. The key is derived from the
- * tool, the exact arguments and the UTC hour, so an identical retry replays
- * the first result while the same write deliberately made tomorrow is new.
- * The cost is that an identical write inside one hour replays too — for these
- * operations that is a duplicate, not an intent.
+ * The key has no clock in it. A fixed time bucket put a boundary inside the
+ * retry window (a write at 10:59:59 retried at 11:00:00 got a new key).
+ * Instead the agent API gives `mcp:` keys a sliding window
+ * (MCP_KEY_WINDOW_MS, one hour from the first attempt), after which the
+ * same write deliberately made again is new.
  */
-export function mcpIdempotencyKey(
-  tool: string,
-  args: unknown,
-  now = new Date(),
-): string {
-  const hour = now.toISOString().slice(0, 13);
+export function mcpIdempotencyKey(tool: string, args: unknown): string {
   const digest = createHash("sha256")
     .update(canonicalJson(args))
     .digest("hex")
     .slice(0, 40);
-  return `mcp:${tool}:${hour}:${digest}`;
+  return `${MCP_KEY_PREFIX}${tool}:${digest}`;
 }
 
 /** Key-order independent JSON, so `{a,b}` and `{b,a}` hash alike. */

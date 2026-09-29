@@ -100,15 +100,19 @@ export async function getReviewQueue(
     themes: filter.themes,
   });
 
-  // A previewed "due" task is still stored as pending. When the caller asked
-  // for due work without asking for pending, fetch pending too, relabel, and
-  // filter afterwards. The open queue is tens of rows, so fetch it whole
-  // rather than let a page boundary cut a due task off.
+  // A previewed "due" task is still stored as pending, so relabelling can
+  // move rows across the filter whenever exactly one of due/pending was asked
+  // for: due gains rows the query did not fetch, pending loses rows it did.
+  // Either way a database-side limit would be applied to the wrong set, so
+  // fetch the open queue whole (it is tens of rows), relabel, filter, then
+  // page — which also keeps `truncated` honest.
   const expand =
     previewed.size > 0 &&
-    filter.statuses.includes("due") &&
-    !filter.statuses.includes("pending");
-  const queryStatuses = expand ? [...filter.statuses, "pending" as const] : filter.statuses;
+    filter.statuses.includes("due") !== filter.statuses.includes("pending");
+  const queryStatuses =
+    expand && !filter.statuses.includes("pending")
+      ? [...filter.statuses, "pending" as const]
+      : filter.statuses;
 
   // Ask for one more than requested so the caller learns there is more history
   // rather than silently seeing a truncated chain of reasoning.

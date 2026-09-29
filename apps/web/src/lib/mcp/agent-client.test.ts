@@ -4,8 +4,8 @@ const mocks = vi.hoisted(() => ({
   getFundState: vi.fn(),
   getAgentCompany: vi.fn(),
   createDecision: vi.fn(),
-  loadIdempotency: vi.fn(),
-  storeIdempotency: vi.fn(),
+  reserve: vi.fn(),
+  complete: vi.fn(),
 }));
 
 vi.mock("@/lib/supabase/admin", () => ({
@@ -19,8 +19,8 @@ vi.mock("@/lib/agent/companies", async (importOriginal) => ({
 vi.mock("@/lib/journal/create-decision", () => ({ createDecision: mocks.createDecision }));
 vi.mock("@/lib/api/agent/idempotency", async (importOriginal) => ({
   ...(await importOriginal<object>()),
-  loadIdempotency: mocks.loadIdempotency,
-  storeIdempotency: mocks.storeIdempotency,
+  reserveIdempotency: mocks.reserve,
+  supabaseIdempotencyStore: () => ({ complete: mocks.complete, release: vi.fn() }),
 }));
 
 import { GET as stateGet } from "@/app/api/v1/agent/state/route";
@@ -40,8 +40,8 @@ const writer = new InProcessAgentClient(
 
 beforeEach(() => {
   vi.clearAllMocks();
-  mocks.loadIdempotency.mockResolvedValue(null);
-  mocks.storeIdempotency.mockResolvedValue(undefined);
+  mocks.reserve.mockResolvedValue({ kind: "reserved", id: "idem-1" });
+  mocks.complete.mockResolvedValue(undefined);
 });
 
 describe("InProcessAgentClient runs the real agent routes", () => {
@@ -99,17 +99,17 @@ describe("InProcessAgentClient runs the real agent routes", () => {
     );
     expect(body).toEqual({ created: true, decision: { id: "d1" } });
     expect(mocks.createDecision.mock.calls[0]![1]).toMatchObject({ actor_name: "chatgpt-mcp" });
-    expect(mocks.loadIdempotency).toHaveBeenCalledWith(
-      expect.anything(),
-      "chatgpt-mcp",
-      "mcp:record_decision:2026-09-28T10:abc",
-      expect.any(String),
-    );
-    expect(mocks.storeIdempotency).toHaveBeenCalledTimes(1);
+    expect(mocks.reserve).toHaveBeenCalledWith(expect.anything(), {
+      keyName: "chatgpt-mcp",
+      idempotencyKey: "mcp:record_decision:2026-09-28T10:abc",
+      operation: "createDecision",
+      hash: expect.any(String),
+    });
+    expect(mocks.complete).toHaveBeenCalledTimes(1);
   });
 
   it("replays a stored result instead of writing twice", async () => {
-    mocks.loadIdempotency.mockResolvedValue({ status_code: 200, response: { created: true, decision: { id: "d1" } } });
+    mocks.reserve.mockResolvedValue({ kind: "replay", status_code: 200, response: { created: true, decision: { id: "d1" } } });
     const body = await writer.createDecision(
       { symbol: "VRT", decision_type: "hold", thesis: "Intact." },
       { idempotencyKey: "k" },
@@ -139,12 +139,16 @@ describe("MCP idempotency keys", () => {
     expect(canonicalJson({ b: 1, a: [2, { d: 3, c: undefined }] })).toBe('{"a":[2,{"d":3}],"b":1}');
   });
 
-  it("changes with the hour, so a deliberate repeat tomorrow is a new write", () => {
+  it("is the tool and its exact arguments, with no clock in it", () => {
     const args = { symbol: "VRT" };
-    const at10 = mcpIdempotencyKey("record_decision", args, new Date("2026-09-28T10:59:00Z"));
-    const at10b = mcpIdempotencyKey("record_decision", args, new Date("2026-09-28T10:01:00Z"));
-    const at11 = mcpIdempotencyKey("record_decision", args, new Date("2026-09-28T11:00:00Z"));
-    expect(at10).toBe(at10b);
-    expect(at10).not.toBe(at11);
+    expect(mcpIdempotencyKey("record_decision", args)).toBe(mcpIdempotencyKey("record_decision", { symbol: "VRT" }));
+    expect(mcpIdempotencyKey("record_decision", args)).toMatch(/^mcp:record_decision:[0-9a-f]{40}$/);
+    expect(mcpIdempotencyKey("record_decision", { symbol: "CLS" })).not.toBe(mcpIdempotencyKey("record_decision", args));
+  });
+
+  it("namespaces an OAuth client by its id, not its self-chosen name", async () => {
+    const { oauthPrincipalId } = await import("@/lib/oauth/token");
+    expect(oauthPrincipalId("pfc_a")).not.toBe(oauthPrincipalId("pfc_b"));
+    expect(oauthPrincipalId("https://chatgpt.com/oauth/client.json")).toMatch(/^oauth:[0-9a-f]{24}$/);
   });
 });
