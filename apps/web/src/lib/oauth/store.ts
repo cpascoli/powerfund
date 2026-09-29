@@ -55,6 +55,7 @@ export interface OAuthStore {
   getClient(clientId: string): Promise<ClientRecord | null>;
   saveClient(client: ClientRecord): Promise<void>;
   insertCode(code: CodeRecord): Promise<void>;
+  getCode(codeHash: string): Promise<CodeRecord | null>;
   /** Marks the code used; reports a replay if it already was. */
   consumeCode(codeHash: string, now: Date): Promise<ConsumeResult>;
   insertTokens(tokens: NewToken[]): Promise<void>;
@@ -99,6 +100,16 @@ export function supabaseOAuthStore(db: DbClient): OAuthStore {
     async insertCode(code) {
       const { error } = await db.from("oauth_authorization_codes").insert(code);
       if (error) fail("insertCode", error);
+    },
+
+    async getCode(codeHash) {
+      const { data, error } = await db
+        .from("oauth_authorization_codes")
+        .select("*")
+        .eq("code_hash", codeHash)
+        .maybeSingle();
+      if (error) fail("getCode", error);
+      return (data as CodeRecord | null) ?? null;
     },
 
     async consumeCode(codeHash, now) {
@@ -166,7 +177,12 @@ export function supabaseOAuthStore(db: DbClient): OAuthStore {
       if (error) fail("revokeIssuedFromCode", error);
       const families = new Set((data ?? []).map((row) => row.family_id));
       for (const family of families) {
-        await this.revokeFamily(family, now);
+        const { error: revokeError } = await db
+          .from("oauth_tokens")
+          .update({ revoked_at: now.toISOString() })
+          .eq("family_id", family)
+          .is("revoked_at", null);
+        if (revokeError) fail("revokeIssuedFromCode", revokeError);
       }
     },
 
@@ -217,6 +233,10 @@ export function memoryOAuthStore(operators: string[] = []): OAuthStore & {
     },
     async insertCode(code: CodeRecord) {
       codes.set(code.code_hash, { ...code });
+    },
+    async getCode(codeHash: string) {
+      const code = codes.get(codeHash);
+      return code ? { ...code } : null;
     },
     async consumeCode(codeHash: string, now: Date): Promise<ConsumeResult> {
       const code = codes.get(codeHash);

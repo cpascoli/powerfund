@@ -178,7 +178,7 @@ export async function handleMcpRequest(request: Request, deps: McpHandlerDeps): 
   const principal: AgentPrincipal = writes.enabled
     ? auth.principal
     : {
-        name: auth.principal.name,
+        ...auth.principal,
         scopes: auth.principal.scopes.filter((scope) => READ_SCOPES.includes(scope)),
       };
 

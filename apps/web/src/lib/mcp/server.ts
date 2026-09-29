@@ -127,7 +127,7 @@ function fromApiError(error: AgentApiCallError): ToolError {
     message: serverSide
       ? "PowerFund hit an internal error handling this request."
       : error.message,
-    retryable: serverSide || error.status === 429,
+    retryable: serverSide || error.status === 429 || error.code === "IDEMPOTENCY_IN_PROGRESS",
     http_status: error.status,
     ...details,
   };
@@ -224,7 +224,7 @@ export function createPowerFundMcpServer(deps: McpServerDeps): McpServer {
         );
         const write = tool.annotations.readOnlyHint
           ? {}
-          : { idempotencyKey: mcpIdempotencyKey(tool.name, args, now()) };
+          : { idempotencyKey: mcpIdempotencyKey(tool.name, args) };
 
         try {
           const body = await withTimeout(
@@ -255,7 +255,7 @@ export function createPowerFundMcpServer(deps: McpServerDeps): McpServer {
               code: "TIMEOUT",
               message: tool.annotations.readOnlyHint
                 ? `PowerFund did not answer within ${thrown.ms / 1000}s. Safe to retry.`
-                : `PowerFund did not answer within ${thrown.ms / 1000}s. The write may still have landed. Retrying with identical arguments within the hour replays the original result instead of writing twice; otherwise read back before retrying.`,
+                : `PowerFund did not answer within ${thrown.ms / 1000}s. The write may still be running or have landed. Retrying with identical arguments is safe: it replays the result, or reports IDEMPOTENCY_IN_PROGRESS while the first attempt runs, and never writes twice.`,
               retryable: true,
             };
           } else {

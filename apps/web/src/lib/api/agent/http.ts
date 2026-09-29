@@ -11,10 +11,11 @@ import { authenticateAgent, requireScope, type AgentPrincipal } from "./auth";
 import { AgentApiError } from "./errors";
 import { currentInternalPrincipal } from "./internal-principal";
 import {
-  loadIdempotency,
   readIdempotencyKey,
   requestHash,
-  storeIdempotency,
+  reserveIdempotency,
+  supabaseIdempotencyStore,
+  type IdempotencyStore,
 } from "./idempotency";
 import type { AgentScope } from "./scopes";
 
@@ -165,7 +166,10 @@ export async function handleAgentRequest(
     // In-process callers (the MCP server) authenticate before they get here;
     // everything arriving over HTTP still has to present an agent key.
     const principal = currentInternalPrincipal() ?? authenticateAgent(request);
-    const limited = rateLimit(`agent:${principal.name}:${clientKey(request)}`);
+    // Namespaces key on a stable identity; the display name is attribution
+    // only and, for OAuth clients, chosen by the client.
+    const identity = principal.id ?? principal.name;
+    const limited = rateLimit(`agent:${identity}:${clientKey(request)}`);
     remaining = limited.remaining;
     if (!limited.ok) {
       const response = agentErrorResponse(
@@ -193,47 +197,51 @@ export async function handleAgentRequest(
       ? requestHash(request.method, new URL(request.url).pathname, bodyText)
       : "";
 
+    let reservation: { store: IdempotencyStore; id: string } | null = null;
     if (idempotencyKey) {
-      const replay = await loadIdempotency(
-        supabase,
-        principal.name,
+      const store = supabaseIdempotencyStore(supabase);
+      const reserved = await reserveIdempotency(store, {
+        keyName: identity,
         idempotencyKey,
+        operation: args.operationId,
         hash,
-      );
-      if (replay) {
-        return agentJson(replay.response, {
-          status: replay.status_code,
+      });
+      if (reserved.kind === "replay") {
+        return agentJson(reserved.response, {
+          status: reserved.status_code,
           remaining,
         });
       }
+      reservation = { store, id: reserved.id };
     }
 
-    const response = await args.handler({
-      request,
-      principal,
-      supabase,
-      remaining,
-      bodyText,
-    });
+    let response: Response;
+    try {
+      response = await args.handler({
+        request,
+        principal,
+        supabase,
+        remaining,
+        bodyText,
+      });
+    } catch (error) {
+      // No answer to replay: let the next attempt run.
+      await reservation?.store.release(reservation.id).catch(() => {});
+      throw error;
+    }
 
-    if (
-      idempotencyKey &&
-      response.status >= 200 &&
-      response.status < 500 &&
-      response.status !== 401 &&
-      response.status !== 403 &&
-      response.status !== 429
-    ) {
-      const cloned = await response.clone().json().catch(() => null);
+    if (reservation) {
+      const cacheable =
+        response.status >= 200 &&
+        response.status < 500 &&
+        response.status !== 401 &&
+        response.status !== 403 &&
+        response.status !== 429;
+      const cloned = cacheable ? await response.clone().json().catch(() => null) : null;
       if (cloned != null) {
-        await storeIdempotency(supabase, {
-          keyName: principal.name,
-          idempotencyKey,
-          operation: args.operationId,
-          hash,
-          statusCode: response.status,
-          response: cloned,
-        });
+        await reservation.store.complete(reservation.id, response.status, cloned);
+      } else {
+        await reservation.store.release(reservation.id);
       }
     }
 

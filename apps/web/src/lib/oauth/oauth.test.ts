@@ -607,7 +607,7 @@ describe("security review: exact matching and transaction binding", () => {
 });
 
 describe("dynamic client registration by deployment", () => {
-  it("is open on previews and local stacks, closed in production unless re-enabled", async () => {
+  it("is open only on local stacks unless deliberately enabled", async () => {
     const { dynamicRegistrationEnabled } = await import("@/lib/deploy");
     const env = (overrides: Partial<DeployEnv>): DeployEnv => ({
       context: "",
@@ -621,8 +621,13 @@ describe("dynamic client registration by deployment", () => {
     });
     expect(dynamicRegistrationEnabled(env({ context: "production" }))).toBe(false);
     expect(dynamicRegistrationEnabled(env({ context: "production", oauthAllowDcr: "true" }))).toBe(true);
-    expect(dynamicRegistrationEnabled(env({ context: "deploy-preview" }))).toBe(true);
+    // Previews share the production database: open DCR there would let
+    // anonymous callers grow a production table.
+    expect(dynamicRegistrationEnabled(env({ context: "deploy-preview" }))).toBe(false);
+    expect(dynamicRegistrationEnabled(env({ context: "branch-deploy" }))).toBe(false);
+    expect(dynamicRegistrationEnabled(env({ context: "deploy-preview", oauthAllowDcr: "true" }))).toBe(true);
     expect(dynamicRegistrationEnabled(env({}))).toBe(true);
+    expect(dynamicRegistrationEnabled(env({ context: "dev" }))).toBe(true);
   });
 
   it("hides the registration endpoint from metadata where it is closed", () => {
@@ -647,5 +652,81 @@ describe("dynamic client registration by deployment", () => {
       allowDynamicClients: false,
     });
     expect(chatgpt.ok).toBe(true);
+  });
+});
+
+describe("security review: concurrency and code burning", () => {
+  it("does not burn a code on a wrong verifier, so an interceptor cannot deny the real client", async () => {
+    const { store, code } = await approve();
+    await expect(
+      exchangeToken(store, urls, codeGrant(code, { code_verifier: "w".repeat(60) }), later(5)),
+    ).rejects.toMatchObject({ code: "invalid_grant" });
+    const tokens = await exchangeToken(store, urls, codeGrant(code), later(6));
+    expect((await verifyAccessToken(store, urls, tokens.access_token, later(7))).ok).toBe(true);
+  });
+
+  /**
+   * Hold the first insertTokens call until released, to force the ordering
+   * that matters: the second request runs to completion while the first is
+   * between validating and writing its tokens. Left to microtask ordering,
+   * the in-memory store never produces the harmful interleaving, and a test
+   * would pass against the racy code too (it did).
+   */
+  function gateFirstInsert(store: ReturnType<typeof memoryOAuthStore>) {
+    let release: () => void = () => {};
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const insert = store.insertTokens.bind(store);
+    let calls = 0;
+    store.insertTokens = async (rows) => {
+      if (calls++ === 0) await gate;
+      return insert(rows);
+    };
+    return release;
+  }
+
+  it("leaves no live tokens when a replay lands while the first exchange is mid-flight", async () => {
+    const { store, code } = await approve();
+    const release = gateFirstInsert(store);
+    const first = exchangeToken(store, urls, codeGrant(code), later(5)).then(
+      () => "ok",
+      () => "rejected",
+    );
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    const second = await exchangeToken(store, urls, codeGrant(code), later(5)).then(
+      () => "ok",
+      () => "rejected",
+    );
+    release();
+    const outcomes = [await first, second].sort();
+    expect(outcomes).toEqual(["ok", "rejected"]);
+    // Whichever won, the code was presented twice: nothing it produced lives.
+    const live = [...store.tokens.values()].filter((t) => !t.revoked_at);
+    expect(live).toEqual([]);
+  });
+
+  it("leaves no live tokens when a refresh is reused while the first rotation is mid-flight", async () => {
+    const { store, code } = await approve();
+    const tokens = await exchangeToken(store, urls, codeGrant(code), later(5));
+    const release = gateFirstInsert(store);
+    const refresh = () =>
+      exchangeToken(
+        store,
+        urls,
+        new URLSearchParams({ grant_type: "refresh_token", refresh_token: tokens.refresh_token, client_id: CHATGPT_CIMD }),
+        later(100),
+      ).then(
+        () => "ok",
+        () => "rejected",
+      );
+    const first = refresh();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    const second = await refresh();
+    release();
+    expect([await first, second].sort()).toEqual(["ok", "rejected"]);
+    // The loser's family revocation must cover the winner's new pair.
+    const live = [...store.tokens.values()].filter((t) => !t.revoked_at);
+    expect(live).toEqual([]);
   });
 });

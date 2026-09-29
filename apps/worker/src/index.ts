@@ -41,6 +41,16 @@ Vendors (free):
 `);
 }
 
+/** A failed latch is reported, but never stops the stages after it. */
+async function latchAfterBars() {
+  try {
+    await latchReviewTriggers();
+  } catch (error) {
+    console.error("[reviews:latch] failed:", error instanceof Error ? error.message : error);
+    process.exitCode = 1;
+  }
+}
+
 function readFlag(name: string, fallback: string): string {
   const prefix = `--${name}=`;
   const hit = process.argv.find((arg) => arg.startsWith(prefix));
@@ -65,10 +75,12 @@ async function main() {
           `[ingest:bars] re-based series refetched in full: ${bars.rebased.join(", ")}`,
         );
       }
+      // Latch before anything else can fail: new closes are what fire a price
+      // condition, and one that recovers before the next run is lost if a
+      // later stage throws first.
+      await latchAfterBars();
       const score = await scoreInflectionUniverse();
       if (score.failed.length > 0) process.exitCode = 1;
-      // New closes are the only thing that can fire a price condition.
-      await latchReviewTriggers();
       break;
     }
     case "reviews:latch": {
@@ -86,12 +98,12 @@ async function main() {
     case "all": {
       const bars = await ingestBars({ days, pauseMs });
       if (bars.failed.length > 0) process.exitCode = 1;
+      await latchAfterBars();
       const fundamentals = await ingestFundamentals({ pauseMs });
       console.log("[ingest:fundamentals]", JSON.stringify(fundamentals));
       if (fundamentals.failed.length > 0) process.exitCode = 1;
       const score = await scoreInflectionUniverse();
       if (score.failed.length > 0) process.exitCode = 1;
-      await latchReviewTriggers();
       break;
     }
     case "audit": {

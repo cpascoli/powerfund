@@ -12,8 +12,15 @@ import {
 } from "./scopes";
 
 export type AgentPrincipal = {
+  /** Attribution: the name stamped on writes. */
   name: string;
   scopes: readonly AgentScope[];
+  /**
+   * Stable identity for idempotency and rate-limit namespaces, when the name
+   * is not unique or not trusted (OAuth clients choose their own display
+   * names). Agent keys omit it; their names are operator-configured.
+   */
+  id?: string;
 };
 
 export type AgentKeyConfig = {
