@@ -4,6 +4,7 @@ import { auditBars, printBarAudit } from "./ingest/audit-bars";
 import { ingestBars } from "./ingest/bars";
 import { loadBarsFreshness } from "./ingest/freshness";
 import { ingestFundamentals } from "./ingest/fundamentals";
+import { latchReviewTriggers } from "./reviews/latch";
 import { scoreInflectionUniverse } from "./score/inflection";
 import { printReplay, replayInflection } from "./score/replay";
 import { snapshotPortfolio } from "./snapshot/portfolio";
@@ -27,6 +28,7 @@ Usage:
   pnpm --filter @powerfund/worker snapshot:portfolio
   pnpm --filter @powerfund/worker snapshot:verify   (dry run — rebuild and diff, write nothing)
   pnpm --filter @powerfund/worker verify:book      (positions/cash vs the ledger, and the append-only guards)
+  pnpm --filter @powerfund/worker reviews:latch    (record fired review triggers: pending → due; also runs after ingest:bars)
 
 Env:
   SUPABASE_URL or NEXT_PUBLIC_SUPABASE_URL
@@ -65,6 +67,12 @@ async function main() {
       }
       const score = await scoreInflectionUniverse();
       if (score.failed.length > 0) process.exitCode = 1;
+      // New closes are the only thing that can fire a price condition.
+      await latchReviewTriggers();
+      break;
+    }
+    case "reviews:latch": {
+      await latchReviewTriggers();
       break;
     }
     case "fundamentals": {
@@ -83,6 +91,7 @@ async function main() {
       if (fundamentals.failed.length > 0) process.exitCode = 1;
       const score = await scoreInflectionUniverse();
       if (score.failed.length > 0) process.exitCode = 1;
+      await latchReviewTriggers();
       break;
     }
     case "audit": {

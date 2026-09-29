@@ -423,6 +423,13 @@ export function agentOpenApiDocument(origin: string) {
               description: "If true, include the research universe and themes. Default true.",
               schema: { type: "boolean", default: true },
             },
+            {
+              name: "evaluate",
+              in: "query",
+              description:
+                "preview: show fired review triggers as due without recording pending to due. Omit for the default, which records them.",
+              schema: { type: "string", enum: ["preview"] },
+            },
           ],
         }),
       },
@@ -1095,8 +1102,8 @@ export function agentOpenApiDocument(origin: string) {
               name: "evaluate",
               in: "query",
               description:
-                "If true, mark satisfied pending tasks due before listing. Defaults to true, except on a completed-only query where it defaults to false because reading history should not mutate the queue.",
-              schema: { type: "boolean" },
+                "true marks satisfied pending tasks due before listing; preview shows them as due without writing. Defaults to true, except on a completed-only query (false).",
+              schema: { type: "string", enum: ["true", "false", "preview"] },
             },
           ],
           responses: {

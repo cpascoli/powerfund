@@ -20,6 +20,8 @@ export async function GET(request: Request) {
         recent_decisions: recent ? Number(recent) : undefined,
         include_watchlist:
           watchlist == null ? undefined : watchlist !== "false" && watchlist !== "0",
+        // Additive: the default still latches fired triggers, as it always has.
+        preview_due: url.searchParams.get("evaluate") === "preview",
       });
       return agentJson(body, { remaining: ctx.remaining });
     },

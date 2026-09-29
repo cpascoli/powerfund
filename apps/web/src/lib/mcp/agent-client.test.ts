@@ -55,10 +55,17 @@ describe("InProcessAgentClient runs the real agent routes", () => {
       expect(mocks.getFundState).toHaveBeenCalledWith(expect.anything(), {
         recent_decisions: undefined,
         include_watchlist: false,
+        preview_due: false,
       });
     } finally {
       process.env.POWERFUND_AGENT_API_KEYS = previous;
     }
+  });
+
+  it("carries evaluate=preview through the real route, so the MCP read never latches", async () => {
+    mocks.getFundState.mockResolvedValue({ due_reviews: [] });
+    await reader.getFundState({ evaluate: "preview" });
+    expect(mocks.getFundState.mock.calls[0]![1]).toMatchObject({ preview_due: true });
   });
 
   it("leaves the REST API itself unchanged: HTTP without a key is still 401", async () => {

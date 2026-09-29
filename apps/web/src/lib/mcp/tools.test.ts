@@ -144,6 +144,14 @@ describe("MCP tool catalog", () => {
     }
   });
 
+  it("asks every queue-reading tool for preview evaluation, which never writes", async () => {
+    for (const name of ["get_fund_state", "list_reviews"]) {
+      const tool = POWERFUND_TOOLS.find((row) => row.name === name)!;
+      const calls = await run(tool, SAMPLE_ARGS[name]!);
+      expect(calls[0]!.args[0], name).toMatchObject({ evaluate: "preview" });
+    }
+  });
+
   it("never lets a read-only tool reach a write operation", async () => {
     for (const tool of POWERFUND_TOOLS.filter((row) => row.annotations.readOnlyHint)) {
       const calls = await run(tool, SAMPLE_ARGS[tool.name]!);
@@ -290,7 +298,13 @@ describe("tool handlers shape the REST call", () => {
   it("joins list filters the way the REST query expects", async () => {
     const tool = POWERFUND_TOOLS.find((row) => row.name === "list_reviews")!;
     const calls = await run(tool, { status: ["completed"], symbols: ["CRDO", "AVGO"], scope: "company", limit: 5 });
-    expect(calls[0]!.args[0]).toEqual({ status: "completed", symbol: "CRDO,AVGO", scope: "company", limit: 5 });
+    expect(calls[0]!.args[0]).toEqual({
+      status: "completed",
+      symbol: "CRDO,AVGO",
+      scope: "company",
+      limit: 5,
+      evaluate: "preview",
+    });
   });
 });
 
@@ -315,8 +329,8 @@ describe("get_review_context", () => {
       .map((call) => call.args[0]);
     expect(queries).toContainEqual({ status: "completed", symbol: "mrcy", limit: 5 });
     expect(queries).toContainEqual({ status: "completed", scope: "portfolio", limit: 5 });
-    // The open-queue read must not evaluate (and so must not write).
-    expect(queries).toContainEqual({ status: "open", symbol: "mrcy", evaluate: false });
+    // The open-queue read previews fired triggers and records nothing.
+    expect(queries).toContainEqual({ status: "open", symbol: "mrcy", evaluate: "preview" });
     expect(client.calls.map((call) => call.method)).toEqual(
       expect.arrayContaining(["getCompanyDossier", "getJournal", "getPlannedActions"]),
     );

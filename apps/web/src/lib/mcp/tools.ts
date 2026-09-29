@@ -73,13 +73,13 @@ function defineTool<Shape extends z.ZodRawShape>(tool: PowerFundTool<Shape>) {
  * Reads. `openWorldHint` is false everywhere: every tool touches only
  * PowerFund's own store, never the open internet.
  *
- * get_fund_state and list_reviews are marked read-only although their REST
- * operations may flip a pending review task to `due` when its trigger has
- * already fired. That write is a materialisation, not a decision: it is
- * monotonic, guarded by `status = 'pending'`, derived only from the trigger,
- * the clock and stored bars, and is the same flip the Briefing page makes when
- * it loads. It changes no belief and nothing the operator would be asked to
- * approve. See docs/mcp-tools.md for the full reasoning.
+ * `readOnlyHint: true` is literal. The REST reads behind get_fund_state and
+ * list_reviews latch fired review triggers (pending → due) by default; these
+ * tools ask for `evaluate=preview`, which reports a fired trigger as due
+ * without writing it. The latch runs after each bars ingest instead
+ * (packages/db review-triggers.ts). tools.test.ts runs every read tool
+ * against a recording client, and agent-client.test.ts checks the preview
+ * path writes nothing.
  */
 const READ: ToolAnnotations = {
   readOnlyHint: true,
@@ -139,7 +139,8 @@ const getFundState = defineTool({
   scopes: ["powerfund:state:read"],
   annotations: READ,
   operations: ["getFundState"],
-  handler: (args, { client }) => client.getFundState(compact({ ...args })),
+  handler: (args, { client }) =>
+    client.getFundState(compact({ ...args, evaluate: "preview" })),
 });
 
 const getPortfolio = defineTool({
@@ -328,6 +329,7 @@ const listReviews = defineTool({
         completed_before: args.completed_before,
         limit: args.limit,
         order: args.order,
+        evaluate: "preview",
       }),
     ),
 });
@@ -411,9 +413,8 @@ const getReviewContext = defineTool({
             status: "open",
             symbol: args.symbol,
             theme: args.theme,
-            // Open-queue listings evaluate triggers by default; this pack is
-            // a pure read, and get_fund_state is where evaluation happens.
-            evaluate: false,
+            // Show fired triggers as due without recording it: a pure read.
+            evaluate: "preview",
           }),
         ),
         args.symbol ? client.getPlannedActions() : null,
