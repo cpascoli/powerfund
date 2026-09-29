@@ -53,6 +53,7 @@ pnpm --filter @powerfund/worker score:replay -- --from=2021-06-21 --every=21
 pnpm --filter @powerfund/worker bars:audit           # find split-shaped jumps
 pnpm --filter @powerfund/worker bars:freshness       # does the store reach the last session?
 pnpm --filter @powerfund/worker verify:book          # positions/cash vs the ledger, and the append-only guards
+pnpm --filter @powerfund/worker reviews:latch        # record fired review triggers (also runs after ingest:bars)
 ```
 
 ## Working with production
@@ -128,11 +129,16 @@ Each was a real production defect. See the remediation log for the full story.
   own. A rule added to a route applies to both surfaces for free; a rule added
   to a tool applies to one. The principal crosses via `AsyncLocalStorage`, which
   HTTP cannot forge. Plain HTTP to the agent API still needs a key. A new agent
-  operation needs a tool (`tools.test.ts`) and a regenerated
+  operation must be classified in `exposure.ts`, and if exposed needs a tool and a regenerated
   `docs/mcp-tools.md` (`UPDATE_MCP_CATALOG=1 pnpm test -- catalog`). OAuth for
   MCP clients is PowerFund's own (`lib/oauth`); tokens are resource-bound, so a
-  Deploy Preview's grant never works in production. Previews still write the
-  production database, so grant them read-only.
+  Deploy Preview's grant never works in production. Only the production build
+  lets MCP write (`lib/deploy.ts`, from Netlify build values inlined by
+  `next.config.ts`); previews share the production database and are read-only.
+  MCP reads never latch review triggers (`evaluate=preview`); the latch runs
+  after each bars ingest, because a price condition can un-satisfy. Which
+  operations MCP exposes is decided in `lib/mcp/exposure.ts`, not implied by a
+  route existing.
 - **A planned action has a direction, and every risk rule is a rule about one
   side.** `mandateGate` takes a required `side`; a `sell` skips the caps and the
   kill-switch entirely and is gated only on holding the thing, because every one

@@ -29,7 +29,7 @@ fallback afterwards.
 | A | Audit GPT behaviour and the agent API | Done: [architecture § audit](./mcp-architecture.md#the-existing-agent-api-audited) |
 | B | Build the MCP server in parallel | Done: `/api/v1/mcp`, 22 tools, OAuth |
 | C | Test with MCP Inspector | Done locally, CLI and real server (below) |
-| D | Deploy a preview endpoint | **Operator**: needs a push and `supabase db push` |
+| D | Deploy a preview endpoint | Migration pushed; PR #1 preview live and unauthenticated checks pass. Review fixes (read-only previews, trigger preview) need a push |
 | E | ChatGPT Developer Mode | **Operator** |
 | F | Staging plugin (skill + MCP) | Package built: `plugins/powerfund/build.sh --staging` |
 | G | Regression suite vs the legacy GPT | **Operator**: [evals/mcp](../evals/mcp/README.md) |
@@ -50,8 +50,9 @@ fallback afterwards.
    endpoint: `https://deploy-preview-<n>--powerfund.netlify.app/api/v1/mcp`.
    A push to `main` is a production deploy. Merging can wait until phase E has
    passed on the preview.
-3. In the Netlify UI, set `POWERFUND_PUBLIC_ORIGIN=https://powerfund.netlify.app`
-   for the **Production** context only, with **Functions** scope. Leave previews unset.
+3. Nothing to set in Netlify. Each deployment takes its canonical origin from
+   its own build (`URL` for production, `DEPLOY_PRIME_URL` for a preview), and
+   only the production build allows MCP writes.
 
 ## Local testing
 
@@ -71,6 +72,7 @@ curl -X POST "$API_URL/auth/v1/admin/users" -H "apikey: $SERVICE_ROLE_KEY" \
 # which holds production credentials.
 export NEXT_PUBLIC_SUPABASE_URL=$API_URL SUPABASE_URL=$API_URL
 export NEXT_PUBLIC_SUPABASE_ANON_KEY=$ANON_KEY SUPABASE_SERVICE_ROLE_KEY=$SERVICE_ROLE_KEY
+export POWERFUND_MCP_ALLOW_WRITES=true   # local stack only: off Netlify, MCP is read-only by default
 export POWERFUND_AGENT_API_KEYS='[{"name":"local-writer","secret":"pf_local_writer_key_0001","role":"write"},{"name":"local-reader","secret":"pf_local_reader_key_0001","role":"read"}]'
 pnpm --filter @powerfund/web exec next dev --port 3100
 ```
@@ -136,9 +138,11 @@ curl -si -X POST $P/api/v1/mcp -H 'content-type: application/json' \
 Then repeat the Inspector checks against `$P/api/v1/mcp`: CLI with a real read
 key, then the UI OAuth flow signed in as the production operator.
 
-> **The preview reads and writes the production database.** Grant it **read
-> only** unless you mean to write real rows. Its tokens are bound to the
-> preview URL and do not work in production.
+> **The preview reads the production database, and cannot write to it through
+> MCP.** Every write tool returns `WRITES_DISABLED`, the consent page offers
+> read-only only, and the principal is cut to read scopes. Its tokens are bound
+> to the preview URL and do not work in production. Write cases are tested on a
+> local stack, or after merge against production.
 
 ## Phase E: ChatGPT Developer Mode
 
@@ -154,8 +158,10 @@ key, then the UI OAuth flow signed in as the production operator.
 5. In a new conversation, run the `writes: none` cases from
    [evals/mcp](../evals/mcp/README.md). For each, inspect the tool chosen, the
    arguments, the output, and that nothing asked to write.
-6. Reconnect with **Allow read and write** only if you want the write cases on
-   production data (see the warning above). Decline at least one approval
+6. Also try a write prompt on the preview: ChatGPT should pick the right tool
+   and ask for approval, and the call should come back `WRITES_DISABLED` with
+   nothing changed. This tests the model's tool choice without risk. Real write
+   cases run after merge, against production, declining at least one approval
    prompt to confirm nothing lands without it.
 7. After changing tools on the server: redeploy, then **Refresh** the connection,
    then start a **new** conversation.
@@ -194,7 +200,7 @@ Migration uses the GPT's **published** version. Before migrating:
   - [ ] conversation starters
   - [ ] the regression results from phase G
 - [ ] Note which agent API key the GPT uses (by **name**, never the secret). It keeps working after migration until the GPT is retired
-- [ ] Production has `POWERFUND_PUBLIC_ORIGIN` set, and the MCP branch is merged and deployed
+- [ ] The MCP branch is merged and deployed, and production's `/.well-known/oauth-authorization-server` names `https://powerfund.netlify.app` as issuer
 - [ ] ChatGPT Developer Mode has passed the suite against **production** `https://powerfund.netlify.app/api/v1/mcp`, read-only at least
 
 ## Phase J: migrate
@@ -233,6 +239,9 @@ read-only fallback until it is retired.
 | After GPT retirement | The REST agent API remains: any HTTP client with an agent key, or a re-attached MCP connection |
 
 ## Operations
+
+**Stop all MCP writes without a code change:** set `POWERFUND_MCP_READ_ONLY=true`
+for the Production context in Netlify, and redeploy. Reads keep working.
 
 **Revoke a connection:** `POST /oauth/revoke` with its refresh token revokes the
 grant. To revoke every MCP grant at once, the operator runs in SQL:

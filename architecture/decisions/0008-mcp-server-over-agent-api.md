@@ -41,9 +41,13 @@ API must keep serving the GPT unchanged throughout.
 - The authorization server is ours to maintain. Supabase's OAuth server was
   rejected for now (beta, no CIMD, no resource-bound audience); swapping it in
   later only changes `verifyAccessToken`.
-- Deploy previews share the production database, so their write tools write real
-  data. Previews are granted read-only by convention, and tokens are
-  resource-bound so they never work in production.
+- Deploy previews share the production database, so MCP writes run only in the
+  production build, from Netlify build values no request can influence. Tokens
+  are resource-bound so a preview's never works in production.
+- MCP reads never write: review triggers are previewed, and latched after each
+  bars ingest instead, since a price condition can stop being true.
+- The exposed surface is an explicit manifest (`lib/mcp/exposure.ts`), not
+  "every route is a tool".
 - Follow-ups: `private_key_jwt` client authentication, a grants page for the
   operator, and output schemas once responses are typed.
 
