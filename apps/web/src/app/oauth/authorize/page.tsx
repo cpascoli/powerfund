@@ -5,7 +5,7 @@ import { redirect } from "next/navigation";
 
 import { SiteFooter } from "@/components/site-footer";
 import { getSessionRole } from "@/lib/auth/operator";
-import { mcpWriteMode } from "@/lib/deploy";
+import { dynamicRegistrationEnabled, mcpWriteMode } from "@/lib/deploy";
 import { validateAuthorizationRequest } from "@/lib/oauth/authorize";
 import { clientDisplayName } from "@/lib/oauth/clients";
 import { isWriteScope, oauthUrls, publicOrigin } from "@/lib/oauth/config";
@@ -97,7 +97,9 @@ export default async function AuthorizePage({ searchParams }: { searchParams: Se
   }
 
   const urls = oauthUrls(publicOrigin(await headers()));
-  const validation = await validateAuthorizationRequest(oauthStoreFromEnv(), urls, params);
+  const validation = await validateAuthorizationRequest(oauthStoreFromEnv(), urls, params, {
+    allowDynamicClients: dynamicRegistrationEnabled(),
+  });
   if (!validation.ok) {
     if (validation.kind === "redirect") redirect(validation.location);
     return <Refusal title="Cannot connect" message={validation.message} />;

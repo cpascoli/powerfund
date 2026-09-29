@@ -1,12 +1,18 @@
 import { OAUTH_SCOPES, type OAuthUrls } from "./config";
 
+export type MetadataOptions = { dynamicRegistration: boolean };
+
 /** RFC 8414 authorization server metadata. */
-export function authorizationServerMetadata(urls: OAuthUrls) {
+export function authorizationServerMetadata(
+  urls: OAuthUrls,
+  options: MetadataOptions = { dynamicRegistration: true },
+) {
   return {
     issuer: urls.issuer,
     authorization_endpoint: urls.authorizationEndpoint,
     token_endpoint: urls.tokenEndpoint,
-    registration_endpoint: urls.registrationEndpoint,
+    // Advertised only where DCR is open; production relies on CIMD.
+    ...(options.dynamicRegistration ? { registration_endpoint: urls.registrationEndpoint } : {}),
     revocation_endpoint: urls.revocationEndpoint,
     response_types_supported: ["code"],
     response_modes_supported: ["query"],

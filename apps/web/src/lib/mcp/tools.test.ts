@@ -157,12 +157,18 @@ describe("MCP tool catalog", () => {
     }
   });
 
-  it("marks withdrawing or overwriting writes destructive, appends not", () => {
+  it("marks withdrawing, overwriting or irreversible writes destructive, appends not", () => {
     const destructive = POWERFUND_TOOLS.filter((tool) => tool.annotations.destructiveHint).map(
       (tool) => tool.name,
     );
     expect(destructive.sort()).toEqual(
-      ["set_watchlist_archived", "update_dossier", "update_planned_action", "update_review_task"].sort(),
+      [
+        "complete_review_task",
+        "set_watchlist_archived",
+        "update_dossier",
+        "update_planned_action",
+        "update_review_task",
+      ].sort(),
     );
   });
 

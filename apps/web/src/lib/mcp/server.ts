@@ -9,6 +9,7 @@ import {
   type PowerFundAgentClient,
 } from "./agent-client";
 import type { McpLogger } from "./log";
+import { outputSchemaFor } from "./outputs";
 import { POWERFUND_TOOLS, ToolInputError, type PowerFundTool } from "./tools";
 
 export const MCP_SERVER_NAME = "powerfund";
@@ -160,6 +161,10 @@ export function createPowerFundMcpServer(deps: McpServerDeps): McpServer {
         // it imagined (mandate_override_reason, status: "confirmed") learns
         // that it had no effect.
         inputSchema: z.strictObject(tool.inputSchema),
+        // Permissive by construction (optional fields, open objects): the SDK
+        // checks it after the handler runs, so it must never be stricter
+        // than the API it describes. See outputs.ts.
+        outputSchema: outputSchemaFor(tool.name),
         annotations: { title: tool.title, ...tool.annotations },
         _meta: { securitySchemes: securitySchemesFor(tool) },
       },

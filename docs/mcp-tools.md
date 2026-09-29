@@ -77,9 +77,9 @@ These are exposed, but shaped to protect the model from its usual mistakes:
 | Annotation | Rule |
 |------------|------|
 | `readOnlyHint: true` | The tool changes no state. Enforced by a test that runs every read tool against a recording client, and by `evaluate=preview` on the queue reads (below) |
-| `destructiveHint: true` | The write replaces or withdraws something: `update_dossier` (live text), `update_planned_action` (can cancel an intended trade), `update_review_task` (can cancel), `set_watchlist_archived` |
-| `destructiveHint: false` on a write | Pure appends: a decision, a grade, a queued action, a new review, a completed review's outcome, a new watchlist name |
-| `idempotentHint` | True for reads and for updates that set a state; false for appends |
+| `destructiveHint: true` | The write replaces, withdraws or irreversibly closes something: `update_dossier` (live text), `update_planned_action` (can cancel an intended trade), `update_review_task` (can cancel), `set_watchlist_archived`, `complete_review_task` (no endpoint reopens a completed review) |
+| `destructiveHint: false` on a write | Pure appends: a decision, a grade, a queued action, a new review, a new watchlist name |
+| `idempotentHint` | True for reads and for updates that set a state; false for appends and for completion (a second completion is refused) |
 | `openWorldHint: false` | Everywhere. Every tool touches only PowerFund's own store |
 
 Annotations are hints to the client. They do not enforce anything. Authorization is the
@@ -98,6 +98,21 @@ obligation. The latch now runs after every bars ingest
 (`packages/db/src/review-triggers.ts`, called by the worker), the only time a
 condition's inputs change. The Briefing page and the REST agent API's default
 reads still latch as before.
+
+### Output schemas
+
+Every tool declares an `outputSchema` (`lib/mcp/outputs.ts`), advertised in
+`tools/list` in both protocol eras. They describe each top-level field the
+model should rely on, with the real coarse type and a description. They are
+permissive by construction: every field is optional, because the agent API
+drops nulls, and every object is open, because a response gaining a field must
+not break a client.
+
+The SDK validates *after* the handler runs, so a schema stricter than the API
+would turn a write that landed into an error. `outputs.test.ts` proves each
+schema accepts a realistic result, an empty one and unknown fields, while
+still rejecting a wrong type. All 22 tools were also run against real data on
+a local database with no validation failure.
 
 ### Errors
 
@@ -142,7 +157,7 @@ reconnect with more scope.
 | `update_planned_action` | Write — modifies or withdraws | `powerfund:deployment:write` | updatePlannedAction |
 | `create_review_task` | Write — append | `powerfund:reviews:write` | createReviewTask |
 | `update_review_task` | Write — modifies or withdraws | `powerfund:reviews:write` | updateReviewTask |
-| `complete_review_task` | Write — append | `powerfund:reviews:write` | completeReviewTask |
+| `complete_review_task` | Write — modifies or withdraws | `powerfund:reviews:write` | completeReviewTask |
 | `add_watchlist_company` | Write — append | `powerfund:watchlist:write` | addWatchlistCompany |
 | `set_watchlist_archived` | Write — modifies or withdraws | `powerfund:watchlist:write` | setWatchlistArchived |
 
@@ -500,8 +515,8 @@ After the user approves the conclusion, close a review task with its written out
 
 | | |
 |---|---|
-| Kind | Write — append |
-| Annotations | readOnlyHint=false, destructiveHint=false, idempotentHint=false, openWorldHint=false |
+| Kind | Write — modifies or withdraws |
+| Annotations | readOnlyHint=false, destructiveHint=true, idempotentHint=false, openWorldHint=false |
 | Scopes (all required) | `powerfund:reviews:write` |
 | Backing REST | `completeReviewTask` (`POST /api/v1/agent/review-tasks/{id}/complete`) |
 

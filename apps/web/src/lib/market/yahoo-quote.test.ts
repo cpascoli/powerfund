@@ -30,6 +30,7 @@ describe("liveQuoteFromYahoo", () => {
     });
 
     expect(quote?.price).toBe(99);
+    expect(quote?.regularPrice).toBe(101);
     expect(quote?.change).toBe(-1);
     expect(quote?.changePct).toBe(-1);
   });

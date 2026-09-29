@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 
 import { dossierResearchLevelLabel } from "@powerfund/domain";
 
+import { CompanyQuote } from "@/components/company-quote";
 import { DossierForm } from "@/components/dossier-form";
 import { PriceHistoryChart } from "@/components/price-history-chart";
 import { PriceReturnsRow } from "@/components/price-returns-row";
@@ -13,11 +14,11 @@ import {
   getInstrumentMarketSnapshot,
   getInstrumentPriceHistory,
 } from "@/lib/data/research";
+import { companyQuoteMark } from "@/lib/market/company-quote";
 import {
   canOverlayLiveQuote,
   getLiveQuoteForInstrument,
   overlayLiveQuote,
-  quoteCaption,
 } from "@/lib/market/quotes";
 import { computePriceReturns } from "@/lib/market/returns";
 import { isOperator } from "@/lib/auth/operator";
@@ -85,8 +86,11 @@ export default async function InstrumentDossierPage({
   );
   const returns = computePriceReturns(points);
   const editing = operator && (edit === "1" || !dossier);
-  const displayPrice = liveQuote?.price ?? market.lastClose;
-  const priceCaption = liveQuote ? quoteCaption(liveQuote) : "Close";
+  const quoteMark = companyQuoteMark({
+    quote: liveQuote,
+    bars: priceHistory,
+    lastClose: market.lastClose,
+  });
 
   const formatUsd = (value: number | null) => {
     if (value == null) return "—";
@@ -100,20 +104,25 @@ export default async function InstrumentDossierPage({
   return (
     <>
       <header className="page-header">
-        <div>
+        <div className="page-heading">
           <p className="crumb">
             <Link href="/explore">Explore</Link>
             <span aria-hidden="true"> / </span>
             {instrument.symbol}
           </p>
-          <h1>
-            {instrument.symbol}{" "}
-            <span className="muted">{instrument.name}</span>
-          </h1>
-          <p>
-            {instrument.theme_name}
-            {instrument.notes ? ` · ${instrument.notes}` : ""}
-          </p>
+          <div className="page-title-line">
+            <div className="page-title-copy">
+              <h1>
+                {instrument.symbol}{" "}
+                <span className="muted">{instrument.name}</span>
+              </h1>
+              <p>
+                {instrument.theme_name}
+                {instrument.notes ? ` · ${instrument.notes}` : ""}
+              </p>
+            </div>
+            {quoteMark ? <CompanyQuote mark={quoteMark} /> : null}
+          </div>
         </div>
         {operator ? (
           <div className="header-actions">
@@ -155,12 +164,6 @@ export default async function InstrumentDossierPage({
             {dossier
               ? dossierResearchLevelLabel(dossier.research_level)
               : "—"}
-          </strong>
-        </div>
-        <div className="stat">
-          <span>{priceCaption}</span>
-          <strong>
-            {displayPrice != null ? `$${displayPrice.toFixed(2)}` : "—"}
           </strong>
         </div>
         <div className="stat">

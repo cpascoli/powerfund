@@ -128,6 +128,7 @@ describe("discovery metadata", () => {
     publicOriginOverride: "",
     mcpReadOnly: "",
     mcpAllowWrites: "",
+    oauthAllowDcr: "",
     ...overrides,
   });
   const evilHost = new Headers({ host: "evil.example", "x-forwarded-proto": "https" });
@@ -602,5 +603,49 @@ describe("security review: exact matching and transaction binding", () => {
     const row = [...store.tokens.values()].find((token) => token.kind === "access")!;
     expect(row.resource).toBe(urls.resource);
     expect((await verifyAccessToken(store, urls, tokens.access_token, later(6))).ok).toBe(true);
+  });
+});
+
+describe("dynamic client registration by deployment", () => {
+  it("is open on previews and local stacks, closed in production unless re-enabled", async () => {
+    const { dynamicRegistrationEnabled } = await import("@/lib/deploy");
+    const env = (overrides: Partial<DeployEnv>): DeployEnv => ({
+      context: "",
+      siteUrl: "",
+      deployUrl: "",
+      publicOriginOverride: "",
+      mcpReadOnly: "",
+      mcpAllowWrites: "",
+      oauthAllowDcr: "",
+      ...overrides,
+    });
+    expect(dynamicRegistrationEnabled(env({ context: "production" }))).toBe(false);
+    expect(dynamicRegistrationEnabled(env({ context: "production", oauthAllowDcr: "true" }))).toBe(true);
+    expect(dynamicRegistrationEnabled(env({ context: "deploy-preview" }))).toBe(true);
+    expect(dynamicRegistrationEnabled(env({}))).toBe(true);
+  });
+
+  it("hides the registration endpoint from metadata where it is closed", () => {
+    expect(authorizationServerMetadata(urls, { dynamicRegistration: false })).not.toHaveProperty(
+      "registration_endpoint",
+    );
+    expect(authorizationServerMetadata(urls, { dynamicRegistration: false }).client_id_metadata_document_supported).toBe(true);
+  });
+
+  it("refuses a client a preview registered in the shared database, but still serves ChatGPT's CIMD", async () => {
+    const store = memoryOAuthStore([OPERATOR]);
+    const dynamic = await registerDynamicClient(store, { redirect_uris: ["http://localhost:6274/cb"] });
+    const refused = await validateAuthorizationRequest(
+      store,
+      urls,
+      authorizeParams({ client_id: dynamic.client_id, redirect_uri: "http://localhost:6274/cb" }),
+      { allowDynamicClients: false },
+    );
+    expect(refused).toMatchObject({ ok: false, kind: "fatal" });
+    const chatgpt = await validateAuthorizationRequest(store, urls, authorizeParams(), {
+      fetch: fetchReturning(chatgptDocument),
+      allowDynamicClients: false,
+    });
+    expect(chatgpt.ok).toBe(true);
   });
 });

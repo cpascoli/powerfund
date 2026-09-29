@@ -96,6 +96,18 @@ const APPEND: ToolAnnotations = {
   openWorldHint: false,
 };
 
+/**
+ * Closes something for good: there is no supported path back. Completing a
+ * review is refused a second time, and no endpoint reopens it, so the call
+ * is destructive in the sense that matters: it cannot be undone.
+ */
+const FINALIZE: ToolAnnotations = {
+  readOnlyHint: false,
+  destructiveHint: true,
+  idempotentHint: false,
+  openWorldHint: false,
+};
+
 /** Changes an existing row in a way that can withdraw or overwrite intent. */
 const MODIFY: ToolAnnotations = {
   readOnlyHint: false,
@@ -672,7 +684,7 @@ const completeReviewTask = defineTool({
       .optional(),
   },
   scopes: ["powerfund:reviews:write"],
-  annotations: APPEND,
+  annotations: FINALIZE,
   operations: ["completeReviewTask"],
   handler: (args, { client, write }) => {
     const { review_task_id, ...body } = args;

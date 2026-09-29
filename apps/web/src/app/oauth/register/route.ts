@@ -1,4 +1,5 @@
 import { clientKey, rateLimit } from "@/lib/api/v1/rate-limit";
+import { dynamicRegistrationEnabled } from "@/lib/deploy";
 import { OAuthClientError, registerDynamicClient } from "@/lib/oauth/clients";
 import { oauthError, oauthJson, oauthPreflight, oauthStoreFromEnv } from "@/lib/oauth/http";
 
@@ -11,6 +12,13 @@ export const dynamic = "force-dynamic";
  * the consent page, which labels it as self-registered.
  */
 export async function POST(request: Request) {
+  if (!dynamicRegistrationEnabled()) {
+    return oauthError(
+      "invalid_client_metadata",
+      "Dynamic client registration is disabled on this deployment. Clients identify themselves with a Client ID Metadata Document.",
+      403,
+    );
+  }
   const limited = rateLimit(`oauth-register:${clientKey(request)}`);
   if (!limited.ok) {
     return oauthError("slow_down", "Too many registrations.", 429);

@@ -20,6 +20,7 @@ export type DeployEnv = {
   publicOriginOverride: string;
   mcpReadOnly: string;
   mcpAllowWrites: string;
+  oauthAllowDcr: string;
 };
 
 export function deployEnv(): DeployEnv {
@@ -30,6 +31,7 @@ export function deployEnv(): DeployEnv {
     publicOriginOverride: process.env.POWERFUND_PUBLIC_ORIGIN ?? "",
     mcpReadOnly: process.env.POWERFUND_MCP_READ_ONLY ?? "",
     mcpAllowWrites: process.env.POWERFUND_MCP_ALLOW_WRITES ?? "",
+    oauthAllowDcr: process.env.POWERFUND_OAUTH_ALLOW_DCR ?? "",
   };
 }
 
@@ -59,4 +61,20 @@ export function mcpWriteMode(env: DeployEnv = deployEnv()): McpWriteMode {
   if (env.context === "production") return { enabled: true, reason: "production" };
   if (env.mcpAllowWrites === "true") return { enabled: true, reason: "explicit_opt_in" };
   return { enabled: false, reason: "non_production_deployment" };
+}
+
+/**
+ * Whether OAuth dynamic client registration is open here.
+ *
+ * Off in production. ChatGPT (and Claude) identify themselves with Client ID
+ * Metadata Documents; DCR there would only let anyone mint client rows in the
+ * production database and one per connection. Previews and local stacks keep
+ * it for MCP Inspector and CLI clients. Because previews share the production
+ * database, turning it off also means production refuses to authorize any
+ * dynamically registered client — including one a preview registered.
+ * POWERFUND_OAUTH_ALLOW_DCR=true re-enables it in production.
+ */
+export function dynamicRegistrationEnabled(env: DeployEnv = deployEnv()): boolean {
+  if (env.context === "production") return env.oauthAllowDcr === "true";
+  return true;
 }
