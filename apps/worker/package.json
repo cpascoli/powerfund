@@ -20,7 +20,8 @@
     "score:replay": "tsx src/index.ts replay",
     "bars:audit": "tsx src/index.ts audit",
     "bars:freshness": "tsx src/index.ts freshness",
-    "verify:book": "tsx src/index.ts verify:book"
+    "verify:book": "tsx src/index.ts verify:book",
+    "reviews:latch": "tsx src/index.ts reviews:latch"
   },
   "dependencies": {
     "@powerfund/data-clients": "workspace:*",

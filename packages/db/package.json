@@ -15,6 +15,7 @@
     "lint": "echo \"no lint configured\""
   },
   "dependencies": {
+    "@powerfund/domain": "workspace:*",
     "@supabase/supabase-js": "^2.49.1"
   },
   "devDependencies": {

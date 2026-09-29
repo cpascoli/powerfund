@@ -104,6 +104,9 @@ importers:
 
   packages/db:
     dependencies:
+      '@powerfund/domain':
+        specifier: workspace:*
+        version: link:../domain
       '@supabase/supabase-js':
         specifier: ^2.49.1
         version: 2.112.3

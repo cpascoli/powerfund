@@ -26,6 +26,8 @@ import { toPrivatePortfolio } from "./portfolio";
 export type FundStateQuery = {
   recent_decisions?: number;
   include_watchlist?: boolean;
+  /** Show fired triggers as due without recording pending → due. */
+  preview_due?: boolean;
 };
 
 function clamp(value: number, min: number, max: number): number {
@@ -57,7 +59,7 @@ export async function getFundState(
     listThemes(supabase),
     listOpenPlannedActions(supabase),
     listDecisions(supabase),
-    getReviewRadar(supabase),
+    getReviewRadar(supabase, { previewDue: query.preview_due === true }),
     listPortfolioSnapshots(365, supabase),
     listLedgerFlows(supabase),
     listSleeveDiagnosticRecords(supabase),

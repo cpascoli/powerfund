@@ -41,8 +41,14 @@ export type ReviewQueueFilter = {
   completedBefore: string | null;
   limit: number;
   order: ReviewQueueOrder;
-  /** Whether to evaluate pending triggers before listing. */
+  /** Whether to evaluate pending triggers before listing, recording pending → due. */
   evaluate: boolean;
+  /**
+   * `evaluate=preview`: report a fired trigger as due without recording it.
+   * For read-only callers (the MCP tools); the latch then happens after the
+   * next bars ingest, or on the next default read.
+   */
+  previewDue: boolean;
   /** True when the caller asked only for finished work. */
   historical: boolean;
 };
@@ -154,8 +160,11 @@ export function parseReviewQueueFilter(
 ): ReviewQueueFilter {
   const { statuses, historical } = parseStatuses(params.get("status"));
   const evaluateRaw = params.get("evaluate");
+  const previewDue = evaluateRaw === "preview";
   const evaluate =
-    evaluateRaw == null
+    previewDue
+      ? false
+      : evaluateRaw == null
       ? // Evaluating triggers mutates pending rows. A history query has no
         // business doing that, so it is off unless asked for.
         !historical
@@ -179,6 +188,7 @@ export function parseReviewQueueFilter(
     limit: parseLimit(params.get("limit")),
     order: parseOrder(params.get("order"), historical),
     evaluate,
+    previewDue,
     historical,
   };
 }
