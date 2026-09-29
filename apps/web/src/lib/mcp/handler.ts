@@ -10,6 +10,8 @@ import {
 
 import { clientKey, rateLimit } from "@/lib/api/v1/rate-limit";
 import type { AgentPrincipal } from "@/lib/api/agent/auth";
+import { READ_SCOPES } from "@/lib/api/agent/scopes";
+import { deployEnv, mcpWriteMode, type DeployEnv } from "@/lib/deploy";
 import { oauthUrls, publicOrigin, type OAuthUrls } from "@/lib/oauth/config";
 import type { OAuthStore } from "@/lib/oauth/store";
 
@@ -28,6 +30,8 @@ export type McpHandlerDeps = {
   agentKeys?: string;
   toolTimeoutMs?: number;
   now?: () => Date;
+  /** Which deployment this is. Defaults to the build's own values. */
+  deploy?: DeployEnv;
 };
 
 const CORS_HEADERS: Record<string, string> = {
@@ -82,12 +86,15 @@ export async function handleMcpRequest(request: Request, deps: McpHandlerDeps): 
   const started = Date.now();
   const logger = (deps.logger ?? createMcpLogger)(requestId);
   const now = deps.now ?? (() => new Date());
+  const deploy = deps.deploy ?? deployEnv();
+  const writes = mcpWriteMode(deploy);
 
   let urls: OAuthUrls;
   try {
-    urls = oauthUrls(publicOrigin(request.headers));
+    urls = oauthUrls(publicOrigin(request.headers, deploy));
   } catch {
-    return withHeaders(jsonRpcError(400, -32600, "Missing Host header."), requestId);
+    // No canonical origin means no safe issuer or resource to bind tokens to.
+    return withHeaders(jsonRpcError(503, -32000, "This deployment's public origin is not configured."), requestId);
   }
 
   const log = (status: number, extra: Partial<Parameters<McpLogger["request"]>[0]> = {}) =>
@@ -161,16 +168,28 @@ export async function handleMcpRequest(request: Request, deps: McpHandlerDeps): 
     return withHeaders(jsonRpcError(400, -32700, "Parse error: body is not JSON."), requestId);
   }
 
+  // On a read-only deployment (every Deploy Preview) the principal loses its
+  // write scopes before anything runs. The tool layer refuses writes with a
+  // clear error, and REST's own scope check would refuse them anyway, so a
+  // mistaken consent click cannot change the book from a preview.
+  const principal: AgentPrincipal = writes.enabled
+    ? auth.principal
+    : {
+        name: auth.principal.name,
+        scopes: auth.principal.scopes.filter((scope) => READ_SCOPES.includes(scope)),
+      };
+
   const origin = new URL(urls.issuer).origin;
   const client = deps.client
-    ? deps.client(auth.principal, { origin, clientAddress: address })
-    : new InProcessAgentClient(auth.principal, { origin, clientAddress: address });
+    ? deps.client(principal, { origin, clientAddress: address })
+    : new InProcessAgentClient(principal, { origin, clientAddress: address });
   // One definition of the server for both protocol eras, so a 2025-era client
   // and a 2026-07-28 client can never see different tools or rules.
   const buildServer = () =>
     createPowerFundMcpServer({
-      principal: auth.principal,
+      principal,
       client,
+      writesEnabled: writes.enabled,
       logger,
       resourceMetadataUrl: urls.resourceMetadata,
       toolTimeoutMs: deps.toolTimeoutMs,
@@ -216,7 +235,12 @@ export async function handleMcpRequest(request: Request, deps: McpHandlerDeps): 
     logger.error("mcp.request.unexpected", error);
     return withHeaders(jsonRpcError(500, -32603, "Internal error in the PowerFund MCP adapter."), requestId);
   } finally {
-    log(status, { rpc: rpcMethods(body), principal: auth.principal.name, auth: auth.method });
+    log(status, {
+      rpc: rpcMethods(body),
+      principal: auth.principal.name,
+      auth: auth.method,
+      writes: writes.enabled ? "enabled" : `disabled:${writes.reason}`,
+    });
     for (const close of cleanup) await close().catch(() => {});
   }
 }

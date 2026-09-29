@@ -17,7 +17,9 @@ import {
   registerDynamicClient,
   resolveClient,
 } from "./clients";
-import { oauthUrls, parseScopeRequest, publicOrigin } from "./config";
+import type { DeployEnv } from "@/lib/deploy";
+
+import { oauthUrls, parseScopeRequest, publicOrigin, PublicOriginError } from "./config";
 import { verifyPkceS256 } from "./crypto";
 import { authorizationServerMetadata, protectedResourceMetadata } from "./metadata";
 import { memoryOAuthStore } from "./store";
@@ -119,13 +121,45 @@ describe("discovery metadata", () => {
     });
   });
 
-  it("uses a configured origin over the Host header", () => {
-    const headers = new Headers({ host: "evil.example" });
-    expect(publicOrigin(headers, { POWERFUND_PUBLIC_ORIGIN: "https://powerfund.netlify.app/" })).toBe(
-      "https://powerfund.netlify.app",
-    );
-    expect(publicOrigin(headers, {})).toBe("https://evil.example");
-    expect(publicOrigin(new Headers({ host: "localhost:3000" }), {})).toBe("http://localhost:3000");
+  const deploy = (overrides: Partial<DeployEnv> = {}): DeployEnv => ({
+    context: "",
+    siteUrl: "",
+    deployUrl: "",
+    publicOriginOverride: "",
+    mcpReadOnly: "",
+    mcpAllowWrites: "",
+    ...overrides,
+  });
+  const evilHost = new Headers({ host: "evil.example", "x-forwarded-proto": "https" });
+
+  it("takes production's origin from the build, never from Host", () => {
+    const env = deploy({
+      context: "production",
+      siteUrl: "https://powerfund.netlify.app",
+      deployUrl: "https://6abb35b4--powerfund.netlify.app",
+    });
+    expect(publicOrigin(evilHost, env)).toBe("https://powerfund.netlify.app");
+  });
+
+  it("gives a Deploy Preview its own canonical origin, never Host", () => {
+    const env = deploy({
+      context: "deploy-preview",
+      siteUrl: "https://powerfund.netlify.app",
+      deployUrl: "https://deploy-preview-1--powerfund.netlify.app",
+    });
+    expect(publicOrigin(evilHost, env)).toBe("https://deploy-preview-1--powerfund.netlify.app");
+  });
+
+  it("lets an explicit override win", () => {
+    const env = deploy({ context: "production", siteUrl: "https://powerfund.netlify.app", publicOriginOverride: "https://pf.example/" });
+    expect(publicOrigin(evilHost, env)).toBe("https://pf.example");
+  });
+
+  it("trusts Host only on loopback, and refuses anything else unconfigured", () => {
+    expect(publicOrigin(new Headers({ host: "localhost:3000" }), deploy())).toBe("http://localhost:3000");
+    expect(publicOrigin(new Headers({ host: "127.0.0.1:3100" }), deploy())).toBe("http://127.0.0.1:3100");
+    expect(() => publicOrigin(evilHost, deploy())).toThrow(PublicOriginError);
+    expect(() => publicOrigin(new Headers({ host: "localhost.evil.example" }), deploy())).toThrow(PublicOriginError);
   });
 });
 
@@ -453,5 +487,120 @@ describe("PKCE", () => {
     expect(verifyPkceS256(VERIFIER, CHALLENGE)).toBe(true);
     expect(verifyPkceS256("short", CHALLENGE)).toBe(false);
     expect(verifyPkceS256(VERIFIER + "x", CHALLENGE)).toBe(false);
+  });
+});
+
+describe("security review: client metadata documents (SSRF surface)", () => {
+  const fetchNever = Object.assign(
+    async () => {
+      throw new Error("must not fetch");
+    },
+    { calls: 0 },
+  );
+
+  it.each([
+    ["plain http", "http://chatgpt.com/oauth/client.json"],
+    ["credentials in the URL", "https://user:pass@chatgpt.com/oauth/client.json"],
+    ["a fragment", "https://chatgpt.com/oauth/client.json#x"],
+    ["no path", "https://chatgpt.com/"],
+    ["a lookalike host", "https://chatgpt.com.evil.example/oauth/client.json"],
+    ["an allowed name in the path only", "https://evil.example/chatgpt.com/client.json"],
+    ["an IP literal", "https://169.254.169.254/latest/meta-data"],
+  ])("refuses %s without fetching", async (_label, url) => {
+    await expect(fetchClientMetadataDocument(url, { fetch: fetchNever })).rejects.toThrow();
+  });
+
+  it("never follows a redirect and bounds the fetch in time", async () => {
+    let init: RequestInit | undefined;
+    await fetchClientMetadataDocument(CHATGPT_CIMD, {
+      fetch: async (_url, options) => {
+        init = options;
+        return new Response(JSON.stringify(chatgptDocument));
+      },
+    });
+    expect(init?.redirect).toBe("error");
+    expect(init?.signal).toBeInstanceOf(AbortSignal);
+  });
+
+  it("treats a redirect, a network error or a timeout as an unverifiable client", async () => {
+    await expect(
+      fetchClientMetadataDocument(CHATGPT_CIMD, {
+        fetch: async () => {
+          throw new TypeError("fetch failed: redirect mode is set to error");
+        },
+      }),
+    ).rejects.toThrow(/Could not fetch/);
+  });
+
+  it.each([
+    ["an error status", () => new Response("nope", { status: 404 })],
+    ["a non-JSON body", () => new Response("<html>")],
+    ["a JSON array", () => new Response("[]")],
+    ["an oversized body", () => new Response(JSON.stringify({ ...chatgptDocument, pad: "x".repeat(70_000) }))],
+  ])("refuses %s", async (_label, respond) => {
+    await expect(fetchClientMetadataDocument(CHATGPT_CIMD, { fetch: async () => respond() })).rejects.toThrow();
+  });
+
+  it("drops unusable redirect URIs from a document instead of trusting them", async () => {
+    const client = await fetchClientMetadataDocument(CHATGPT_CIMD, {
+      fetch: fetchReturning({
+        ...chatgptDocument,
+        redirect_uris: [CHATGPT_REDIRECT, "http://attacker.example/cb", "javascript:alert(1)"],
+      }),
+    });
+    expect(client.redirect_uris).toEqual([CHATGPT_REDIRECT]);
+  });
+});
+
+describe("security review: exact matching and transaction binding", () => {
+  const validate = (params: AuthorizeParams) =>
+    validateAuthorizationRequest(memoryOAuthStore(), urls, params, { fetch: fetchReturning(chatgptDocument), now: T0 });
+
+  it.each([
+    ["a different path", `${CHATGPT_REDIRECT}/x`],
+    ["a trailing slash", `${CHATGPT_REDIRECT}/`],
+    ["an added query", `${CHATGPT_REDIRECT}?next=https://evil.example`],
+    ["a different case", CHATGPT_REDIRECT.toUpperCase()],
+  ])("matches redirect_uri exactly: refuses %s without redirecting", async (_label, redirect) => {
+    expect(await validate(authorizeParams({ redirect_uri: redirect }))).toMatchObject({ ok: false, kind: "fatal" });
+  });
+
+  it("returns state byte for byte and iss exactly equal to the advertised issuer", async () => {
+    const state = "a b&c=d/é%25";
+    const store = memoryOAuthStore([OPERATOR]);
+    const validation = await validateAuthorizationRequest(store, urls, authorizeParams({ state }), {
+      fetch: fetchReturning(chatgptDocument),
+    });
+    if (!validation.ok) throw new Error("expected ok");
+    const location = new URL(
+      await issueAuthorizationCode(store, urls, validation.request, { userId: OPERATOR, scopes: ["powerfund:state:read"] }),
+    );
+    expect(location.searchParams.get("state")).toBe(state);
+    expect(location.searchParams.get("iss")).toBe(authorizationServerMetadata(urls).issuer);
+  });
+
+  it("binds a code to its own PKCE challenge: another flow's verifier fails", async () => {
+    const { store, code } = await approve();
+    const otherVerifier = "z".repeat(64);
+    await expect(
+      exchangeToken(store, urls, codeGrant(code, { code_verifier: otherVerifier }), later(5)),
+    ).rejects.toMatchObject({ code: "invalid_grant" });
+  });
+
+  it("refuses a token request naming a different resource", async () => {
+    const { store, code } = await approve();
+    await expect(
+      exchangeToken(store, urls, codeGrant(code, { resource: "https://evil.example/api/v1/mcp" }), later(5)),
+    ).rejects.toMatchObject({ code: "invalid_target" });
+  });
+
+  it("binds a token to the canonical resource even when the client omitted it", async () => {
+    const { store, code } = await approve();
+    const params = codeGrant(code);
+    params.delete("resource");
+    const tokens = await exchangeToken(store, urls, params, later(5));
+    const row = [...store.tokens.values()].find((token) => token.kind === "access")!;
+    expect(row.resource).toBe(urls.resource);
+    expect((await verifyAccessToken(store, urls, tokens.access_token, later(6))).ok).toBe(true);
   });
 });

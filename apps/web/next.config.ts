@@ -7,6 +7,16 @@ const nextConfig: NextConfig = {
     "@powerfund/data-clients",
   ],
   serverExternalPackages: ["yahoo-finance2"],
+  // Netlify sets these during the build only; functions never see them at
+  // runtime. Inlining them lets the server know which deployment it is
+  // without trusting a request header: the MCP server's OAuth origin and its
+  // production-only write mode depend on it (src/lib/deploy.ts). Public
+  // values — URLs and a context name — so inlining exposes nothing.
+  env: {
+    POWERFUND_DEPLOY_CONTEXT: process.env.CONTEXT ?? "",
+    POWERFUND_SITE_URL: process.env.URL ?? "",
+    POWERFUND_DEPLOY_PRIME_URL: process.env.DEPLOY_PRIME_URL ?? "",
+  },
   outputFileTracingIncludes: {
     "/api/**/*": ["../../docs/*.md"],
   },

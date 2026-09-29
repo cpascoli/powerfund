@@ -39,6 +39,13 @@ export type McpServerDeps = {
   resourceMetadataUrl: string;
   /** Per-tool budget. The function platform's own limit is the hard stop. */
   toolTimeoutMs?: number;
+  /**
+   * False on any non-production deployment. Write tools stay listed, so a
+   * preview presents the model with the same catalogue as production and
+   * "did it choose a write?" is still a meaningful test, but every call is
+   * refused before it reaches PowerFund.
+   */
+  writesEnabled?: boolean;
   now?: () => Date;
 };
 
@@ -125,11 +132,17 @@ function fromApiError(error: AgentApiCallError): ToolError {
   };
 }
 
+export const READ_ONLY_DEPLOYMENT_NOTE =
+  "This deployment is read-only: write tools are listed so you can see them, but every write is refused. Describe the write you would make instead.";
+
 export function createPowerFundMcpServer(deps: McpServerDeps): McpServer {
+  const writesEnabled = deps.writesEnabled ?? true;
   const server = new McpServer(
     { name: MCP_SERVER_NAME, version: MCP_SERVER_VERSION },
     {
-      instructions: MCP_SERVER_INSTRUCTIONS,
+      instructions: writesEnabled
+        ? MCP_SERVER_INSTRUCTIONS
+        : `${MCP_SERVER_INSTRUCTIONS}\n${READ_ONLY_DEPLOYMENT_NOTE}`,
       capabilities: { tools: { listChanged: false } },
     },
   );
@@ -164,6 +177,19 @@ export function createPowerFundMcpServer(deps: McpServerDeps): McpServer {
             downstream,
           });
         };
+
+        if (!writesEnabled && !tool.annotations.readOnlyHint) {
+          // Not a scope problem, so no re-authorization challenge: reconnecting
+          // cannot unlock writes on this deployment.
+          const error: ToolError = {
+            source: "authorization",
+            code: "WRITES_DISABLED",
+            message: `Write operations are disabled on this deployment; ${tool.name} was not run and nothing changed.`,
+            retryable: false,
+          };
+          finish("error", error);
+          return errorResult(error);
+        }
 
         const missing = tool.scopes.filter(
           (scope) => !deps.principal.scopes.includes(scope),

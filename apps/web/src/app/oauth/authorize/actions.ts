@@ -4,6 +4,7 @@ import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 
 import { getSessionRole } from "@/lib/auth/operator";
+import { mcpWriteMode } from "@/lib/deploy";
 import {
   deniedRedirect,
   grantedScopes,
@@ -53,9 +54,11 @@ export async function decideAuthorization(formData: FormData): Promise<void> {
   if (decision !== "read_write" && decision !== "read_only") {
     throw new Error("Unknown consent decision.");
   }
+  // A read-only deployment never grants write scopes, whatever was posted.
+  const choice: ConsentChoice = mcpWriteMode().enabled ? (decision as ConsentChoice) : "read_only";
   const location = await issueAuthorizationCode(store, urls, validation.request, {
     userId: user.id,
-    scopes: grantedScopes(validation.request.scopes, decision as ConsentChoice),
+    scopes: grantedScopes(validation.request.scopes, choice),
   });
   redirect(location);
 }
