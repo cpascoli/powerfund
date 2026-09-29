@@ -187,7 +187,7 @@ PowerFund is its own small OAuth 2.1 authorization server, inside the same app:
 |----------|---------|
 | `/.well-known/oauth-protected-resource/api/v1/mcp` (and bare root) | RFC 9728 metadata: resource = `…/api/v1/mcp`, authorization server = the site origin |
 | `/.well-known/oauth-authorization-server` | RFC 8414 metadata: S256 only, `none` auth, CIMD supported, `iss` in responses |
-| `/oauth/register` | RFC 7591 dynamic registration (Inspector, CLIs) |
+| `/oauth/register` | RFC 7591 dynamic registration (Inspector, CLIs). **Previews and local only**; off in production |
 | `/oauth/authorize` | Consent page: operator session required, read-write / read-only / deny |
 | `/oauth/token` | `authorization_code` + PKCE, `refresh_token` with rotation |
 | `/oauth/revoke` | RFC 7009 |
@@ -213,6 +213,7 @@ again.
 | No open redirect | Client and `redirect_uri` (exact match) are verified **before** anything redirects; a bad one renders an error |
 | No SSRF from anonymous visitors | CIMD documents are fetched only after the operator is signed in, only from `POWERFUND_OAUTH_CIMD_HOSTS` (default `chatgpt.com, claude.ai, claude.com`), with a 5 s timeout, 64 KB cap and no redirects |
 | CSRF / clickjacking | Consent posts through a server action (Next refuses a mismatched Origin; verified); `X-Frame-Options: DENY`, `frame-ancestors 'none'` |
+| No self-registered clients in production | DCR is off in production: the endpoint is not advertised, `/oauth/register` refuses, and consent refuses any `dynamic` client, closing the shared-database path from a preview |
 | Self-registered clients are labelled | DCR lets anyone pick a name, so consent shows "self-registered — name not verified" and the redirect host |
 
 **Why not Supabase's OAuth server?** It would reuse the login, but today it is
@@ -247,6 +248,7 @@ Claude Code and CI reach the server without an interactive login.
 | `POWERFUND_MCP_ALLOW_WRITES` | local shell only | `true` enables MCP writes off production, for a local stack on a local database. Never set it on a preview |
 | `POWERFUND_PUBLIC_ORIGIN` | optional | Explicit origin override. Not needed on Netlify. Off Netlify, only a loopback `Host` is trusted, and anything else is refused (503) rather than guessed |
 | `POWERFUND_OAUTH_CIMD_HOSTS` | optional | Hosts whose client metadata documents may be fetched |
+| `POWERFUND_OAUTH_ALLOW_DCR` | optional, production only | `true` re-opens dynamic client registration in production. It is off there by default: ChatGPT and Claude use CIMD, and production also refuses dynamically registered clients, including ones a preview registered in the shared database. Previews and local stacks keep DCR for MCP Inspector |
 | `POWERFUND_AGENT_API_KEYS` | existing | Also accepted at `/api/v1/mcp` |
 | `SUPABASE_SERVICE_ROLE_KEY`, `NEXT_PUBLIC_SUPABASE_*` | existing | Unchanged |
 

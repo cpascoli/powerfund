@@ -9,6 +9,7 @@ const env = (overrides: Partial<DeployEnv>): DeployEnv => ({
   publicOriginOverride: "",
   mcpReadOnly: "",
   mcpAllowWrites: "",
+  oauthAllowDcr: "",
   ...overrides,
 });
 

@@ -94,7 +94,9 @@ $I --header "Authorization: Bearer pf_local_reader_key_0001" --method tools/call
 $I --header "Authorization: Bearer pf_local_reader_key_0001" --method tools/call --tool-name set_watchlist_archived --tool-arg symbol=CLS archived=true
 ```
 
-**UI, with OAuth:** this exercises the full ChatGPT-style flow.
+**UI, with OAuth:** this exercises the full ChatGPT-style flow, on local stacks
+and previews. Production has dynamic registration off, so Inspector against
+production uses an agent key (the CLI form above) instead.
 
 ```bash
 npx -y @modelcontextprotocol/inspector@latest

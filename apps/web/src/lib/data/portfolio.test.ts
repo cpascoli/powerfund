@@ -13,6 +13,7 @@ function quote(overrides: Partial<LiveQuote>): LiveQuote {
     change: 10,
     changePct: 10,
     previousClose: 100,
+    regularPrice: 110,
     source: "yahoo",
     ...overrides,
   };

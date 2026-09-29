@@ -24,6 +24,7 @@ const PRODUCTION: DeployEnv = {
   publicOriginOverride: "",
   mcpReadOnly: "",
   mcpAllowWrites: "",
+  oauthAllowDcr: "",
 };
 const PREVIEW: DeployEnv = {
   ...PRODUCTION,
@@ -734,5 +735,36 @@ describe("security review: token lifetime at the MCP endpoint", () => {
     });
     expect(stale.status).toBe(401);
     expect(stale.response.headers.get("www-authenticate")).toContain('error="invalid_token"');
+  });
+});
+
+describe("review follow-ups", () => {
+  it("lets a 2026-07-28 browser client through CORS preflight", async () => {
+    const { mcpPreflight } = await import("./handler");
+    const response = mcpPreflight();
+    expect(response.status).toBe(204);
+    const allowed = (response.headers.get("access-control-allow-headers") ?? "")
+      .toLowerCase()
+      .split(/,\s*/);
+    for (const header of ["authorization", "content-type", "mcp-protocol-version", "mcp-method", "mcp-name"]) {
+      expect(allowed, header).toContain(header);
+    }
+    expect(response.headers.get("access-control-expose-headers")).toMatch(/WWW-Authenticate/);
+  });
+
+  it("advertises an output schema on every tool, in both protocol eras", async () => {
+    const { json } = await post({ jsonrpc: "2.0", id: 1, method: "tools/list" });
+    for (const tool of json!.result.tools as Array<Record<string, any>>) {
+      expect(tool.outputSchema?.type, tool.name).toBe("object");
+    }
+  });
+
+  it("returns a write's result intact under its output schema", async () => {
+    const client = fakeAgentClient({ createDecision: { created: true, decision: { id: "d1", extra: 1 } } });
+    const { json } = await post(call("record_decision", { symbol: "VRT", decision_type: "hold", thesis: "Intact." }), {
+      client,
+    });
+    expect(json!.result.isError).toBeFalsy();
+    expect(json!.result.structuredContent.decision.id).toBe("d1");
   });
 });

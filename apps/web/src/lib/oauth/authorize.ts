@@ -54,7 +54,13 @@ export async function validateAuthorizationRequest(
   store: OAuthStore,
   urls: OAuthUrls,
   params: AuthorizeParams,
-  args: { fetch?: FetchLike; hosts?: string[]; now?: Date } = {},
+  args: {
+    fetch?: FetchLike;
+    hosts?: string[];
+    now?: Date;
+    /** False where DCR is closed: dynamically registered clients are refused. */
+    allowDynamicClients?: boolean;
+  } = {},
 ): Promise<AuthorizationValidation> {
   const clientId = params.client_id ?? "";
   const redirectUri = params.redirect_uri ?? "";
@@ -70,6 +76,17 @@ export async function validateAuthorizationRequest(
       ok: false,
       kind: "fatal",
       message: error instanceof OAuthClientError ? error.message : "The client could not be verified.",
+    };
+  }
+
+  if (client.registration === "dynamic" && args.allowDynamicClients === false) {
+    // The database is shared with previews, where DCR is open. A client a
+    // preview registered must not become authorizable here.
+    return {
+      ok: false,
+      kind: "fatal",
+      message:
+        "This deployment only accepts clients identified by a metadata document; self-registered clients are refused.",
     };
   }
 

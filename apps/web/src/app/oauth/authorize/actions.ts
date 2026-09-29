@@ -4,7 +4,7 @@ import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 
 import { getSessionRole } from "@/lib/auth/operator";
-import { mcpWriteMode } from "@/lib/deploy";
+import { dynamicRegistrationEnabled, mcpWriteMode } from "@/lib/deploy";
 import {
   deniedRedirect,
   grantedScopes,
@@ -42,7 +42,9 @@ export async function decideAuthorization(formData: FormData): Promise<void> {
 
   const store = oauthStoreFromEnv();
   const urls = oauthUrls(publicOrigin(await headers()));
-  const validation = await validateAuthorizationRequest(store, urls, params);
+  const validation = await validateAuthorizationRequest(store, urls, params, {
+    allowDynamicClients: dynamicRegistrationEnabled(),
+  });
   if (!validation.ok) {
     if (validation.kind === "redirect") redirect(validation.location);
     throw new Error(validation.message);

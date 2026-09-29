@@ -723,12 +723,94 @@ a {
   cursor: wait;
 }
 
+.page-heading {
+  flex: 1;
+  min-width: 0;
+}
+
+.page-title-line {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.85rem 1.5rem;
+}
+
+.page-title-copy {
+  min-width: 0;
+}
+
 .page-header h1 {
   margin: 0;
   font-family: var(--font-display);
   font-size: clamp(1.7rem, 2.4vw, 2.2rem);
   font-weight: 650;
   letter-spacing: -0.03em;
+}
+
+.company-quote {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  flex: 0 0 auto;
+}
+
+.company-quote-price {
+  font-family: var(--font-display);
+  font-size: clamp(1.7rem, 2.4vw, 2.2rem);
+  font-weight: 650;
+  letter-spacing: -0.03em;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+  cursor: default;
+}
+
+.company-quote-price.is-up {
+  color: var(--accent);
+}
+
+.company-quote-price.is-down {
+  color: var(--danger);
+}
+
+.company-quote-when {
+  position: absolute;
+  z-index: 5;
+  top: calc(100% + 0.45rem);
+  right: 0;
+  width: max-content;
+  padding: 0.35rem 0.55rem;
+  border-radius: 6px;
+  background: var(--ink);
+  color: var(--bg-elevated);
+  font-family: var(--font-sans);
+  font-size: 0.75rem;
+  font-weight: 550;
+  letter-spacing: 0;
+  line-height: 1.35;
+  white-space: nowrap;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.company-quote-price:hover .company-quote-when,
+.company-quote-price:focus-visible .company-quote-when {
+  opacity: 1;
+}
+
+.company-quote-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.16rem 0.5rem;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--bg-elevated);
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  line-height: 1.2;
+  white-space: nowrap;
 }
 
 .page-header p {
