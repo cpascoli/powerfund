@@ -40,6 +40,8 @@ apps/*/.netlify
 
 # Shell scripts
 *.sh
+# The plugin build script is part of the repo (docs/gpt-to-plugin-migration.md, phase F).
+!plugins/powerfund/build.sh
 
 # Assembled plugin packages (plugins/powerfund/build.sh)
 plugins/dist/
