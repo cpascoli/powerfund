@@ -1,3 +1,4 @@
+import { deployEnv, type DeployEnv } from "@/lib/deploy";
 import {
   AGENT_SCOPES,
   READ_SCOPES,
@@ -47,32 +48,41 @@ export function clientMetadataHosts(
     .filter(Boolean);
 }
 
+export class PublicOriginError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "PublicOriginError";
+  }
+}
+
 /**
- * The public origin this deployment answers on.
+ * The one canonical origin this deployment answers on. The OAuth issuer,
+ * the MCP resource, and therefore every token's binding derive from it, so
+ * it never comes from a request header on a real deployment:
  *
- * Production should set POWERFUND_PUBLIC_ORIGIN so issuer and resource are
- * fixed strings. Deploy previews and local dev fall back to the request's own
- * Host, which is what lets a preview act as its own authorization server —
- * with tokens bound to the preview's resource URL, so they cannot be replayed
- * against production even though both read the same database.
+ * 1. POWERFUND_PUBLIC_ORIGIN, if set (explicit override).
+ * 2. On Netlify, the build's own values: production → the site URL (`URL`);
+ *    a Deploy Preview or branch deploy → that deploy's `DEPLOY_PRIME_URL`,
+ *    e.g. https://deploy-preview-1--powerfund.netlify.app. A preview is thus
+ *    its own issuer, and its tokens cannot be replayed against production
+ *    even though both read the same database.
+ * 3. Off Netlify, the Host header — but only a loopback one (local dev).
+ *    Any other host with nothing configured is refused rather than trusted.
  */
-export function publicOrigin(
-  headers: Headers,
-  env: Record<string, string | undefined> = process.env,
-): string {
-  const configured = env.POWERFUND_PUBLIC_ORIGIN?.trim();
-  if (configured) {
-    return new URL(configured).origin;
+export function publicOrigin(headers: Headers, env: DeployEnv = deployEnv()): string {
+  const configured = env.publicOriginOverride.trim();
+  if (configured) return new URL(configured).origin;
+  if (env.context === "production" && env.siteUrl) return new URL(env.siteUrl).origin;
+  if (env.context && env.deployUrl) return new URL(env.deployUrl).origin;
+
+  const host = headers.get("host") ?? "";
+  if (/^(localhost|127\.0\.0\.1|\[::1\])(:\d+)?$/i.test(host)) {
+    const proto = headers.get("x-forwarded-proto")?.split(",")[0]?.trim() || "http";
+    return new URL(`${proto}://${host}`).origin;
   }
-  const host = headers.get("host");
-  if (!host) {
-    throw new Error("Cannot determine the public origin: no Host header.");
-  }
-  const local = /^(localhost|127\.0\.0\.1|\[::1\])(:\d+)?$/i.test(host);
-  const proto =
-    headers.get("x-forwarded-proto")?.split(",")[0]?.trim() ||
-    (local ? "http" : "https");
-  return new URL(`${proto}://${host}`).origin;
+  throw new PublicOriginError(
+    "This deployment has no canonical origin: set POWERFUND_PUBLIC_ORIGIN, or build on Netlify.",
+  );
 }
 
 export type OAuthUrls = {

@@ -23,6 +23,8 @@ export type RequestLogEntry = {
   principal?: string;
   auth?: "oauth" | "agent_key" | "none";
   auth_error?: string;
+  /** "enabled", or "disabled:<reason>" on a read-only deployment. */
+  writes?: string;
 };
 
 export type McpLogger = {

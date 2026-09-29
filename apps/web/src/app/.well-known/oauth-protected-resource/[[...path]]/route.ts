@@ -10,7 +10,12 @@ export const dynamic = "force-dynamic";
  * There is only one protected resource, so both return the same document.
  */
 export function GET(request: Request) {
-  return oauthJson(protectedResourceMetadata(requestUrls(request)));
+  try {
+    return oauthJson(protectedResourceMetadata(requestUrls(request)));
+  } catch {
+    // No canonical origin: publishing a guessed issuer would be worse than none.
+    return oauthJson({ error: "server_error", error_description: "Public origin is not configured." }, 503);
+  }
 }
 
 export function OPTIONS() {

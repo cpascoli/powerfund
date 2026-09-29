@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 
+import type { DeployEnv } from "@/lib/deploy";
 import { memoryOAuthStore } from "@/lib/oauth/store";
 
 import { AgentApiCallError, type PowerFundAgentClient } from "./agent-client";
@@ -14,6 +15,21 @@ const KEYS = JSON.stringify([
 ]);
 const ORIGIN = "https://powerfund.example";
 const TASK_ID = "5e7d8c3a-1f2b-4c6d-8e9f-0a1b2c3d4e5f";
+
+/** A production build: canonical origin from the build, writes enabled. */
+const PRODUCTION: DeployEnv = {
+  context: "production",
+  siteUrl: ORIGIN,
+  deployUrl: "https://6abb35b4--powerfund.netlify.app",
+  publicOriginOverride: "",
+  mcpReadOnly: "",
+  mcpAllowWrites: "",
+};
+const PREVIEW: DeployEnv = {
+  ...PRODUCTION,
+  context: "deploy-preview",
+  deployUrl: "https://deploy-preview-1--powerfund.netlify.app",
+};
 
 type Rpc = { jsonrpc: "2.0"; id?: number; method: string; params?: unknown };
 
@@ -57,6 +73,7 @@ async function post(
       agentKeys: KEYS,
       client: () => client,
       logger: () => logger,
+      deploy: PRODUCTION,
       ...options.deps,
     },
   );
@@ -453,24 +470,38 @@ describe("2026-07-28 (stateless) clients", () => {
     "io.modelcontextprotocol/clientCapabilities": {},
     "io.modelcontextprotocol/clientInfo": { name: "modern-test", version: "1" },
   };
-  async function modern(method: string, params: Record<string, unknown> = {}, name?: string) {
+  async function modern(
+    method: string,
+    params: Record<string, unknown> = {},
+    name?: string,
+    overrides: { headers?: Record<string, string | null>; meta?: Record<string, unknown> } = {},
+  ) {
     const client = fakeAgentClient({ getPortfolio: { nav_usd: 7 } });
     const { lines, logger } = capture();
+    const headers: Record<string, string | null> = {
+      host: "powerfund.example",
+      "content-type": "application/json",
+      accept: "application/json, text/event-stream",
+      authorization: "Bearer pf_test_writer_key_1",
+      "mcp-protocol-version": "2026-07-28",
+      "mcp-method": method,
+      ...(name ? { "mcp-name": name } : {}),
+      ...overrides.headers,
+    };
     const response = await handleMcpRequest(
       new Request(`${ORIGIN}/api/v1/mcp`, {
         method: "POST",
-        headers: {
-          host: "powerfund.example",
-          "content-type": "application/json",
-          accept: "application/json, text/event-stream",
-          authorization: "Bearer pf_test_writer_key_1",
-          "mcp-protocol-version": "2026-07-28",
-          "mcp-method": method,
-          ...(name ? { "mcp-name": name } : {}),
-        },
-        body: JSON.stringify({ jsonrpc: "2.0", id: 9, method, params: { ...params, _meta: envelope } }),
+        headers: Object.fromEntries(
+          Object.entries(headers).filter((entry): entry is [string, string] => entry[1] != null),
+        ),
+        body: JSON.stringify({
+          jsonrpc: "2.0",
+          id: 9,
+          method,
+          params: { ...params, _meta: overrides.meta ?? envelope },
+        }),
       }),
-      { store: () => memoryOAuthStore(), agentKeys: KEYS, client: () => client, logger: () => logger },
+      { store: () => memoryOAuthStore(), agentKeys: KEYS, client: () => client, logger: () => logger, deploy: PRODUCTION },
     );
     return { status: response.status, json: JSON.parse(await response.text()), client, lines };
   }
@@ -497,6 +528,51 @@ describe("2026-07-28 (stateless) clients", () => {
     expect(modernList.result.tools.length).toBe(POWERFUND_TOOLS.length);
   });
 
+  it("tags every result complete, including list and discover", async () => {
+    for (const [method, params, name] of [
+      ["server/discover", {}, undefined],
+      ["tools/list", {}, undefined],
+      ["tools/call", { name: "get_portfolio", arguments: {} }, "get_portfolio"],
+    ] as const) {
+      const { json } = await modern(method, params, name);
+      expect(json.result?.resultType, method).toBe("complete");
+    }
+  });
+
+  it("returns tools in a deterministic order, with cache hints scoped to the caller", async () => {
+    const first = await modern("tools/list");
+    const second = await modern("tools/list");
+    const names = first.json.result.tools.map((tool: { name: string }) => tool.name);
+    expect(names).toEqual(POWERFUND_TOOLS.map((tool) => tool.name));
+    expect(second.json.result.tools.map((tool: { name: string }) => tool.name)).toEqual(names);
+    expect(typeof first.json.result.ttlMs).toBe("number");
+    // The list is per-caller (securitySchemes, auth): a shared cache must not keep it.
+    expect(first.json.result.cacheScope).toBe("private");
+  });
+
+  it("refuses a request whose Mcp-Method header disagrees with the body", async () => {
+    const { json, client } = await modern("tools/call", { name: "get_portfolio", arguments: {} }, "get_portfolio", {
+      headers: { "mcp-method": "tools/list" },
+    });
+    expect(json.error?.code).toBe(-32020);
+    expect(client.calls).toEqual([]);
+  });
+
+  it("refuses a tools/call whose Mcp-Name header names a different tool", async () => {
+    const { json, client } = await modern("tools/call", { name: "get_portfolio", arguments: {} }, "get_performance");
+    expect(json.error?.code).toBe(-32020);
+    expect(client.calls).toEqual([]);
+  });
+
+  it("answers an unsupported protocol revision with the versions it does support", async () => {
+    const { json } = await modern("tools/list", {}, undefined, {
+      headers: { "mcp-protocol-version": "2099-01-01" },
+      meta: { ...envelope, "io.modelcontextprotocol/protocolVersion": "2099-01-01" },
+    });
+    expect(json.error?.code).toBe(-32022);
+    expect(JSON.stringify(json.error)).toContain("2026-07-28");
+  });
+
   it("calls a tool statelessly, with no initialize first", async () => {
     const { json, client } = await modern("tools/call", { name: "get_portfolio", arguments: {} }, "get_portfolio");
     expect(json.result.structuredContent).toEqual({ nav_usd: 7 });
@@ -517,8 +593,146 @@ describe("request hygiene", () => {
         },
         body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "tools/list" }),
       }),
-      { store: () => memoryOAuthStore(), agentKeys: KEYS, client: () => fakeAgentClient(), logger: () => logger },
+      { store: () => memoryOAuthStore(), agentKeys: KEYS, client: () => fakeAgentClient(), logger: () => logger, deploy: PRODUCTION },
     );
     expect(response.status).toBe(415);
+  });
+});
+
+describe("read-only deployments (every Deploy Preview)", () => {
+  const writeCall = call("record_decision", { symbol: "VRT", decision_type: "hold", thesis: "Intact." });
+
+  it("refuses every write before it reaches PowerFund, even for a write-scoped caller", async () => {
+    const client = fakeAgentClient();
+    const { json } = await post(writeCall, { client, deps: { deploy: PREVIEW } });
+    expect(json!.result.isError).toBe(true);
+    expect(json!.result.structuredContent.error).toMatchObject({
+      source: "authorization",
+      code: "WRITES_DISABLED",
+      retryable: false,
+    });
+    // Not a scope problem, so no re-authorization challenge to loop on.
+    expect(json!.result._meta?.["mcp/www_authenticate"]).toBeUndefined();
+    expect(client.calls).toEqual([]);
+  });
+
+  it("strips write scopes from the principal, so REST would refuse too", async () => {
+    let seen: string[] = [];
+    await post(call("get_portfolio"), {
+      deps: {
+        deploy: PREVIEW,
+        client: (principal) => {
+          seen = [...principal.scopes];
+          return fakeAgentClient();
+        },
+      },
+    });
+    expect(seen.length).toBeGreaterThan(0);
+    expect(seen.every((scope) => scope.endsWith(":read"))).toBe(true);
+  });
+
+  it("still lists every tool and serves reads, so model behaviour can be tested", async () => {
+    const { json: list } = await post({ jsonrpc: "2.0", id: 1, method: "tools/list" }, { deps: { deploy: PREVIEW } });
+    expect(list!.result.tools).toHaveLength(POWERFUND_TOOLS.length);
+    const { json: read } = await post(call("get_portfolio"), {
+      client: fakeAgentClient({ getPortfolio: { nav_usd: 1 } }),
+      deps: { deploy: PREVIEW },
+    });
+    expect(read!.result.structuredContent).toEqual({ nav_usd: 1 });
+  });
+
+  it("tells the model the deployment is read-only", async () => {
+    const { json } = await post(
+      {
+        jsonrpc: "2.0",
+        id: 1,
+        method: "initialize",
+        params: { protocolVersion: "2025-06-18", capabilities: {}, clientInfo: { name: "t", version: "1" } },
+      },
+      { deps: { deploy: PREVIEW } },
+    );
+    expect(json!.result.instructions).toMatch(/This deployment is read-only/);
+  });
+
+  it("binds a preview's OAuth discovery to its own URL", async () => {
+    const { response } = await post(call("get_portfolio"), { token: null, deps: { deploy: PREVIEW } });
+    expect(response.headers.get("www-authenticate")).toContain(
+      'resource_metadata="https://deploy-preview-1--powerfund.netlify.app/.well-known/oauth-protected-resource/api/v1/mcp"',
+    );
+  });
+
+  it("has a production kill switch", async () => {
+    const client = fakeAgentClient();
+    const { json } = await post(writeCall, { client, deps: { deploy: { ...PRODUCTION, mcpReadOnly: "true" } } });
+    expect(json!.result.structuredContent.error.code).toBe("WRITES_DISABLED");
+    expect(client.calls).toEqual([]);
+  });
+
+  it("allows writes off production only with an explicit opt-in (a local stack)", async () => {
+    const client = fakeAgentClient();
+    await post(writeCall, { client, deps: { deploy: { ...PREVIEW, mcpAllowWrites: "true" } } });
+    expect(client.calls.map((row) => row.method)).toEqual(["createDecision"]);
+  });
+
+  it("refuses to serve with no canonical origin rather than trust Host", async () => {
+    const client = fakeAgentClient();
+    const { status } = await post(call("get_portfolio"), {
+      client,
+      deps: { deploy: { ...PRODUCTION, context: "", siteUrl: "", deployUrl: "" } },
+    });
+    expect(status).toBe(503);
+    expect(client.calls).toEqual([]);
+  });
+});
+
+describe("security review: token lifetime at the MCP endpoint", () => {
+  it("rejects an expired access token with a fresh invalid_token challenge", async () => {
+    const { createHash } = await import("node:crypto");
+    const { registerDynamicClient } = await import("@/lib/oauth/clients");
+    const { validateAuthorizationRequest, issueAuthorizationCode } = await import("@/lib/oauth/authorize");
+    const { exchangeToken } = await import("@/lib/oauth/token");
+    const { oauthUrls } = await import("@/lib/oauth/config");
+    const operator = "11111111-1111-4111-8111-111111111111";
+    const store = memoryOAuthStore([operator]);
+    const urls = oauthUrls(ORIGIN);
+    const client = await registerDynamicClient(store, { redirect_uris: ["http://localhost:6274/cb"] });
+    const verifier = "v".repeat(64);
+    const validation = await validateAuthorizationRequest(store, urls, {
+      response_type: "code",
+      client_id: client.client_id,
+      redirect_uri: "http://localhost:6274/cb",
+      code_challenge: createHash("sha256").update(verifier).digest("base64url"),
+      code_challenge_method: "S256",
+    });
+    if (!validation.ok) throw new Error("validation failed");
+    const issuedAt = new Date("2026-09-29T10:00:00Z");
+    const location = await issueAuthorizationCode(store, urls, validation.request, {
+      userId: operator,
+      scopes: ["powerfund:portfolio:read"],
+      now: issuedAt,
+    });
+    const tokens = await exchangeToken(
+      store,
+      urls,
+      new URLSearchParams({
+        grant_type: "authorization_code",
+        code: new URL(location).searchParams.get("code")!,
+        client_id: client.client_id,
+        redirect_uri: "http://localhost:6274/cb",
+        code_verifier: verifier,
+      }),
+      issuedAt,
+    );
+    const fresh = await post(call("get_portfolio"), {
+      token: tokens.access_token,
+      deps: { store: () => store, now: () => new Date("2026-09-29T10:30:00Z") },
+    });
+    expect(fresh.status).toBe(200);
+    const stale = await post(call("get_portfolio"), {
+      token: tokens.access_token,
+      deps: { store: () => store, now: () => new Date("2026-09-29T11:00:01Z") },
+    });
+    expect(stale.status).toBe(401);
+    expect(stale.response.headers.get("www-authenticate")).toContain('error="invalid_token"');
   });
 });

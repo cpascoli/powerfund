@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 
 import { SiteFooter } from "@/components/site-footer";
 import { getSessionRole } from "@/lib/auth/operator";
+import { mcpWriteMode } from "@/lib/deploy";
 import { validateAuthorizationRequest } from "@/lib/oauth/authorize";
 import { clientDisplayName } from "@/lib/oauth/clients";
 import { isWriteScope, oauthUrls, publicOrigin } from "@/lib/oauth/config";
@@ -107,7 +108,10 @@ export default async function AuthorizePage({ searchParams }: { searchParams: Se
   const redirectHost = new URL(redirectUri).host;
   const verified = client.registration === "metadata_document";
   const reads = scopes.filter((scope) => !isWriteScope(scope));
-  const writes = scopes.filter((scope) => isWriteScope(scope));
+  // On a read-only deployment (every Deploy Preview) write scopes could not
+  // be used anyway; do not offer them.
+  const writesEnabled = mcpWriteMode().enabled;
+  const writes = writesEnabled ? scopes.filter((scope) => isWriteScope(scope)) : [];
 
   return (
     <Shell>
@@ -155,6 +159,13 @@ export default async function AuthorizePage({ searchParams }: { searchParams: Se
             ))}
           </ul>
         </section>
+      ) : null}
+
+      {!writesEnabled ? (
+        <p className="form-error">
+          This deployment is read-only. It shares the production database, so write access is
+          not offered here.
+        </p>
       ) : null}
 
       <p className="muted">
