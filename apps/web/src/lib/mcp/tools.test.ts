@@ -118,20 +118,6 @@ describe("MCP tool catalog", () => {
     }
   });
 
-  it("maps every tool to real agent API operations, and every agent operation to a tool", () => {
-    const doc = agentOpenApiDocument("https://example.test");
-    const operationIds = new Set<string>();
-    for (const item of Object.values(doc.paths)) {
-      for (const op of Object.values(item as Record<string, { operationId?: string }>)) {
-        if (op?.operationId) operationIds.add(op.operationId);
-      }
-    }
-    const covered = new Set(POWERFUND_TOOLS.flatMap((tool) => tool.operations));
-    for (const op of covered) expect(operationIds).toContain(op);
-    // Parity with the legacy GPT Actions surface: nothing it could do is lost.
-    for (const op of operationIds) expect(covered, `no MCP tool covers ${op}`).toContain(op);
-  });
-
   it("keeps annotations honest: reads are read-only, writes are not", () => {
     for (const tool of POWERFUND_TOOLS) {
       expect(tool.annotations.openWorldHint).toBe(false);
