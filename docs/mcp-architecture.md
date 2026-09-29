@@ -86,9 +86,11 @@ scopes are in `POWERFUND_AGENT_API_KEYS`, and the OpenAPI document is public at
 | addWatchlistCompany | POST `/watchlist` | New research name | W | append | watchlist:write | symbol, name, theme, … | `{created, company}` | `add_watchlist_company` |
 | setWatchlistArchived | PATCH `/watchlist/{symbol}` | Archive / restore | W | reversible removal | watchlist:write | `archived` | object | `set_watchlist_archived` |
 
-\* `getFundState` always, and `getReviewQueue` unless the query is
-completed-only, flip review tasks whose trigger has fired from `pending` to
-`due` before reading. See [the annotation judgement](./mcp-tools.md#annotations).
+\* By default `getFundState` always, and `getReviewQueue` unless the query is
+completed-only, latch fired review triggers (`pending → due`) before reading.
+Both now also accept `evaluate=preview`, which reports fired triggers as due
+without writing, and that is what the MCP tools send. See
+[mcp-tools.md § annotations](./mcp-tools.md#annotations).
 
 **Assessment.** The API is agent-shaped already: domain operations rather than
 table CRUD, no path to the ledger, structured errors, idempotency, and
@@ -103,7 +105,10 @@ REST defect to fix as part of this work.
 - **`INTERNAL_ERROR` returns the raw error message,** which can be a Postgres
   error. REST is left as it is (changing it would change what the GPT sees). MCP
   keeps the code and drops the text.
-- **Two reads materialise trigger state** (above).
+- **Two reads latch trigger state** (above). The latch is semantically needed
+  for price conditions, which can un-satisfy, so it was moved rather than
+  removed: to the worker after each bars ingest, with `evaluate=preview` for
+  read-only callers.
 - **A shared key is the attribution** unless the caller sends `actor_name`. On
   MCP, an OAuth grant has its own principal (`chatgpt-mcp`), so attribution is
   per client by default.
@@ -200,6 +205,7 @@ again.
 
 | Property | How |
 |----------|-----|
+| Deploy Previews cannot write | MCP writes run only in the production build (`mcpWriteMode`, `lib/deploy.ts`). Everywhere else the principal is cut to read scopes before anything runs, write tools return `WRITES_DISABLED`, and consent offers read-only. It fails closed, and does not depend on choosing the right consent button |
 | Only the operator can grant | Consent requires a Supabase session whose `app_users.role` is `operator`, re-checked in the server action, at code exchange, at refresh, and **on every MCP request**. Demoting the account cuts its tokens |
 | Tokens bound to this server | RFC 8707 `resource` stored on code and token and compared on use. Previews and production share a database; a preview grant fails in production |
 | No stored secrets | Codes and tokens are 256-bit random values, stored as SHA-256 |
@@ -227,20 +233,44 @@ Claude Code and CI reach the server without an interactive login.
 - **No UI to list or revoke grants.** Revoke with `/oauth/revoke`, or in SQL (see
   the runbook).
 - **Rate limits are in-memory per function instance**, as they are for REST.
-- **Deploy previews use the production database** (same env), so a preview's MCP
-  write tools write real data. Grant previews **read only**, or give the
-  deploy-preview context its own Supabase.
+- **Deploy previews use the production database.** MCP writes are therefore
+  disabled on every non-production deployment (above). The **REST** agent API
+  on a preview still accepts agent keys and can write, as it always could. No
+  client uses preview REST URLs, but do not point one there.
 
 ## Environment
 
 | Variable | Where | Purpose |
 |----------|-------|---------|
-| `POWERFUND_PUBLIC_ORIGIN` | Netlify UI: **Production** context only, **Functions** scope. Not `netlify.toml`, whose variables reach builds, not functions | Fixes issuer and resource to `https://powerfund.netlify.app` rather than trusting `Host`. Leave it unset for Deploy Previews: each derives its own origin, which is what keeps its tokens out of production. Unset in production still works, via the Host Netlify routed on |
+| `CONTEXT`, `URL`, `DEPLOY_PRIME_URL` | Set by Netlify **at build**; `next.config.ts` inlines them as `POWERFUND_DEPLOY_*` | Which deployment this is. Production's canonical origin is `URL`; a preview's is its own `DEPLOY_PRIME_URL`. Only the production build writes. Verified by building with these set and reading the compiled bundle |
+| `POWERFUND_MCP_READ_ONLY` | optional, Netlify UI | `true` disables MCP writes anywhere, production included. A kill switch |
+| `POWERFUND_MCP_ALLOW_WRITES` | local shell only | `true` enables MCP writes off production, for a local stack on a local database. Never set it on a preview |
+| `POWERFUND_PUBLIC_ORIGIN` | optional | Explicit origin override. Not needed on Netlify. Off Netlify, only a loopback `Host` is trusted, and anything else is refused (503) rather than guessed |
 | `POWERFUND_OAUTH_CIMD_HOSTS` | optional | Hosts whose client metadata documents may be fetched |
 | `POWERFUND_AGENT_API_KEYS` | existing | Also accepted at `/api/v1/mcp` |
 | `SUPABASE_SERVICE_ROLE_KEY`, `NEXT_PUBLIC_SUPABASE_*` | existing | Unchanged |
 
 Nothing secret goes in `plugin.json` or `mcp.json`. They carry only the public URL.
+
+## Security review
+
+A focused review of the OAuth/CIMD surface, each item with the test that holds it:
+
+| Property | How it holds | Test |
+|----------|--------------|------|
+| CIMD URL validation / SSRF | https only; no credentials, fragment, bare root or IP literal; exact host allowlist (lookalikes refused); fetched only after operator sign-in; 5 s timeout; redirects refused; 64 KB cap; must be a JSON object naming itself; unusable redirect URIs dropped | `oauth.test.ts` "client metadata documents (SSRF surface)" |
+| Exact issuer | One canonical origin per deployment, from the build, not `Host`; `iss` on every authorization response equals the advertised issuer | `oauth.test.ts` publicOrigin cases, "state byte for byte and iss exactly…" |
+| RFC 9207 `iss` | On success, error and denial redirects | "sends PKCE and resource errors back…", as above |
+| Resource / audience binding | Stored on code and token; mismatched `resource` refused at token endpoint; omitted `resource` still bound to canonical; a preview's token refused by production | "refuses a token request naming a different resource", "binds a token to the canonical resource…", "is not accepted by another deployment…" |
+| Redirect URI validation | Exact string match (path, trailing slash, query, case); failures render, never redirect | "matches redirect_uri exactly…" |
+| State / consent transaction binding | `state` echoed unchanged; a code is bound to its client, redirect URI and PKCE challenge; the consent POST is re-validated server-side and origin-checked by Next | "returns state byte for byte…", "binds a code to its own PKCE challenge…", forged cross-site POST verified against a live server |
+| Expired / revoked tokens | 1 h access; revocation and reuse detection | "rejects an expired access token…" (MCP endpoint), "is revoked by RFC 7009…", refresh-reuse tests |
+| Insufficient scope | Tool result carries `mcp/www_authenticate` with `error="insufficient_scope"` | "answers a missing scope with a re-authorization challenge…" |
+| WWW-Authenticate discovery | 401 carries `resource_metadata` | "challenges an anonymous caller…" |
+| Tool `securitySchemes` | Top-level and `_meta`, both eras | "lists every PowerFund tool…", "lists the same tools… as a 2025-era client" |
+
+Not implemented, and not a blocker for a private single-operator plugin:
+`private_key_jwt` client authentication, and a grants page.
 
 ## Long-running work
 
@@ -281,7 +311,10 @@ log output.
 |-------|------|-----|
 | Unit | Tool schemas, enum drift vs `@powerfund/domain`, reads never write, one write per write tool, handler shaping, OAuth flows | `pnpm test` (`lib/mcp/*.test.ts`, `lib/oauth/oauth.test.ts`) |
 | Parity | MCP → real agent route handlers: scope refusal, validation, idempotent replay, REST still needs a key | `lib/mcp/agent-client.test.ts` |
-| Protocol | initialize, tools/list (annotations, securitySchemes, strict schemas), tools/call, errors, 401/405/415, timeouts, both protocol eras, OAuth end to end | `lib/mcp/handler.test.ts` |
+| Protocol | initialize, tools/list (annotations, securitySchemes, strict schemas), tools/call, errors, 401/405/415, timeouts, both protocol eras, OAuth end to end, read-only deployments | `lib/mcp/handler.test.ts` |
+| 2026-07-28 conformance | `server/discover`; tools/list and tools/call with no initialize; `resultType: "complete"`; deterministic order; `ttlMs` and `cacheScope: "private"`; `Mcp-Method`/`Mcp-Name` mismatch → `-32020`; unsupported revision → `-32022`; legacy initialize still served | `lib/mcp/handler.test.ts` "2026-07-28 (stateless) clients" |
+| Exposure | Every route operation classified exposed/excluded | `lib/mcp/exposure.test.ts` |
+| Trigger preview | Preview reports fired triggers as due and never latches; default REST still latches | `lib/reviews/queue-preview.test.ts` |
 | Docs | Catalog matches `tools/list` | `lib/mcp/catalog.test.ts` |
 | Local server | Real Next + local Supabase + MCP Inspector | [runbook](./gpt-to-plugin-migration.md#local-testing) |
 | Preview / ChatGPT | Deploy Preview, Developer Mode, regression prompts | [runbook](./gpt-to-plugin-migration.md) and [evals/mcp](../evals/mcp/README.md) |

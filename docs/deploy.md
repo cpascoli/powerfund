@@ -25,7 +25,7 @@ Build config lives in root [`netlify.toml`](../netlify.toml).
    - `SUPABASE_SERVICE_ROLE_KEY` — **private** (optional HTTP kick of `ingest-*-background`; never `NEXT_PUBLIC_*`)
    - `CRON_SECRET` — **private** shared secret for that optional HTTP kick
    - `POWERFUND_AGENT_API_KEYS` — **private** JSON array of agent API keys (see [agent-api.md](./agent-api.md)); also accepted by the MCP server
-   - `POWERFUND_PUBLIC_ORIGIN` — `https://powerfund.netlify.app`, **Production context only**, Functions scope. Pins the MCP server's OAuth issuer and resource. Leave Deploy Previews unset so their tokens stay bound to the preview ([mcp-architecture.md](./mcp-architecture.md#environment))
+   - `POWERFUND_MCP_READ_ONLY` — optional; `true` disables MCP writes (a kill switch). Non-production deployments are read-only regardless. The MCP server's canonical origin comes from Netlify's build values, so `POWERFUND_PUBLIC_ORIGIN` is not needed ([mcp-architecture.md](./mcp-architecture.md#environment))
    - `POWERFUND_OAUTH_CIMD_HOSTS` — optional; hosts whose OAuth client metadata documents may be fetched (default `chatgpt.com,claude.ai,claude.com`)
    - `TIINGO_API_KEY` — optional, **private**; preferred for daily bars
 6. **Do not** expose `SUPABASE_SERVICE_ROLE_KEY`, `CRON_SECRET`, `POWERFUND_AGENT_API_KEYS`, or `TIINGO_API_KEY` as `NEXT_PUBLIC_*`.

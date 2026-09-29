@@ -31,8 +31,11 @@ after, described by *when* to use it, and grouped so a tool never mixes risks:
    four reads that are easy to get wrong. The easiest to skip is the portfolio
    chain, which `symbol=` can never reach. It fails as a whole rather than
    return a partial chain of reasoning.
-4. **Parity with the GPT.** Every agent API operation is reachable. A test
-   fails if a REST operation gains no tool.
+4. **A curated surface, classified explicitly.** Every agent operation is
+   listed in `lib/mcp/exposure.ts` as exposed or excluded with a reason, and
+   `exposure.test.ts` fails on any unclassified route operation. Today all but
+   the index are exposed, so the plugin loses nothing the GPT could do. That is
+   a property of the table, not a rule that new endpoints become tools.
 5. **No path the REST API does not have.** No fills, cash, transactions, SQL or
    mandate override. The REST routes take `mandate_override_reason` and a
    `trigger` on planned actions, but the GPT's OpenAPI never exposed them, so
@@ -73,7 +76,7 @@ These are exposed, but shaped to protect the model from its usual mistakes:
 
 | Annotation | Rule |
 |------------|------|
-| `readOnlyHint: true` | The tool reaches no write method. Enforced by a test that runs every read tool against a recording client |
+| `readOnlyHint: true` | The tool changes no state. Enforced by a test that runs every read tool against a recording client, and by `evaluate=preview` on the queue reads (below) |
 | `destructiveHint: true` | The write replaces or withdraws something: `update_dossier` (live text), `update_planned_action` (can cancel an intended trade), `update_review_task` (can cancel), `set_watchlist_archived` |
 | `destructiveHint: false` on a write | Pure appends: a decision, a grade, a queued action, a new review, a completed review's outcome, a new watchlist name |
 | `idempotentHint` | True for reads and for updates that set a state; false for appends |
@@ -82,18 +85,19 @@ These are exposed, but shaped to protect the model from its usual mistakes:
 Annotations are hints to the client. They do not enforce anything. Authorization is the
 scope check in the MCP server **and again** in `handleAgentRequest`.
 
-**The one judgement call.** `get_fund_state` and `list_reviews` are marked
-read-only, but their REST operations can flip a review task from `pending` to
-`due` when its trigger has already fired (`evaluateStoredReviewTriggers`). That
-write is a materialisation, not a decision. It is guarded by
-`status = 'pending'`, monotonic, and derived only from the trigger, the clock
-and stored bars. It is the same flip the Briefing page makes on load. Marking
-them as writes would make ChatGPT ask for confirmation on "what is due
-today?", which would train the operator to click through confirmations, and
-that habit costs more than the annotation would gain.
-`get_review_context` goes further and passes `evaluate=false`, so it writes
-nothing at all. If you want the strict reading instead, flip `READ` to a
-separate `MATERIALISES` annotation on those two tools in `tools.ts`.
+**Review triggers are previewed, not latched, by MCP reads.** The REST reads
+behind `get_fund_state` and `list_reviews` latch fired review triggers
+(`pending → due`) by default. The MCP tools pass `evaluate=preview`, which
+reports a fired trigger as `due` with `due_by_trigger: true` and writes nothing.
+That makes `readOnlyHint: true` literally true.
+
+The latch cannot simply be dropped. Date triggers are monotonic, but a price
+condition is evaluated against the latest close and can stop being true: MRCY
+closing at 49 against "revisit below 50", then recovering to 52, must remain an
+obligation. The latch now runs after every bars ingest
+(`packages/db/src/review-triggers.ts`, called by the worker), the only time a
+condition's inputs change. The Briefing page and the REST agent API's default
+reads still latch as before.
 
 ### Errors
 
@@ -102,7 +106,7 @@ Every tool error is `isError: true` with `structuredContent.error`:
 | Field | Meaning |
 |-------|---------|
 | `source` | `powerfund_api` (PowerFund refused or failed), `mcp` (the adapter), `authorization` (scope) |
-| `code` | The agent API code (`UNKNOWN_SYMBOL`, `DOSSIER_VERSION_CONFLICT`, …) or `VALIDATION_ERROR`, `TIMEOUT`, `INSUFFICIENT_SCOPE`, `MCP_INTERNAL_ERROR` |
+| `code` | The agent API code (`UNKNOWN_SYMBOL`, `DOSSIER_VERSION_CONFLICT`, …) or `VALIDATION_ERROR`, `TIMEOUT`, `INSUFFICIENT_SCOPE`, `WRITES_DISABLED` (read-only deployment), `MCP_INTERNAL_ERROR` |
 | `retryable` | Whether an identical retry could succeed |
 | `http_status` | For `powerfund_api` errors |
 | extra | Only fields that help correct the call: `current_version`, `allowed`, `field(s)`, `symbol`, `required_scopes` |
