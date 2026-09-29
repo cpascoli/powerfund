@@ -159,7 +159,10 @@ Each was a real production defect. See the remediation log for the full story.
   it, returning `{ ok: false }` with the money already moved — so retrying is the
   natural response and, unkeyed, the wrong one. Partial unique indexes enforce
   both, and a null key is deliberately unconstrained: a fill must never be
-  refused because a convenience was missing.
+  refused because a convenience was missing. The agent API's
+  `Idempotency-Key` is *reserved before* the handler runs (0 = in progress,
+  -1 = released), so a retry of a still-running write gets
+  `IDEMPOTENCY_IN_PROGRESS` instead of executing twice.
 - **`instruments.status` follows the book; only `archived` is set by hand.** A
   trigger on `positions` moves a name to `active` when a position opens and back
   to `watchlist` when the last unit goes, because `positions` is itself a

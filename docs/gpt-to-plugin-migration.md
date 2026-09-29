@@ -94,9 +94,12 @@ $I --header "Authorization: Bearer pf_local_reader_key_0001" --method tools/call
 $I --header "Authorization: Bearer pf_local_reader_key_0001" --method tools/call --tool-name set_watchlist_archived --tool-arg symbol=CLS archived=true
 ```
 
-**UI, with OAuth:** this exercises the full ChatGPT-style flow, on local stacks
-and previews. Production has dynamic registration off, so Inspector against
-production uses an agent key (the CLI form above) instead.
+**UI, with OAuth:** this exercises the full ChatGPT-style flow, on a **local
+stack**. Inspector registers itself dynamically, which only local stacks allow.
+Deployed sites (previews and production) share the production database and
+keep registration closed. Against those, use Inspector with an agent key: add
+the header `Authorization: Bearer <key>` in the UI, or use the CLI form above.
+ChatGPT itself uses CIMD and connects over OAuth everywhere.
 
 ```bash
 npx -y @modelcontextprotocol/inspector@latest

@@ -118,8 +118,10 @@ REST names; the tools are:
   returned `current_version`. Never overwrite blind.
 - `INSUFFICIENT_SCOPE` → the connection is read-only or lacks that grant. Tell
   the operator. Do not look for another way to write.
-- `TIMEOUT` on a write → it may have landed. An identical retry within the hour
-  replays the first result; otherwise read back before retrying.
+- `TIMEOUT` on a write → it may still be running. Retrying with identical
+  arguments is safe: it replays the first result, or returns
+  `IDEMPOTENCY_IN_PROGRESS` (wait briefly, then retry). Never change the
+  arguments to "get it through"; that is a new write.
 - `truncated: true` on history → raise `limit` or narrow the window. A truncated
   chain is a partial chain of reasoning.
 - Empty `symbol` review history means **no catalyst fired**, not "no prior

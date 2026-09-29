@@ -187,7 +187,7 @@ PowerFund is its own small OAuth 2.1 authorization server, inside the same app:
 |----------|---------|
 | `/.well-known/oauth-protected-resource/api/v1/mcp` (and bare root) | RFC 9728 metadata: resource = `…/api/v1/mcp`, authorization server = the site origin |
 | `/.well-known/oauth-authorization-server` | RFC 8414 metadata: S256 only, `none` auth, CIMD supported, `iss` in responses |
-| `/oauth/register` | RFC 7591 dynamic registration (Inspector, CLIs). **Previews and local only**; off in production |
+| `/oauth/register` | RFC 7591 dynamic registration (Inspector, CLIs). **Local stacks only**: previews share the production database, so open registration there would let anonymous callers grow a production table |
 | `/oauth/authorize` | Consent page: operator session required, read-write / read-only / deny |
 | `/oauth/token` | `authorization_code` + PKCE, `refresh_token` with rotation |
 | `/oauth/revoke` | RFC 7009 |
@@ -248,7 +248,7 @@ Claude Code and CI reach the server without an interactive login.
 | `POWERFUND_MCP_ALLOW_WRITES` | local shell only | `true` enables MCP writes off production, for a local stack on a local database. Never set it on a preview |
 | `POWERFUND_PUBLIC_ORIGIN` | optional | Explicit origin override. Not needed on Netlify. Off Netlify, only a loopback `Host` is trusted, and anything else is refused (503) rather than guessed |
 | `POWERFUND_OAUTH_CIMD_HOSTS` | optional | Hosts whose client metadata documents may be fetched |
-| `POWERFUND_OAUTH_ALLOW_DCR` | optional, production only | `true` re-opens dynamic client registration in production. It is off there by default: ChatGPT and Claude use CIMD, and production also refuses dynamically registered clients, including ones a preview registered in the shared database. Previews and local stacks keep DCR for MCP Inspector |
+| `POWERFUND_OAUTH_ALLOW_DCR` | optional | `true` opens dynamic client registration on a deployed site. By default it is open only on local stacks: ChatGPT and Claude use CIMD, and every deployed site shares the production database. Where it is closed, consent also refuses any dynamically registered client already in the table. MCP Inspector against a deployed site uses an agent key |
 | `POWERFUND_AGENT_API_KEYS` | existing | Also accepted at `/api/v1/mcp` |
 | `SUPABASE_SERVICE_ROLE_KEY`, `NEXT_PUBLIC_SUPABASE_*` | existing | Unchanged |
 
@@ -271,6 +271,12 @@ A focused review of the OAuth/CIMD surface, each item with the test that holds i
 | WWW-Authenticate discovery | 401 carries `resource_metadata` | "challenges an anonymous caller…" |
 | Tool `securitySchemes` | Top-level and `_meta`, both eras | "lists every PowerFund tool…", "lists the same tools… as a 2025-era client" |
 
+| Concurrent code exchange | Tokens are inserted, bound to the code, *before* the conditional consume; the loser revokes everything issued from the code, the winner's included | "leaves no live tokens when a replay lands while the first exchange is mid-flight" (fails against the old order) |
+| Concurrent refresh reuse | New pair inserted into the family *before* the old token is retired; the loser's family revocation covers it | "…refresh is reused while the first rotation is mid-flight" (fails against the old order) |
+| A bad verifier cannot burn a code | Everything is validated before the code is consumed | "does not burn a code on a wrong verifier…" |
+| Client identity | Idempotency and rate-limit namespaces use a digest of the client id, not the client's self-chosen display name | `oauthPrincipalId` test |
+| No duplicate writes on retry | Idempotency keys reserved before the write | `http-idempotency.test.ts`, `idempotency.test.ts` |
+
 Not implemented, and not a blocker for a private single-operator plugin:
 `private_key_jwt` client authentication, and a grants page.
 
@@ -284,10 +290,17 @@ a Netlify background function (15 min) and a jobs table. In the 2026-07-28 spec
 that is the `io.modelcontextprotocol/tasks` extension. Do not hold an MCP
 request open for it.
 
-A tool that times out returns `TIMEOUT` with `retryable: true`. For a write,
-the message says it may have landed and that an identical retry within the
-hour replays rather than duplicates. That is the derived idempotency key
-(tool + arguments + UTC hour).
+A tool that times out returns `TIMEOUT` with `retryable: true`, and for a
+write that retry is safe by construction. The idempotency key is derived from
+the tool and its exact arguments, and the agent API **reserves** it before the
+write runs (`lib/api/agent/idempotency.ts`). An identical retry therefore either
+replays the stored result or gets `409 IDEMPOTENCY_IN_PROGRESS` (retryable)
+while the first attempt is still running. It never runs the write twice. A
+failed attempt releases the key. A reservation abandoned by a dead invocation
+is taken over after 5 minutes, well past Netlify's 60 s limit. MCP keys replay
+for a sliding hour from the first attempt, so there is no clock boundary
+inside the retry window; after that, the same write made again is a new
+decision.
 
 ## Observability
 
