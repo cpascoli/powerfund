@@ -69,7 +69,7 @@ These are exposed, but shaped to protect the model from its usual mistakes:
 | `recordDecisionOutcome` | Absent vs null `horizon_days` mean different things; `dossier_version.id` sent as the decision id | `horizon_days` required and nullable, sent explicitly; argument named `decision_id` |
 | `createReviewTask` trigger | Free-form JSON; `scheduled_for` instead of `at`; `scheduled` for an estimated date | Discriminated union, strict per variant; descriptions say "confirmed" vs "estimated" |
 | `updatePlannedAction` / `updateReviewTask` | Setting statuses the agent may not (`confirmed`, `due`, `completed`) | Status enums contain only what the agent may set |
-| Any write | A timed-out call retried by the model writes twice | Server-derived idempotency key (tool + arguments + UTC hour); a retry replays |
+| Any write | A timed-out call retried by the model writes twice | Server-derived idempotency key (tool + arguments), reserved before the write runs: a retry replays, or gets `IDEMPOTENCY_IN_PROGRESS` while the first attempt runs |
 | `getReviewQueue` | Returns the archive when asked vaguely; `symbol` and `theme` are a union | Descriptions say so; `get_review_context` makes the common chain one call |
 
 ### Annotations
@@ -121,7 +121,7 @@ Every tool error is `isError: true` with `structuredContent.error`:
 | Field | Meaning |
 |-------|---------|
 | `source` | `powerfund_api` (PowerFund refused or failed), `mcp` (the adapter), `authorization` (scope) |
-| `code` | The agent API code (`UNKNOWN_SYMBOL`, `DOSSIER_VERSION_CONFLICT`, …) or `VALIDATION_ERROR`, `TIMEOUT`, `INSUFFICIENT_SCOPE`, `WRITES_DISABLED` (read-only deployment), `MCP_INTERNAL_ERROR` |
+| `code` | The agent API code (`UNKNOWN_SYMBOL`, `DOSSIER_VERSION_CONFLICT`, …) or `VALIDATION_ERROR`, `TIMEOUT`, `INSUFFICIENT_SCOPE`, `WRITES_DISABLED` (read-only deployment), `IDEMPOTENCY_IN_PROGRESS` (retry shortly), `MCP_INTERNAL_ERROR` |
 | `retryable` | Whether an identical retry could succeed |
 | `http_status` | For `powerfund_api` errors |
 | extra | Only fields that help correct the call: `current_version`, `allowed`, `field(s)`, `symbol`, `required_scopes` |
@@ -422,7 +422,7 @@ Append a structured grade to a journal decision (ritual 12, or an off-clock obse
 
 ### `create_planned_action` — Queue an intended trade
 
-Queue an intended buy/add/reduce/sell after the user approves it and, for buy or add, after the dossier/data-integrity gate has passed. Send planned_usd or target_weight_pct. This is an intention on the deployment queue only: it never books a fill, and the mandate gate may still refuse it. A human confirms every fill in the PowerFund UI.
+Queue an intended buy/add/reduce/sell after the user approves it and, for buy or add, after the dossier/data-integrity gate has passed. Send exactly one of planned_usd or target_weight_pct. This is an intention on the deployment queue only: it never books a fill, and the mandate gate may still refuse it. A human confirms every fill in the PowerFund UI.
 
 | | |
 |---|---|
