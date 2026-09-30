@@ -245,7 +245,7 @@ Claude Code and CI reach the server without an interactive login.
 |----------|-------|---------|
 | `CONTEXT`, `URL`, `DEPLOY_PRIME_URL` | Set by Netlify **at build**; `next.config.ts` inlines them as `POWERFUND_DEPLOY_*` | Which deployment this is. Production's canonical origin is `URL`; a preview's is its own `DEPLOY_PRIME_URL`. Only the production build writes. Verified by building with these set and reading the compiled bundle |
 | `POWERFUND_MCP_READ_ONLY` | optional, Netlify UI | `true` disables MCP writes anywhere, production included. A kill switch |
-| `POWERFUND_MCP_ALLOW_WRITES` | local shell only | `true` enables MCP writes off production, for a local stack on a local database. Never set it on a preview |
+| `POWERFUND_MCP_ALLOW_WRITES` | local shell only | `true` enables MCP writes off production, honoured only off Netlify against a loopback Supabase. It cannot unlock a Deploy Preview, a branch deploy, or a dev server pointed at the production database |
 | `POWERFUND_PUBLIC_ORIGIN` | optional | Explicit origin override. Not needed on Netlify. Off Netlify, only a loopback `Host` is trusted, and anything else is refused (503) rather than guessed |
 | `POWERFUND_OAUTH_CIMD_HOSTS` | optional | Hosts whose client metadata documents may be fetched |
 | `POWERFUND_OAUTH_ALLOW_DCR` | optional | `true` opens dynamic client registration anywhere. By default it is open only off Netlify against a loopback Supabase: ChatGPT and Claude use CIMD, and every deployed site, like a dev server on the default `.env.local`, writes the production database. Where it is closed, consent also refuses any dynamically registered client already in the table. MCP Inspector against a deployed site uses an agent key |
@@ -308,7 +308,8 @@ MCP keys cover a sliding hour from the first attempt. After that, the same
 write made again is a new decision by definition, including after an unknown
 outcome.
 
-**Residual, and the durable fix.** Within those rules nothing is re-run
+**Residual, and the durable fix** (tracked in
+[reviews/2026-09-30-mcp-open-items.md](./reviews/2026-09-30-mcp-open-items.md), item 1). Within those rules nothing is re-run
 automatically. The remaining cost is liveness: an attempt that died *before*
 writing leaves its MCP key pinned for up to an hour. The operation-level fix
 removes the ambiguity rather than refusing on it: a request-key column with a

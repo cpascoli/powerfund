@@ -16,9 +16,11 @@ export type AgentPrincipal = {
   name: string;
   scopes: readonly AgentScope[];
   /**
-   * Stable identity for idempotency and rate-limit namespaces, when the name
-   * is not unique or not trusted (OAuth clients choose their own display
-   * names). Agent keys omit it; their names are operator-configured.
+   * Stable identity for idempotency and rate-limit namespaces. Names are
+   * attribution and can collide: OAuth clients choose their own display
+   * names, and two agent keys may share one. OAuth principals use a digest
+   * of the client id, and agent keys a digest of the secret (agentKeyId).
+   * Optional only for principals built in tests; the name is the fallback.
    */
   id?: string;
 };
