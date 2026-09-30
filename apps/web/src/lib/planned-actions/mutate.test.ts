@@ -255,3 +255,12 @@ describe("planned action mutations", () => {
     expect(writes).toEqual([]);
   });
 });
+
+describe("planned-action sizing is PowerFund's invariant", () => {
+  it("refuses both sizing fields instead of silently preferring dollars", async () => {
+    const { assertSingleSizing } = await import("./mutate");
+    expect(() => assertSingleSizing(5000, 2)).toThrow(/not both/);
+    expect(() => assertSingleSizing(5000, null)).not.toThrow();
+    expect(() => assertSingleSizing(undefined, 2)).not.toThrow();
+  });
+});

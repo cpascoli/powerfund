@@ -291,7 +291,7 @@ curl -sS -X POST -H "Authorization: Bearer $TOKEN" \
   "$ORIGIN/api/v1/agent/watchlist"
 ```
 
-Optional `target_weight_pct` on create/update is converted to `planned_usd` using current NAV. The stored field remains `planned_usd`.
+Optional `target_weight_pct` on create/update is converted to `planned_usd` using current NAV. The stored field remains `planned_usd`. Send one or the other: both together is a `422` rather than a silent preference for dollars.
 
 ## Review triggers
 
