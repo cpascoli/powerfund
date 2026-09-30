@@ -29,8 +29,8 @@ fallback afterwards.
 | A | Audit GPT behaviour and the agent API | Done: [architecture § audit](./mcp-architecture.md#the-existing-agent-api-audited) |
 | B | Build the MCP server in parallel | Done: `/api/v1/mcp`, 22 tools, OAuth |
 | C | Test with MCP Inspector | Done locally, CLI and real server (below) |
-| D | Deploy a preview endpoint | Migration pushed; PR #1 preview live and unauthenticated checks pass. Review fixes (read-only previews, trigger preview) need a push |
-| E | ChatGPT Developer Mode | **Operator** |
+| D | Deploy a preview endpoint | Migration applied; every review fix pushed; PR #1 checks green; preview live, and its unauthenticated checks pass. **Operator**: the authenticated smoke test below (Inspector with an agent key) |
+| E | ChatGPT Developer Mode | **Operator**: OAuth via ChatGPT's CIMD against the preview |
 | F | Staging plugin (skill + MCP) | Package built: `plugins/powerfund/build.sh --staging` |
 | G | Regression suite vs the legacy GPT | **Operator**: [evals/mcp](../evals/mcp/README.md) |
 | H | Resolve differences | — |
@@ -94,12 +94,15 @@ $I --header "Authorization: Bearer pf_local_reader_key_0001" --method tools/call
 $I --header "Authorization: Bearer pf_local_reader_key_0001" --method tools/call --tool-name set_watchlist_archived --tool-arg symbol=CLS archived=true
 ```
 
-**UI, with OAuth:** this exercises the full ChatGPT-style flow, on a **local
-stack**. Inspector registers itself dynamically, which only local stacks allow.
-Deployed sites (previews and production) share the production database and
-keep registration closed. Against those, use Inspector with an agent key: add
-the header `Authorization: Bearer <key>` in the UI, or use the CLI form above.
-ChatGPT itself uses CIMD and connects over OAuth everywhere.
+**UI, with OAuth:** this exercises the full ChatGPT-style flow, but only
+against a **local database**. Inspector registers itself dynamically, and
+registration is open by default only when the app is off Netlify **and** its
+Supabase URL is loopback (`localhost` / `127.0.0.1`). A `next dev` using the
+default `.env.local` points at production and keeps registration closed, as
+do all deployed sites. `POWERFUND_OAUTH_ALLOW_DCR=true` overrides this; never
+set it against production. Everywhere else, use Inspector with an agent key:
+add the header `Authorization: Bearer <key>` in the UI, or use the CLI form
+above. ChatGPT itself uses CIMD and needs no registration anywhere.
 
 ```bash
 npx -y @modelcontextprotocol/inspector@latest
@@ -140,8 +143,17 @@ curl -si -X POST $P/api/v1/mcp -H 'content-type: application/json' \
   -d '{"jsonrpc":"2.0","id":1,"method":"tools/list"}' | grep -i www-authenticate
 ```
 
-Then repeat the Inspector checks against `$P/api/v1/mcp`: CLI with a real read
-key, then the UI OAuth flow signed in as the production operator.
+Then the authenticated smoke test against `$P/api/v1/mcp`. The preview does
+not allow dynamic registration, so Inspector's OAuth flow cannot run there;
+use a **read-role agent key** instead (CLI form above with the preview URL, or
+the UI with an `Authorization: Bearer <key>` header):
+
+- [ ] `tools/list` shows 22 tools, each with annotations, `securitySchemes` and an `outputSchema`
+- [ ] `get_fund_state`, `get_dossier`, `get_review_context` answer from production data
+- [ ] any write tool returns `WRITES_DISABLED`, and nothing changes
+- [ ] `/.well-known/oauth-authorization-server` names the preview URL as issuer and advertises no `registration_endpoint`
+
+OAuth on the preview is for CIMD clients: that is phase E, with ChatGPT.
 
 > **The preview reads the production database, and cannot write to it through
 > MCP.** Every write tool returns `WRITES_DISABLED`, the consent page offers
@@ -247,6 +259,22 @@ read-only fallback until it is retired.
 
 **Stop all MCP writes without a code change:** set `POWERFUND_MCP_READ_ONLY=true`
 for the Production context in Netlify, and redeploy. Reads keep working.
+
+**When a write's outcome is unknown.** A write that timed out, or came back
+`IDEMPOTENCY_OUTCOME_UNKNOWN`, may or may not have landed: the process can
+have written and then died. The server will not re-run it automatically, so
+reconcile by hand:
+
+1. Read the state back. `get_journal` for decisions and grades,
+   `list_planned_actions` for the queue, `list_reviews` for review tasks,
+   `get_dossier` for dossier versions.
+2. If the write is there, you are done. Do not send it again.
+3. If it is missing, send it again. Through MCP the same arguments stay
+   pinned for up to an hour, so change something meaningful, or make the
+   write through the UI. Through REST, use a new `Idempotency-Key`.
+
+Retrying blind is safe only against `IDEMPOTENCY_IN_PROGRESS`, which means the
+first attempt is still running and will be replayed.
 
 **Revoke a connection:** `POST /oauth/revoke` with its refresh token revokes the
 grant. To revoke every MCP grant at once, the operator runs in SQL:

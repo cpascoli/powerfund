@@ -25,6 +25,7 @@ const PRODUCTION: DeployEnv = {
   mcpReadOnly: "",
   mcpAllowWrites: "",
   oauthAllowDcr: "",
+  supabaseUrl: "",
 };
 const PREVIEW: DeployEnv = {
   ...PRODUCTION,

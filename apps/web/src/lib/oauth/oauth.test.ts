@@ -129,6 +129,7 @@ describe("discovery metadata", () => {
     mcpReadOnly: "",
     mcpAllowWrites: "",
     oauthAllowDcr: "",
+    supabaseUrl: "",
     ...overrides,
   });
   const evilHost = new Headers({ host: "evil.example", "x-forwarded-proto": "https" });
@@ -607,7 +608,7 @@ describe("security review: exact matching and transaction binding", () => {
 });
 
 describe("dynamic client registration by deployment", () => {
-  it("is open only on local stacks unless deliberately enabled", async () => {
+  it("is open only off Netlify against a local database, unless deliberately enabled", async () => {
     const { dynamicRegistrationEnabled } = await import("@/lib/deploy");
     const env = (overrides: Partial<DeployEnv>): DeployEnv => ({
       context: "",
@@ -617,6 +618,7 @@ describe("dynamic client registration by deployment", () => {
       mcpReadOnly: "",
       mcpAllowWrites: "",
       oauthAllowDcr: "",
+      supabaseUrl: "",
       ...overrides,
     });
     expect(dynamicRegistrationEnabled(env({ context: "production" }))).toBe(false);
@@ -626,8 +628,16 @@ describe("dynamic client registration by deployment", () => {
     expect(dynamicRegistrationEnabled(env({ context: "deploy-preview" }))).toBe(false);
     expect(dynamicRegistrationEnabled(env({ context: "branch-deploy" }))).toBe(false);
     expect(dynamicRegistrationEnabled(env({ context: "deploy-preview", oauthAllowDcr: "true" }))).toBe(true);
-    expect(dynamicRegistrationEnabled(env({}))).toBe(true);
-    expect(dynamicRegistrationEnabled(env({ context: "dev" }))).toBe(true);
+    // Off Netlify, only against a local database. `next dev` with the default
+    // .env.local points at production; registration must stay closed there.
+    const LOCAL_DB = "http://127.0.0.1:54321";
+    const PROD_DB = "https://vctpghpvtyabbogquuim.supabase.co";
+    expect(dynamicRegistrationEnabled(env({ supabaseUrl: LOCAL_DB }))).toBe(true);
+    expect(dynamicRegistrationEnabled(env({ context: "dev", supabaseUrl: "http://localhost:54321" }))).toBe(true);
+    expect(dynamicRegistrationEnabled(env({ supabaseUrl: PROD_DB }))).toBe(false);
+    expect(dynamicRegistrationEnabled(env({ context: "dev", supabaseUrl: PROD_DB }))).toBe(false);
+    expect(dynamicRegistrationEnabled(env({}))).toBe(false);
+    expect(dynamicRegistrationEnabled(env({ supabaseUrl: PROD_DB, oauthAllowDcr: "true" }))).toBe(true);
   });
 
   it("hides the registration endpoint from metadata where it is closed", () => {
