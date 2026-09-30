@@ -55,15 +55,25 @@ export type McpWriteMode = {
  *
  * - POWERFUND_MCP_READ_ONLY=true turns writes off anywhere, production
  *   included: a kill switch that needs no code change.
- * - POWERFUND_MCP_ALLOW_WRITES=true turns them on for a non-production
- *   deployment. Use it for a local stack on a local database, never on a
- *   preview that points at production.
+ * - POWERFUND_MCP_ALLOW_WRITES=true turns them on for local testing, and
+ *   only there: off Netlify and against a loopback Supabase. It can never
+ *   unlock a Deploy Preview or branch deploy, which share the production
+ *   database: "previews are read-only by construction" must not depend on
+ *   an environment variable being left unset.
  */
 export function mcpWriteMode(env: DeployEnv = deployEnv()): McpWriteMode {
   if (env.mcpReadOnly === "true") return { enabled: false, reason: "kill_switch" };
   if (env.context === "production") return { enabled: true, reason: "production" };
-  if (env.mcpAllowWrites === "true") return { enabled: true, reason: "explicit_opt_in" };
+  if (env.mcpAllowWrites === "true" && isLocalStack(env)) {
+    return { enabled: true, reason: "explicit_opt_in" };
+  }
   return { enabled: false, reason: "non_production_deployment" };
+}
+
+/** Off Netlify (or `netlify dev`) and writing to a loopback Supabase. */
+function isLocalStack(env: DeployEnv): boolean {
+  const offNetlify = env.context === "" || env.context === "dev";
+  return offNetlify && isLoopbackUrl(env.supabaseUrl);
 }
 
 function isLoopbackUrl(value: string): boolean {
@@ -88,6 +98,5 @@ function isLoopbackUrl(value: string): boolean {
  */
 export function dynamicRegistrationEnabled(env: DeployEnv = deployEnv()): boolean {
   if (env.oauthAllowDcr === "true") return true;
-  const offNetlify = env.context === "" || env.context === "dev";
-  return offNetlify && isLoopbackUrl(env.supabaseUrl);
+  return isLocalStack(env);
 }

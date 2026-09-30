@@ -671,9 +671,25 @@ describe("read-only deployments (every Deploy Preview)", () => {
     expect(client.calls).toEqual([]);
   });
 
-  it("allows writes off production only with an explicit opt-in (a local stack)", async () => {
+  it("cannot be unlocked on a preview, even with the write opt-in set", async () => {
     const client = fakeAgentClient();
-    await post(writeCall, { client, deps: { deploy: { ...PREVIEW, mcpAllowWrites: "true" } } });
+    const { json } = await post(writeCall, { client, deps: { deploy: { ...PREVIEW, mcpAllowWrites: "true" } } });
+    expect(json!.result.structuredContent.error.code).toBe("WRITES_DISABLED");
+    expect(client.calls).toEqual([]);
+  });
+
+  it("allows writes off production only on a local stack with the explicit opt-in", async () => {
+    const client = fakeAgentClient();
+    const local: DeployEnv = {
+      ...PRODUCTION,
+      context: "",
+      siteUrl: "",
+      deployUrl: "",
+      publicOriginOverride: ORIGIN,
+      mcpAllowWrites: "true",
+      supabaseUrl: "http://127.0.0.1:54321",
+    };
+    await post(writeCall, { client, deps: { deploy: local } });
     expect(client.calls.map((row) => row.method)).toEqual(["createDecision"]);
   });
 
