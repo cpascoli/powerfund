@@ -54,14 +54,51 @@ describe("handleAgentRequest idempotency", () => {
     expect(handler).toHaveBeenCalledTimes(1);
   });
 
-  it("releases the key when the handler throws, so a retry can run", async () => {
+  const args = (handler: ReturnType<typeof vi.fn>) => ({
+    scope: "powerfund:journal:append" as const,
+    methods: ["POST"],
+    operationId: "createDecision",
+    handler: handler as never,
+  });
+  const code = async (response: Response) =>
+    ((await response.json()) as { error?: { code: string } }).error?.code;
+
+  it("pins the key when the handler throws, because it may have written first", async () => {
+    const handler = vi.fn().mockRejectedValueOnce(new Error("failed after insert?"));
+    expect((await handleAgentRequest(request("k2"), args(handler))).status).toBe(500);
+    const retry = await handleAgentRequest(request("k2"), args(handler));
+    expect(retry.status).toBe(409);
+    expect(await code(retry)).toBe("IDEMPOTENCY_OUTCOME_UNKNOWN");
+    expect(handler).toHaveBeenCalledTimes(1);
+  });
+
+  it("pins the key on a 5xx for the same reason", async () => {
+    const handler = vi.fn().mockResolvedValue(new Response('{"error":{"code":"INTERNAL_ERROR"}}', { status: 500 }));
+    await handleAgentRequest(request("k3"), args(handler));
+    expect(await code(await handleAgentRequest(request("k3"), args(handler)))).toBe("IDEMPOTENCY_OUTCOME_UNKNOWN");
+    expect(handler).toHaveBeenCalledTimes(1);
+  });
+
+  it("frees the key only when the request was refused before writing", async () => {
     const handler = vi
       .fn()
-      .mockRejectedValueOnce(new Error("db down"))
+      .mockResolvedValueOnce(new Response('{"error":{"code":"RATE_LIMITED"}}', { status: 429 }))
       .mockResolvedValueOnce(new Response('{"created":true}', { status: 200 }));
-    const args = { scope: "powerfund:journal:append" as const, methods: ["POST"], operationId: "createDecision", handler };
-    expect((await handleAgentRequest(request("k2"), args)).status).toBe(500);
-    expect((await handleAgentRequest(request("k2"), args)).status).toBe(200);
+    await handleAgentRequest(request("k4"), args(handler));
+    expect((await handleAgentRequest(request("k4"), args(handler))).status).toBe(200);
     expect(handler).toHaveBeenCalledTimes(2);
+  });
+
+  it("returns a successful write as a success even if recording it fails, and never re-runs it", async () => {
+    const store = shared.store as ReturnType<typeof memoryIdempotencyStore>;
+    store.complete = async () => {
+      throw new Error("idempotency table unavailable");
+    };
+    const handler = vi.fn().mockResolvedValue(new Response('{"created":true,"decision":{"id":"d9"}}', { status: 200 }));
+    const first = await handleAgentRequest(request("k5"), args(handler));
+    expect(first.status).toBe(200);
+    expect(await first.json()).toEqual({ created: true, decision: { id: "d9" } });
+    expect((await handleAgentRequest(request("k5"), args(handler))).status).toBe(409);
+    expect(handler).toHaveBeenCalledTimes(1);
   });
 });

@@ -17,12 +17,21 @@ const MAX_IDEMPOTENCY_KEY_LENGTH = 128;
  *
  *   status_code  0  in progress   → an identical request gets 409 IDEMPOTENCY_IN_PROGRESS (retryable)
  *   status_code >0  completed     → replay the stored response
- *   status_code -1  released      → the attempt failed without a cacheable answer; the next attempt may run
+ *   status_code -1  released      → refused before any write (401/403/429); the next attempt may run
+ *   status_code -2  unknown       → the attempt threw or returned 5xx, so it may or may not have written
  *
- * A reservation still "in progress" after RESERVATION_STALE_MS belongs to an
- * invocation that is certainly dead (Netlify kills functions at 60 s), so the
- * next attempt takes it over. Takeovers are conditional updates, so two
- * retries cannot both win.
+ * An attempt whose outcome is unknown is never re-run automatically. That
+ * covers an unknown row, and an in-progress one older than
+ * RESERVATION_STALE_MS, whose invocation is certainly dead (Netlify kills
+ * functions at 60 s). The server cannot tell "died before writing" from
+ * "wrote, then died", and guessing the first duplicates a committed write. The
+ * caller gets 409 IDEMPOTENCY_OUTCOME_UNKNOWN: read the state back, then decide.
+ * The one exception is an `mcp:` key past its window (below), where a repeat
+ * is by definition a new decision.
+ *
+ * The durable fix for the append operations is operation-level uniqueness (a
+ * key column with a partial unique index, as transactions.client_key does);
+ * until then this refuses rather than guesses.
  *
  * Keys minted by the MCP adapter (`mcp:` prefix) are content-derived rather
  * than random, so they need an end: a completed one replays for
@@ -36,6 +45,7 @@ export const MCP_KEY_PREFIX = "mcp:";
 
 const IN_PROGRESS = 0;
 const RELEASED = -1;
+const UNKNOWN = -2;
 
 export type IdempotencyRow = {
   id: string;
@@ -47,7 +57,9 @@ export type IdempotencyRow = {
 
 export type Takeover =
   | { from: "released" }
-  | { from: "stale"; before: string }
+  /** An in-progress or unknown `mcp:` reservation older than its window. */
+  | { from: "abandoned"; before: string }
+  /** A completed `mcp:` key older than its window. */
   | { from: "expired"; before: string };
 
 export interface IdempotencyStore {
@@ -63,7 +75,10 @@ export interface IdempotencyStore {
   /** Conditionally turn an existing row back into a fresh reservation. */
   takeover(id: string, condition: Takeover, at: string): Promise<boolean>;
   complete(id: string, statusCode: number, response: unknown): Promise<void>;
+  /** Refused before any write: the key is free again. */
   release(id: string): Promise<void>;
+  /** May have written: the key is pinned and never re-run automatically. */
+  markUnknown(id: string): Promise<void>;
 }
 
 export type Reservation =
@@ -86,6 +101,13 @@ export function readIdempotencyKey(request: Request): string | null {
     );
   }
   return raw;
+}
+
+function outcomeUnknown(): AgentApiError {
+  return conflict(
+    "IDEMPOTENCY_OUTCOME_UNKNOWN",
+    "An earlier attempt with this Idempotency-Key ended without a recorded result, so it may or may not have written. It will not be re-run automatically. Read the current state back; if the write is missing, send it again with a new key.",
+  );
 }
 
 function inProgress(): AgentApiError {
@@ -116,20 +138,27 @@ export async function reserveIdempotency(
   }
 
   const age = now.getTime() - Date.parse(row.created_at);
+  const windowed = args.idempotencyKey.startsWith(MCP_KEY_PREFIX);
+  const windowOver = windowed && age >= MCP_KEY_WINDOW_MS;
+  const windowStart = new Date(now.getTime() - MCP_KEY_WINDOW_MS).toISOString();
+
   let takeover: Takeover | null = null;
   if (row.status_code > 0) {
-    const windowed = args.idempotencyKey.startsWith(MCP_KEY_PREFIX);
-    if (!windowed || age < MCP_KEY_WINDOW_MS) {
+    if (!windowOver) {
       return { kind: "replay", status_code: row.status_code, response: row.response };
     }
-    takeover = { from: "expired", before: new Date(now.getTime() - MCP_KEY_WINDOW_MS).toISOString() };
+    takeover = { from: "expired", before: windowStart };
   } else if (row.status_code === RELEASED) {
     takeover = { from: "released" };
-  } else if (age >= RESERVATION_STALE_MS) {
-    takeover = { from: "stale", before: new Date(now.getTime() - RESERVATION_STALE_MS).toISOString() };
+  } else {
+    // In progress, or unknown. Ambiguous once unknown or stale.
+    const ambiguous = row.status_code === UNKNOWN || age >= RESERVATION_STALE_MS;
+    if (!ambiguous) throw inProgress();
+    if (!windowOver) throw outcomeUnknown();
+    takeover = { from: "abandoned", before: windowStart };
   }
 
-  if (takeover && (await store.takeover(row.id, takeover, at))) {
+  if (await store.takeover(row.id, takeover, at)) {
     return { kind: "reserved", id: row.id };
   }
   throw inProgress();
@@ -174,7 +203,7 @@ export function supabaseIdempotencyStore(supabase: DbClient): IdempotencyStore {
         .update({ status_code: IN_PROGRESS, response: {} as Json, created_at: at })
         .eq("id", id);
       if (condition.from === "released") query = query.eq("status_code", RELEASED);
-      if (condition.from === "stale") query = query.eq("status_code", IN_PROGRESS).lt("created_at", condition.before);
+      if (condition.from === "abandoned") query = query.in("status_code", [IN_PROGRESS, UNKNOWN]).lt("created_at", condition.before);
       if (condition.from === "expired") query = query.gt("status_code", 0).lt("created_at", condition.before);
       const { data, error } = await query.select("id");
       if (error) fail("takeover", error);
@@ -195,6 +224,14 @@ export function supabaseIdempotencyStore(supabase: DbClient): IdempotencyStore {
         .eq("id", id)
         .eq("status_code", IN_PROGRESS);
       if (error) fail("release", error);
+    },
+    async markUnknown(id) {
+      const { error } = await supabase
+        .from("agent_idempotency_keys")
+        .update({ status_code: UNKNOWN })
+        .eq("id", id)
+        .eq("status_code", IN_PROGRESS);
+      if (error) fail("markUnknown", error);
     },
   };
 }
@@ -223,8 +260,8 @@ export function memoryIdempotencyStore(): IdempotencyStore & { rows: Idempotency
       const eligible =
         condition.from === "released"
           ? row.status_code === RELEASED
-          : condition.from === "stale"
-            ? row.status_code === IN_PROGRESS && row.created_at < condition.before
+          : condition.from === "abandoned"
+            ? (row.status_code === IN_PROGRESS || row.status_code === UNKNOWN) && row.created_at < condition.before
             : row.status_code > 0 && row.created_at < condition.before;
       if (!eligible) return false;
       Object.assign(row, { status_code: IN_PROGRESS, response: {}, created_at: at });
@@ -237,6 +274,10 @@ export function memoryIdempotencyStore(): IdempotencyStore & { rows: Idempotency
     async release(id) {
       const row = byId(id);
       if (row?.status_code === IN_PROGRESS) row.status_code = RELEASED;
+    },
+    async markUnknown(id) {
+      const row = byId(id);
+      if (row?.status_code === IN_PROGRESS) row.status_code = UNKNOWN;
     },
   };
 }
