@@ -160,9 +160,12 @@ Each was a real production defect. See the remediation log for the full story.
   natural response and, unkeyed, the wrong one. Partial unique indexes enforce
   both, and a null key is deliberately unconstrained: a fill must never be
   refused because a convenience was missing. The agent API's
-  `Idempotency-Key` is *reserved before* the handler runs (0 = in progress,
-  -1 = released), so a retry of a still-running write gets
-  `IDEMPOTENCY_IN_PROGRESS` instead of executing twice.
+  `Idempotency-Key` is *reserved before* the handler runs (0 in progress,
+  -1 released, -2 outcome unknown). Never re-run an attempt that may have
+  written: a thrown handler, a 5xx or a dead invocation pins the key
+  (`IDEMPOTENCY_OUTCOME_UNKNOWN`), because "died before writing" and "wrote,
+  then died" are indistinguishable. Only 401/403/429 free it. The durable fix
+  is a keyed unique index on each append table, as `client_key` does for fills.
 - **`instruments.status` follows the book; only `archived` is set by hand.** A
   trigger on `positions` moves a name to `active` when a position opens and back
   to `watchlist` when the last unit goes, because `positions` is itself a

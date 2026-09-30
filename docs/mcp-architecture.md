@@ -275,7 +275,7 @@ A focused review of the OAuth/CIMD surface, each item with the test that holds i
 | Concurrent refresh reuse | New pair inserted into the family *before* the old token is retired; the loser's family revocation covers it | "…refresh is reused while the first rotation is mid-flight" (fails against the old order) |
 | A bad verifier cannot burn a code | Everything is validated before the code is consumed | "does not burn a code on a wrong verifier…" |
 | Client identity | Idempotency and rate-limit namespaces use a digest of the client id, not the client's self-chosen display name | `oauthPrincipalId` test |
-| No duplicate writes on retry | Idempotency keys reserved before the write | `http-idempotency.test.ts`, `idempotency.test.ts` |
+| No automatic re-run of a write | Keys reserved before the write; an attempt that threw, returned 5xx or died is pinned as outcome-unknown, never taken over while its key is live; a failed completion record does not turn a success into an error | `http-idempotency.test.ts`, `idempotency.test.ts`, and a real-table run |
 
 Not implemented, and not a blocker for a private single-operator plugin:
 `private_key_jwt` client authentication, and a grants page.
@@ -290,17 +290,34 @@ a Netlify background function (15 min) and a jobs table. In the 2026-07-28 spec
 that is the `io.modelcontextprotocol/tasks` extension. Do not hold an MCP
 request open for it.
 
-A tool that times out returns `TIMEOUT` with `retryable: true`, and for a
-write that retry is safe by construction. The idempotency key is derived from
-the tool and its exact arguments, and the agent API **reserves** it before the
-write runs (`lib/api/agent/idempotency.ts`). An identical retry therefore either
-replays the stored result or gets `409 IDEMPOTENCY_IN_PROGRESS` (retryable)
-while the first attempt is still running. It never runs the write twice. A
-failed attempt releases the key. A reservation abandoned by a dead invocation
-is taken over after 5 minutes, well past Netlify's 60 s limit. MCP keys replay
-for a sliding hour from the first attempt, so there is no clock boundary
-inside the retry window; after that, the same write made again is a new
-decision.
+A tool that times out returns `TIMEOUT` with `retryable: true`. The
+idempotency key is the tool and its exact arguments, and the agent API
+**reserves** it before the write runs (`lib/api/agent/idempotency.ts`). An
+identical retry therefore gets one of three answers, and none of them runs
+the write a second time:
+
+- **The stored result**, if the first attempt finished.
+- **`409 IDEMPOTENCY_IN_PROGRESS`** (retryable), while it is still running.
+- **`409 IDEMPOTENCY_OUTCOME_UNKNOWN`**, if the first attempt threw, returned a
+  5xx, or its invocation died. It may or may not have written, and the server
+  cannot tell "died before writing" from "wrote, then died", so it refuses to
+  guess: read the state back, then decide. Only a refusal that proves nothing
+  was written (401/403/429) frees the key.
+
+MCP keys cover a sliding hour from the first attempt. After that, the same
+write made again is a new decision by definition, including after an unknown
+outcome.
+
+**Residual, and the durable fix.** Within those rules nothing is re-run
+automatically. The remaining cost is liveness: an attempt that died *before*
+writing leaves its MCP key pinned for up to an hour. The operation-level fix
+removes the ambiguity rather than refusing on it: a request-key column with a
+partial unique index on the three append tables (`decisions`,
+`planned_actions`, `review_tasks`, plus off-clock grades), as
+`transactions.client_key` already does for fills. A duplicate insert then
+fails in the database itself. The other writes are already safe to re-run:
+`expected_version`, the `(decision, horizon)` unique index, refused
+re-completion, `SYMBOL_EXISTS`, and state-setting updates.
 
 ## Observability
 

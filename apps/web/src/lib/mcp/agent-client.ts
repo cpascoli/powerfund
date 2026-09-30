@@ -268,7 +268,8 @@ export class InProcessAgentClient implements PowerFundAgentClient {
  * Idempotency key for a write made through MCP: the tool and its exact
  * arguments. A model that sees a timeout retries with the same arguments, so
  * the retry carries the same key and the agent API either replays the first
- * result or reports it still running; it never writes twice.
+ * result, reports it still running, or reports that an earlier attempt's
+ * outcome is unknown; it does not run the write a second time.
  *
  * The key has no clock in it. A fixed time bucket put a boundary inside the
  * retry window (a write at 10:59:59 retried at 11:00:00 got a new key).

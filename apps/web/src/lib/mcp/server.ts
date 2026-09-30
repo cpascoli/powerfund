@@ -255,7 +255,7 @@ export function createPowerFundMcpServer(deps: McpServerDeps): McpServer {
               code: "TIMEOUT",
               message: tool.annotations.readOnlyHint
                 ? `PowerFund did not answer within ${thrown.ms / 1000}s. Safe to retry.`
-                : `PowerFund did not answer within ${thrown.ms / 1000}s. The write may still be running or have landed. Retrying with identical arguments is safe: it replays the result, or reports IDEMPOTENCY_IN_PROGRESS while the first attempt runs, and never writes twice.`,
+                : `PowerFund did not answer within ${thrown.ms / 1000}s. The write may still be running or may have landed. Retrying with identical arguments will not run it a second time: you get the original result, IDEMPOTENCY_IN_PROGRESS (wait, then retry), or IDEMPOTENCY_OUTCOME_UNKNOWN (read the state back before doing anything else).`,
               retryable: true,
             };
           } else {

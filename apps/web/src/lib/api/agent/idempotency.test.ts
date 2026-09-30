@@ -50,16 +50,40 @@ describe("idempotency reservations", () => {
     expect((await reserveIdempotency(store, key("k1"), after(1000))).kind).toBe("reserved");
   });
 
-  it("takes over a reservation abandoned by a dead invocation, and only once", async () => {
+  it("never re-runs a stale reservation: it may have written before the invocation died", async () => {
+    // The finding: taking over after 5 minutes re-ran writes that had
+    // committed before the process died. Stale now means "outcome unknown".
     const store = memoryIdempotencyStore();
     await reserveIdempotency(store, key("k1"), T0);
-    const later = after(RESERVATION_STALE_MS + 1);
-    const [a, b] = await Promise.allSettled([
-      reserveIdempotency(store, key("k1"), later),
-      reserveIdempotency(store, key("k1"), later),
+    expect(await codeOf(reserveIdempotency(store, key("k1"), after(RESERVATION_STALE_MS + 1)))).toBe(
+      "IDEMPOTENCY_OUTCOME_UNKNOWN",
+    );
+    // Not even much later, for a caller's own random key.
+    expect(await codeOf(reserveIdempotency(store, key("k1"), after(30 * 24 * 3600 * 1000)))).toBe(
+      "IDEMPOTENCY_OUTCOME_UNKNOWN",
+    );
+  });
+
+  it("pins an attempt whose outcome is unknown, even while fresh", async () => {
+    const store = memoryIdempotencyStore();
+    const first = await reserveIdempotency(store, key("k1"), T0);
+    await store.markUnknown((first as { id: string }).id);
+    expect(await codeOf(reserveIdempotency(store, key("k1"), after(1000)))).toBe("IDEMPOTENCY_OUTCOME_UNKNOWN");
+  });
+
+  it("lets an MCP key start over only once its window is over, and only once", async () => {
+    const store = memoryIdempotencyStore();
+    const first = await reserveIdempotency(store, key("mcp:record_decision:dead"), T0);
+    await store.markUnknown((first as { id: string }).id);
+    expect(await codeOf(reserveIdempotency(store, key("mcp:record_decision:dead"), after(RESERVATION_STALE_MS + 1)))).toBe(
+      "IDEMPOTENCY_OUTCOME_UNKNOWN",
+    );
+    const late = after(MCP_KEY_WINDOW_MS + 1);
+    const both = await Promise.allSettled([
+      reserveIdempotency(store, key("mcp:record_decision:dead"), late),
+      reserveIdempotency(store, key("mcp:record_decision:dead"), late),
     ]);
-    const outcomes = [a, b].map((r) => (r.status === "fulfilled" ? r.value.kind : (r.reason as { code: string }).code));
-    expect(outcomes.sort()).toEqual(["IDEMPOTENCY_IN_PROGRESS", "reserved"]);
+    expect(both.filter((r) => r.status === "fulfilled")).toHaveLength(1);
   });
 
   it("refuses the same key with a different body", async () => {

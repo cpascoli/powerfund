@@ -82,7 +82,13 @@ Idempotency-Key: <uuid>
 
 That includes `POST` decisions, decisions/{id}/outcome, planned-actions, review-tasks, review-tasks complete, and watchlist, plus `PATCH` planned-actions, review-tasks, and dossiers. A retry with the same key and body returns the original result. A reused key with a different body returns `409 IDEMPOTENCY_KEY_REUSED`.
 
-The key is **reserved when the request starts**, not recorded when it ends. A second request with the same key while the first is still running gets `409 IDEMPOTENCY_IN_PROGRESS`: retry shortly and it replays the first result. It is never executed twice. A request that fails without an answer to replay (5xx, or auth/rate-limit refusals) releases the key, so the next attempt runs.
+The key is **reserved when the request starts**, not recorded when it ends. The same key again gets one of:
+
+- the stored result, once the first request finished;
+- `409 IDEMPOTENCY_IN_PROGRESS` while it is still running (retry shortly);
+- `409 IDEMPOTENCY_OUTCOME_UNKNOWN` if the first request returned a 5xx or never finished. It may or may not have written, so it is **not** re-run: read the state back, and if the write is missing send it with a new key.
+
+Only a refusal that proves nothing was written (401, 403, 429) frees the key for another attempt.
 
 **`actor_name` is the attribution, not the text.** `createPlannedAction` and
 `updatePlannedAction` take an optional `actor_name`. The server stamps
@@ -341,7 +347,7 @@ narrow the window, because a truncated history is a partial chain of reasoning.
 | 401 | `UNAUTHENTICATED` |
 | 403 | `PERMISSION_DENIED` |
 | 404 | `UNKNOWN_SYMBOL` / `UNKNOWN_THEME` / `UNKNOWN_VERSION` / `UNKNOWN_PLANNED_ACTION` / `UNKNOWN_REVIEW_TASK` / `UNKNOWN_DECISION` |
-| 409 | `DOSSIER_VERSION_CONFLICT` / `IDEMPOTENCY_KEY_REUSED` / `IDEMPOTENCY_IN_PROGRESS` / `SYMBOL_EXISTS` |
+| 409 | `DOSSIER_VERSION_CONFLICT` / `IDEMPOTENCY_KEY_REUSED` / `IDEMPOTENCY_IN_PROGRESS` / `IDEMPOTENCY_OUTCOME_UNKNOWN` / `SYMBOL_EXISTS` |
 | 422 | `VALIDATION_ERROR` |
 | 429 | `RATE_LIMITED` |
 | 500 | `DOSSIER_VERSIONING_FAILED` / `INTERNAL_ERROR` |

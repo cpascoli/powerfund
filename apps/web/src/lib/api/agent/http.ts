@@ -225,23 +225,29 @@ export async function handleAgentRequest(
         bodyText,
       });
     } catch (error) {
-      // No answer to replay: let the next attempt run.
-      await reservation?.store.release(reservation.id).catch(() => {});
+      // It may have written before throwing: pin the key rather than free it.
+      await reservation?.store.markUnknown(reservation.id).catch(() => {});
       throw error;
     }
 
     if (reservation) {
-      const cacheable =
-        response.status >= 200 &&
-        response.status < 500 &&
-        response.status !== 401 &&
-        response.status !== 403 &&
-        response.status !== 429;
+      const refusedBeforeWriting = [401, 403, 429].includes(response.status);
+      const cacheable = response.status >= 200 && response.status < 500 && !refusedBeforeWriting;
       const cloned = cacheable ? await response.clone().json().catch(() => null) : null;
       if (cloned != null) {
-        await reservation.store.complete(reservation.id, response.status, cloned);
-      } else {
+        try {
+          await reservation.store.complete(reservation.id, response.status, cloned);
+        } catch (error) {
+          // The write succeeded; failing to record it must not turn it into
+          // an error the caller would retry. The reservation stays in
+          // progress, so the key is never re-run automatically.
+          console.error("Idempotency completion failed after a successful write", error);
+        }
+      } else if (refusedBeforeWriting) {
         await reservation.store.release(reservation.id);
+      } else {
+        // 5xx, or a body we could not record: the outcome is unknown.
+        await reservation.store.markUnknown(reservation.id);
       }
     }
 

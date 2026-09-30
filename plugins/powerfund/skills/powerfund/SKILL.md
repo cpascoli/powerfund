@@ -119,9 +119,12 @@ REST names; the tools are:
 - `INSUFFICIENT_SCOPE` → the connection is read-only or lacks that grant. Tell
   the operator. Do not look for another way to write.
 - `TIMEOUT` on a write → it may still be running. Retrying with identical
-  arguments is safe: it replays the first result, or returns
-  `IDEMPOTENCY_IN_PROGRESS` (wait briefly, then retry). Never change the
-  arguments to "get it through"; that is a new write.
+  arguments never runs it twice: you get the first result,
+  `IDEMPOTENCY_IN_PROGRESS` (wait briefly, then retry), or
+  `IDEMPOTENCY_OUTCOME_UNKNOWN`. On the last, **read the state back**
+  (`get_journal`, `list_reviews`, `list_planned_actions`) and tell the user
+  what you find. Never change the arguments to "get it through"; that is a
+  new write.
 - `truncated: true` on history → raise `limit` or narrow the window. A truncated
   chain is a partial chain of reasoning.
 - Empty `symbol` review history means **no catalyst fired**, not "no prior

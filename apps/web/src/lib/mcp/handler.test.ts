@@ -344,7 +344,8 @@ describe("tools/call", () => {
     });
     const error = json!.result.structuredContent.error;
     expect(error).toMatchObject({ source: "mcp", code: "TIMEOUT", retryable: true });
-    expect(error.message).toMatch(/never writes twice/);
+    expect(error.message).toMatch(/will not run it a second time/);
+    expect(error.message).toMatch(/IDEMPOTENCY_OUTCOME_UNKNOWN/);
   });
 
   it("derives a stable idempotency key for writes, and none for reads", async () => {
