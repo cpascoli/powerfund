@@ -64,7 +64,7 @@ function cell(text: string | undefined): string {
 }
 
 function restOperations(): Map<string, string> {
-  const doc = agentOpenApiDocument("https://powerfund.netlify.app");
+  const doc = agentOpenApiDocument("https://powerfund.finance");
   const map = new Map<string, string>();
   for (const [path, item] of Object.entries(doc.paths)) {
     for (const [method, op] of Object.entries(item as Record<string, { operationId?: string }>)) {

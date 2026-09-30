@@ -87,7 +87,7 @@ gh repo create powerfund --private --source=. --remote=origin --push
 # Base directory: leave empty (repo root). Details: docs/deploy.md
 ```
 
-Production site: [https://powerfund.netlify.app](https://powerfund.netlify.app)
+Production site: [https://powerfund.finance](https://powerfund.finance) (also served at powerfund.netlify.app; MCP clients must use powerfund.finance)
 
 Manual deploy fallback:
 

@@ -3,7 +3,7 @@
   "mcpServers": {
     "powerfund": {
       "type": "streamable-http",
-      "url": "https://powerfund.netlify.app/api/v1/mcp"
+      "url": "https://powerfund.finance/api/v1/mcp"
     }
   }
 }

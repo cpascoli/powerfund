@@ -2,7 +2,7 @@
 
 Private, authenticated domain API for AI agents (ChatGPT Actions, HTTP clients, and — in-process — the [MCP server](./mcp-architecture.md)). It is **not** the public catalog and **not** trade execution. Operating rituals (daily sweep, weekly holds, calendar fill, new names): [gpt-agent-process.md](./gpt-agent-process.md).
 
-Public anonymous catalog: [`/api/v1`](https://powerfund.netlify.app/api/v1) — weights and research text only.
+Public anonymous catalog: [`/api/v1`](https://powerfund.finance/api/v1) — weights and research text only.
 
 Private agent API: `/api/v1/agent/*` — Bearer token, scoped permissions, dollars, versions, journal pins, deployment queue, review queue.
 
@@ -104,7 +104,7 @@ deferral came to name the wrong agent.
 Replace `$ORIGIN` and `$TOKEN`.
 
 ```bash
-ORIGIN=https://powerfund.netlify.app
+ORIGIN=https://powerfund.finance
 TOKEN=your-agent-token
 
 # Index (auth) + OpenAPI (public, for GPT Actions import)

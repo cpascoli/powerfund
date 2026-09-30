@@ -137,23 +137,24 @@ describe("discovery metadata", () => {
   it("takes production's origin from the build, never from Host", () => {
     const env = deploy({
       context: "production",
-      siteUrl: "https://powerfund.netlify.app",
+      // Netlify's URL is the primary custom domain, not the netlify.app one.
+      siteUrl: "https://powerfund.finance",
       deployUrl: "https://6abb35b4--powerfund.netlify.app",
     });
-    expect(publicOrigin(evilHost, env)).toBe("https://powerfund.netlify.app");
+    expect(publicOrigin(evilHost, env)).toBe("https://powerfund.finance");
   });
 
   it("gives a Deploy Preview its own canonical origin, never Host", () => {
     const env = deploy({
       context: "deploy-preview",
-      siteUrl: "https://powerfund.netlify.app",
+      siteUrl: "https://powerfund.finance",
       deployUrl: "https://deploy-preview-1--powerfund.netlify.app",
     });
     expect(publicOrigin(evilHost, env)).toBe("https://deploy-preview-1--powerfund.netlify.app");
   });
 
   it("lets an explicit override win", () => {
-    const env = deploy({ context: "production", siteUrl: "https://powerfund.netlify.app", publicOriginOverride: "https://pf.example/" });
+    const env = deploy({ context: "production", siteUrl: "https://powerfund.finance", publicOriginOverride: "https://pf.example/" });
     expect(publicOrigin(evilHost, env)).toBe("https://pf.example");
   });
 
