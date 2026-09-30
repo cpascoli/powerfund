@@ -12,7 +12,10 @@ set -euo pipefail
 
 ROOT=$(cd "$(dirname "$0")/../.." && pwd)
 SRC="$ROOT/plugins/powerfund"
-URL="https://powerfund.netlify.app/api/v1/mcp"
+# Production's canonical MCP URL. It must be the primary domain: the server
+# advertises its resource from Netlify's primary URL, and a client connecting
+# through another hostname (powerfund.netlify.app) fails resource validation.
+URL="https://powerfund.finance/api/v1/mcp"
 NAME="powerfund"
 DISPLAY="PowerFund"
 

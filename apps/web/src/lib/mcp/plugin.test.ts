@@ -24,7 +24,7 @@ describe("PowerFund plugin package", () => {
     expect(Object.keys(mcp.mcpServers)).toEqual(["powerfund"]);
     expect(mcp.mcpServers.powerfund).toEqual({
       type: "streamable-http",
-      url: "https://powerfund.netlify.app/api/v1/mcp",
+      url: "https://powerfund.finance/api/v1/mcp",
     });
     expect(JSON.stringify(mcp)).not.toMatch(/bearer|token|secret|authorization|pf_|pfat_/i);
   });

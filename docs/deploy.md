@@ -73,5 +73,7 @@ supabase db push          # migrations
 
 Auth URL config (hosted project):
 
-- Site URL: `https://powerfund.netlify.app`
-- Redirect URLs: `https://powerfund.netlify.app/**` (plus local URLs if needed)
+- Site URL: `https://powerfund.finance` (the primary domain; `powerfund.netlify.app` also serves the site)
+- Redirect URLs: `https://powerfund.finance/**` and `https://powerfund.netlify.app/**` (plus local URLs if needed)
+
+The primary domain matters for MCP. The server's OAuth issuer and resource come from Netlify's primary URL, so MCP clients must connect to `https://powerfund.finance/api/v1/mcp`, not the netlify.app hostname.

@@ -4,7 +4,7 @@
   "version": "1.0.0",
   "description": "PowerFund research, decision and deployment workflows over the private PowerFund book. Reads and writes research, the journal, the review calendar and the deployment queue; never books a fill.",
   "author": { "name": "Carlo Pascoli" },
-  "homepage": "https://powerfund.netlify.app",
+  "homepage": "https://powerfund.finance",
   "keywords": ["investing", "portfolio", "research", "journal"],
   "extensions": {
     "com.openai": {
@@ -15,7 +15,7 @@
         "developerName": "PowerFund",
         "category": "Productivity",
         "capabilities": ["Read", "Write"],
-        "websiteURL": "https://powerfund.netlify.app",
+        "websiteURL": "https://powerfund.finance",
         "defaultPrompt": [
           "What is due today?",
           "Get the current portfolio and fund state.",

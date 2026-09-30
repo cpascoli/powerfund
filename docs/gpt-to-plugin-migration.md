@@ -39,6 +39,16 @@ fallback afterwards.
 | K | Attach MCP to the migrated plugin, reconcile skills | **Operator** |
 | L | Regression suite against the migrated plugin | **Operator** |
 
+## Production URL
+
+Production is **`https://powerfund.finance`**, the primary domain in Netlify.
+The MCP server takes its OAuth issuer and resource from Netlify's primary URL,
+so every MCP client must use **`https://powerfund.finance/api/v1/mcp`**.
+`powerfund.netlify.app` still serves the site, but a client connecting through
+it is told the resource is `powerfund.finance`, and a spec-compliant client
+(ChatGPT included) refuses the mismatch. Deploy Previews keep their own
+`deploy-preview-<n>--powerfund.netlify.app` URLs, which are their issuers.
+
 ## Before anything leaves this machine
 
 1. **Apply the migration to production:** `supabase db push`. It adds three
@@ -213,12 +223,12 @@ Migration uses the GPT's **published** version. Before migrating:
   - [ ] instructions (copied verbatim)
   - [ ] knowledge files (download each)
   - [ ] Actions configuration: server URL, auth type (API key / Bearer), privacy policy URL
-  - [ ] the OpenAPI schema: `curl -s https://powerfund.netlify.app/api/v1/agent/openapi.json > openapi.json`
+  - [ ] the OpenAPI schema: `curl -s https://powerfund.finance/api/v1/agent/openapi.json > openapi.json`
   - [ ] conversation starters
   - [ ] the regression results from phase G
 - [ ] Note which agent API key the GPT uses (by **name**, never the secret). It keeps working after migration until the GPT is retired
-- [ ] The MCP branch is merged and deployed, and production's `/.well-known/oauth-authorization-server` names `https://powerfund.netlify.app` as issuer
-- [ ] ChatGPT Developer Mode has passed the suite against **production** `https://powerfund.netlify.app/api/v1/mcp`, read-only at least
+- [ ] The MCP branch is merged and deployed, and production's `/.well-known/oauth-authorization-server` names `https://powerfund.finance` as issuer
+- [ ] ChatGPT Developer Mode has passed the suite against **production** `https://powerfund.finance/api/v1/mcp`, read-only at least
 
 ## Phase J: migrate
 
@@ -229,7 +239,7 @@ files. It will have **no** PowerFund tools.
 ## Phase K: attach and reconcile
 
 1. Add the PowerFund MCP server to the migrated plugin: streamable HTTP,
-   `https://powerfund.netlify.app/api/v1/mcp`, OAuth. This is the same
+   `https://powerfund.finance/api/v1/mcp`, OAuth. This is the same
    `mcp.json` as `plugins/powerfund/mcp.json`. No credentials go in it.
 2. Connect. Consent for ChatGPT, read-write if this plugin is to be the primary
    interface.
