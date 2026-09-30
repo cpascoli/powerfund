@@ -187,7 +187,7 @@ PowerFund is its own small OAuth 2.1 authorization server, inside the same app:
 |----------|---------|
 | `/.well-known/oauth-protected-resource/api/v1/mcp` (and bare root) | RFC 9728 metadata: resource = `…/api/v1/mcp`, authorization server = the site origin |
 | `/.well-known/oauth-authorization-server` | RFC 8414 metadata: S256 only, `none` auth, CIMD supported, `iss` in responses |
-| `/oauth/register` | RFC 7591 dynamic registration (Inspector, CLIs). **Local stacks only**: previews share the production database, so open registration there would let anonymous callers grow a production table |
+| `/oauth/register` | RFC 7591 dynamic registration (Inspector, CLIs). Open by default only off Netlify **and** against a loopback Supabase: previews, production, and a `next dev` on the default `.env.local` all write the production database, where open registration would let anonymous callers grow a table |
 | `/oauth/authorize` | Consent page: operator session required, read-write / read-only / deny |
 | `/oauth/token` | `authorization_code` + PKCE, `refresh_token` with rotation |
 | `/oauth/revoke` | RFC 7009 |
@@ -248,7 +248,7 @@ Claude Code and CI reach the server without an interactive login.
 | `POWERFUND_MCP_ALLOW_WRITES` | local shell only | `true` enables MCP writes off production, for a local stack on a local database. Never set it on a preview |
 | `POWERFUND_PUBLIC_ORIGIN` | optional | Explicit origin override. Not needed on Netlify. Off Netlify, only a loopback `Host` is trusted, and anything else is refused (503) rather than guessed |
 | `POWERFUND_OAUTH_CIMD_HOSTS` | optional | Hosts whose client metadata documents may be fetched |
-| `POWERFUND_OAUTH_ALLOW_DCR` | optional | `true` opens dynamic client registration on a deployed site. By default it is open only on local stacks: ChatGPT and Claude use CIMD, and every deployed site shares the production database. Where it is closed, consent also refuses any dynamically registered client already in the table. MCP Inspector against a deployed site uses an agent key |
+| `POWERFUND_OAUTH_ALLOW_DCR` | optional | `true` opens dynamic client registration anywhere. By default it is open only off Netlify against a loopback Supabase: ChatGPT and Claude use CIMD, and every deployed site, like a dev server on the default `.env.local`, writes the production database. Where it is closed, consent also refuses any dynamically registered client already in the table. MCP Inspector against a deployed site uses an agent key |
 | `POWERFUND_AGENT_API_KEYS` | existing | Also accepted at `/api/v1/mcp` |
 | `SUPABASE_SERVICE_ROLE_KEY`, `NEXT_PUBLIC_SUPABASE_*` | existing | Unchanged |
 

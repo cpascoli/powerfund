@@ -21,6 +21,8 @@ export type DeployEnv = {
   mcpReadOnly: string;
   mcpAllowWrites: string;
   oauthAllowDcr: string;
+  /** The Supabase this process reads and writes. */
+  supabaseUrl: string;
 };
 
 export function deployEnv(): DeployEnv {
@@ -32,6 +34,7 @@ export function deployEnv(): DeployEnv {
     mcpReadOnly: process.env.POWERFUND_MCP_READ_ONLY ?? "",
     mcpAllowWrites: process.env.POWERFUND_MCP_ALLOW_WRITES ?? "",
     oauthAllowDcr: process.env.POWERFUND_OAUTH_ALLOW_DCR ?? "",
+    supabaseUrl: process.env.NEXT_PUBLIC_SUPABASE_URL ?? process.env.SUPABASE_URL ?? "",
   };
 }
 
@@ -63,19 +66,28 @@ export function mcpWriteMode(env: DeployEnv = deployEnv()): McpWriteMode {
   return { enabled: false, reason: "non_production_deployment" };
 }
 
+function isLoopbackUrl(value: string): boolean {
+  try {
+    return ["localhost", "127.0.0.1", "[::1]"].includes(new URL(value).hostname);
+  } catch {
+    return false;
+  }
+}
+
 /**
  * Whether OAuth dynamic client registration is open here.
  *
- * Only on a local stack (no Netlify context, or `netlify dev`) by default.
- * ChatGPT and Claude identify themselves with Client ID Metadata Documents,
- * so no real client needs DCR. Anywhere else it would let anonymous callers
- * insert rows into the production database, since Deploy Previews share it,
- * with nothing but a per-instance rate limit in the way. Where it is closed,
- * consent also refuses any dynamically registered client that already exists.
- * MCP Inspector against a deployed site uses an agent key instead.
- * POWERFUND_OAUTH_ALLOW_DCR=true opens it deliberately.
+ * Open by default only when both hold: this is not a Netlify deployment
+ * (no build context, or `netlify dev`), *and* the Supabase it writes to is on
+ * loopback. The second condition matters: `next dev` with the default
+ * apps/web/.env.local points at the production database, and registration
+ * would then insert client rows there from anyone who can reach the dev
+ * server. ChatGPT and Claude use CIMD, so no real client needs DCR.
+ * Where it is closed, consent also refuses any dynamically registered client
+ * already in the table. POWERFUND_OAUTH_ALLOW_DCR=true opens it deliberately.
  */
 export function dynamicRegistrationEnabled(env: DeployEnv = deployEnv()): boolean {
   if (env.oauthAllowDcr === "true") return true;
-  return env.context === "" || env.context === "dev";
+  const offNetlify = env.context === "" || env.context === "dev";
+  return offNetlify && isLoopbackUrl(env.supabaseUrl);
 }

@@ -10,6 +10,7 @@ const env = (overrides: Partial<DeployEnv>): DeployEnv => ({
   mcpReadOnly: "",
   mcpAllowWrites: "",
   oauthAllowDcr: "",
+  supabaseUrl: "",
   ...overrides,
 });
 
