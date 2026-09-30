@@ -73,3 +73,21 @@ describe("agent auth", () => {
     }
   });
 });
+
+describe("agent key identity", () => {
+  it("gives two keys that share a name different namespaces", async () => {
+    const { authenticateAgent } = await import("./auth");
+    const keys = JSON.stringify([
+      { name: "chatgpt", secret: "pf_old_secret_000001", role: "write" },
+      { name: "chatgpt", secret: "pf_new_secret_000002", role: "write" },
+    ]);
+    const as = (secret: string) =>
+      authenticateAgent(new Request("https://x.test", { headers: { authorization: `Bearer ${secret}` } }), keys);
+    const a = as("pf_old_secret_000001");
+    const b = as("pf_new_secret_000002");
+    expect(a.name).toBe(b.name);
+    expect(a.id).toMatch(/^key:[0-9a-f]{16}$/);
+    expect(a.id).not.toBe(b.id);
+    expect(a.id).not.toContain("pf_old");
+  });
+});

@@ -150,11 +150,30 @@ async function loadInstrument(
   return data;
 }
 
+/**
+ * A planned action is sized one way. With both fields the old behaviour was to
+ * silently prefer planned_usd, so a caller that meant the weight got a
+ * different trade and no error. This belongs to PowerFund, not to one caller:
+ * REST, the MCP tools and any future surface all reach it through here.
+ */
+export function assertSingleSizing(
+  plannedUsd: number | null | undefined,
+  targetWeightPct: number | null | undefined,
+): void {
+  if (plannedUsd != null && targetWeightPct != null) {
+    throw validationError(
+      "Size a planned action one way: send planned_usd or target_weight_pct, not both.",
+      { fields: ["planned_usd", "target_weight_pct"] },
+    );
+  }
+}
+
 async function resolvePlannedUsd(
   supabase: DbClient,
   plannedUsd: number | null | undefined,
   targetWeightPct: number | null | undefined,
 ): Promise<number> {
+  assertSingleSizing(plannedUsd, targetWeightPct);
   if (plannedUsd != null) {
     if (!Number.isFinite(plannedUsd) || plannedUsd <= 0) {
       throw validationError("planned_usd must be a positive dollar amount.");

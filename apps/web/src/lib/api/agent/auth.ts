@@ -1,4 +1,4 @@
-import { timingSafeEqual } from "node:crypto";
+import { createHash, timingSafeEqual } from "node:crypto";
 
 import {
   AgentApiError,
@@ -96,6 +96,20 @@ function secretsEqual(left: string, right: string): boolean {
   return timingSafeEqual(leftBuf, rightBuf);
 }
 
+/**
+ * Stable internal identity for an agent key: a short digest of its secret.
+ *
+ * Idempotency and rate limits are namespaced by identity. Key *names* are
+ * attribution, and nothing stops two keys sharing one ("chatgpt" twice while
+ * a key is rotated), which would let one key replay the other's stored
+ * results. The digest is per credential, so a rotated key starts a fresh
+ * namespace, and a 64-bit prefix of a hash reveals nothing usable about the
+ * secret.
+ */
+export function agentKeyId(secret: string): string {
+  return `key:${createHash("sha256").update(secret).digest("hex").slice(0, 16)}`;
+}
+
 export function authenticateAgent(
   request: Request,
   rawKeys = process.env.POWERFUND_AGENT_API_KEYS,
@@ -117,7 +131,7 @@ export function authenticateAgent(
     throw unauthenticated("Invalid agent token.");
   }
 
-  return { name: matched.name, scopes: matched.scopes };
+  return { name: matched.name, scopes: matched.scopes, id: agentKeyId(matched.secret) };
 }
 
 export function requireScope(
