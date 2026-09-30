@@ -169,6 +169,7 @@ export function liveQuoteFromYahoo(
     change,
     changePct,
     previousClose,
+    regularPrice: num(raw.regularMarketPrice),
     source: "yahoo",
   };
 }

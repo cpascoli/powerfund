@@ -33,6 +33,12 @@ export type LiveQuote = {
   change: number | null;
   changePct: number | null;
   previousClose: number | null;
+  /**
+   * Official regular-session price. During extended hours this is today's
+   * cash close, while `price` is the extended last sale. Null when the vendor
+   * did not send one.
+   */
+  regularPrice: number | null;
   source: "yahoo";
 };
 
