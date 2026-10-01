@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 
 import {
   SECTION_TAB_ITEMS,
@@ -9,7 +9,6 @@ import {
 } from "@/lib/portfolio-href";
 
 export type SectionPanel = {
-  form?: ReactNode;
   body: ReactNode;
 };
 
@@ -27,11 +26,16 @@ export function PortfolioSectionTabs({
   panels,
 }: PortfolioSectionTabsProps) {
   const [tab, setTab] = useState<PortfolioSectionTab>(initialTab);
-  const [showForm, setShowForm] = useState(true);
+
+  // A navigation (a "Confirm" link, a form redirect) can change the tab the
+  // server chose while this component stays mounted; follow it. Tab clicks
+  // only rewrite the URL in place, so they do not trigger this.
+  useEffect(() => {
+    setTab(initialTab);
+  }, [initialTab]);
 
   function select(next: PortfolioSectionTab) {
     setTab(next);
-    setShowForm(false);
     replacePortfolioSectionTab(next);
   }
 
@@ -74,7 +78,6 @@ export function PortfolioSectionTabs({
           );
         })}
       </nav>
-      {showForm ? panel.form : null}
       {panel.body}
     </>
   );

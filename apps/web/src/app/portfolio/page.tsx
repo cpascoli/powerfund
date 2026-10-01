@@ -3,6 +3,7 @@ import { isSellSide, RISK_DEFAULTS } from "@powerfund/domain";
 
 import { CashEntryForm } from "@/components/cash-entry-form";
 import { ConfirmFillForm } from "@/components/confirm-fill-form";
+import { PortfolioFormModal } from "@/components/portfolio-form-modal";
 import { LiveMarksRefresh } from "@/components/live-marks-refresh";
 import { NavHistoryChart } from "@/components/nav-history-chart";
 import { PlannedActionForm } from "@/components/planned-action-form";
@@ -236,6 +237,75 @@ export default async function PortfolioPage({
       tab: activeTab,
       ...patch,
     });
+
+  // The one flow form the URL asks for, shown as a modal over the page. The
+  // URL alone decides it, so it opens from any tab and closes by navigating
+  // to the same view without the parameter.
+  const flowForm: {
+    key: string;
+    title: string;
+    tab: PortfolioSectionTab;
+    body: React.ReactNode;
+  } | null = confirmAction
+    ? {
+        key: `confirm-${confirmAction.id}`,
+        title: isSellSide(confirmAction.actionType) ? "Confirm sale" : "Confirm fill",
+        tab: "queue",
+        body: <ConfirmFillForm action={confirmAction} />,
+      }
+    : showPlan
+      ? {
+          key: "plan",
+          title: "Plan a buy",
+          tab: "queue",
+          body: (
+            <>
+              <p className="muted">
+                Size in dollars, not shares. This does not debit cash until you
+                confirm a fill.
+              </p>
+              <PlannedActionForm instruments={instruments} />
+            </>
+          ),
+        }
+      : sellPositionRow
+        ? {
+            key: `sell-${sellPositionRow.id}`,
+            title: `Sell ${sellPositionRow.symbol}`,
+            tab: "book",
+            body: <SellForm position={sellPositionRow} />,
+          }
+        : showForm
+          ? {
+              key: "add",
+              title: "Add fill",
+              tab: "book",
+              body: (
+                <>
+                  <p className="muted">
+                    Unplanned fill (already executed). Prefer the queue for new
+                    risk. Cash available: {money(book.cash)}.
+                  </p>
+                  <PositionForm instruments={instruments} />
+                </>
+              ),
+            }
+          : showCash
+            ? {
+                key: "cash",
+                title: "Cash entry",
+                tab: "ledger",
+                body: (
+                  <>
+                    <p className="muted">
+                      Cash is the sum of the ledger, so it changes only through
+                      entries. Current balance {money(book.cash)}.
+                    </p>
+                    <CashEntryForm />
+                  </>
+                ),
+              }
+            : null;
 
   const bookPanel = (
     <section className="panel" aria-label="Open book">
@@ -822,73 +892,23 @@ export default async function PortfolioPage({
           queue: queueWarnings.length > 0,
         }}
         panels={{
-          book: {
-            form: (
-              <>
-                {sellPositionRow ? (
-                  <section className="panel">
-                    <h2>Sell {sellPositionRow.symbol}</h2>
-                    <SellForm position={sellPositionRow} />
-                  </section>
-                ) : null}
-                {showForm ? (
-                  <section className="panel">
-                    <h2>Add fill</h2>
-                    <p className="muted">
-                      Unplanned fill (already executed). Prefer the queue for
-                      new risk. Cash available: {money(book.cash)}.
-                    </p>
-                    <PositionForm instruments={instruments} />
-                  </section>
-                ) : null}
-              </>
-            ),
-            body: bookPanel,
-          },
-          queue: {
-            form: (
-              <>
-                {confirmAction ? (
-                  <section className="panel">
-                    <h2>
-                      {isSellSide(confirmAction.actionType)
-                        ? "Confirm sale"
-                        : "Confirm fill"}
-                    </h2>
-                    <ConfirmFillForm action={confirmAction} />
-                  </section>
-                ) : null}
-                {showPlan ? (
-                  <section className="panel">
-                    <h2>Plan a buy</h2>
-                    <p className="muted">
-                      Size in dollars, not shares. This does not debit cash
-                      until you confirm a fill.
-                    </p>
-                    <PlannedActionForm instruments={instruments} />
-                  </section>
-                ) : null}
-              </>
-            ),
-            body: queuePanel,
-          },
+          book: { body: bookPanel },
+          queue: { body: queuePanel },
           mandate: { body: mandatePanel },
           performance: { body: performancePanel },
-          ledger: {
-            form: showCash ? (
-              <section className="panel">
-                <h2>Cash entry</h2>
-                <p className="muted">
-                  Cash is the sum of the ledger, so it changes only through
-                  entries. Current balance {money(book.cash)}.
-                </p>
-                <CashEntryForm />
-              </section>
-            ) : null,
-            body: ledgerPanel,
-          },
+          ledger: { body: ledgerPanel },
         }}
       />
+
+      {flowForm ? (
+        <PortfolioFormModal
+          key={flowForm.key}
+          title={flowForm.title}
+          closeHref={href({ tab: flowForm.tab })}
+        >
+          {flowForm.body}
+        </PortfolioFormModal>
+      ) : null}
     </>
   );
 }
