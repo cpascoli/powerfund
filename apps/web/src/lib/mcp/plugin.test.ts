@@ -36,6 +36,15 @@ describe("PowerFund plugin package", () => {
     expect(JSON.stringify(plugin)).not.toMatch(/bearer|secret|pf_|pfat_/i);
   });
 
+  it("references assets that exist inside the plugin", () => {
+    const ui = JSON.parse(read("plugin.json")).extensions["com.openai"].interface;
+    for (const field of ["composerIcon", "logo"]) {
+      const asset = ui[field] as string;
+      expect(asset, field).toMatch(/^\.\/assets\/[a-z0-9-]+\.png$/);
+      expect(readFileSync(path.join(PLUGIN, asset)).subarray(1, 4).toString(), field).toBe("PNG");
+    }
+  });
+
   it("gives the skill the front matter a skill needs", () => {
     const skill = read("skills/powerfund/SKILL.md");
     const front = /^---\n([\s\S]*?)\n---/.exec(skill)?.[1] ?? "";

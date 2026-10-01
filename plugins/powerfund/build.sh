@@ -36,6 +36,7 @@ OUT="$ROOT/plugins/dist/$NAME"
 rm -rf "$OUT"
 mkdir -p "$OUT"
 cp -R "$SRC/skills" "$OUT/"
+cp -R "$SRC/assets" "$OUT/"
 for doc in gpt-agent-process mandate goals themes; do
   cp "$ROOT/docs/$doc.md" "$OUT/skills/powerfund/references/$doc.md"
 done
