@@ -116,7 +116,9 @@ export const dossierChanges = z
     invalidation: clearable("Kill criteria. Mandate rule 4 requires them for any held name."),
     competitive_notes: clearable("Competitive position."),
     next_diligence: clearable("What to check next."),
-    source: clearable("Primary source links."),
+    source: clearable(
+      "Primary sources. `source` is rendered as Markdown on the PowerFund website. Use descriptive Markdown links (`[title](URL)`) for external sources. URLs supplied in `research_sources` are not automatically rendered into `source`. A changed source is refused if it has a naked URL or a list entry naming a document without a link; an unchanged source is not checked. Never invent a URL from a title.",
+    ),
     as_of_at: clearable("ISO date-time the research is current as of."),
     verified_at: clearable("ISO date-time the facts were last verified."),
     next_review_at: clearable(

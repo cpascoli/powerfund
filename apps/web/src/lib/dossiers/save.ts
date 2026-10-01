@@ -2,6 +2,7 @@ import type { Json } from "@powerfund/db";
 import {
   DOSSIER_RESEARCH_LEVELS,
   DOSSIER_STATUSES,
+  lintDossierSource,
   type DossierResearchLevel,
   type DossierStatus,
 } from "@powerfund/domain";
@@ -289,6 +290,36 @@ function parseRpcError(error: { message: string; details?: string | null }): nev
   );
 }
 
+/**
+ * `source` is rendered as Markdown on the website, so a cited document needs a
+ * clickable link. Linted only when this write changes `source`: most legacy
+ * dossiers predate the rule, and the operator form resubmits every field, so
+ * linting unchanged text would block a thesis edit over formatting the editor
+ * never touched. Clearing the field is always allowed. Nothing is repaired:
+ * a URL cannot be recovered from a title.
+ */
+function assertSourceFormat(
+  currentSource: string | null,
+  nextSource: string | null | undefined,
+  actor: DossierActor | undefined,
+): void {
+  if (nextSource === undefined) return;
+  // A browser textarea submits CRLF, so an untouched field can differ from
+  // the stored text by line endings alone.
+  const comparable = (value: string | null) => emptyToNull(value)?.replace(/\r\n?/g, "\n") ?? null;
+  const next = comparable(nextSource);
+  if (next === null || next === comparable(currentSource)) return;
+  const issues = lintDossierSource(next, { researchSources: actor?.research_sources });
+  if (issues.length === 0) return;
+  throw validationError(
+    `Source links must use descriptive Markdown syntax: [Document title](https://...). ${issues.length} problem(s) in changes.source; the first is ${issues[0]!.line > 0 ? `line ${issues[0]!.line}` : "the field"}: ${issues[0]!.message}`,
+    {
+      field: "changes.source",
+      issues: issues.slice(0, 10).map(({ kind, line, text }) => ({ kind, line, text })),
+    },
+  );
+}
+
 export async function saveDossierVersioned(
   supabase: DbClient,
   input: UpdateDossierInput & { instrumentId?: string },
@@ -308,6 +339,7 @@ export async function saveDossierVersioned(
       : await loadInstrument(supabase, input.symbol);
 
   const current = await loadLiveDossier(supabase, instrument.id);
+  assertSourceFormat(current?.source ?? null, input.changes.source, input.actor);
   const snapshot = mergeDossier(current, input.changes);
   const reason = formatChangeReason(changeReason, input.actor);
   const fields = { ...snapshot };

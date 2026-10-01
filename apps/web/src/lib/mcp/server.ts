@@ -106,6 +106,7 @@ const SAFE_DETAIL_KEYS = new Set([
   "allowed",
   "field",
   "fields",
+  "issues",
   "current_version",
   "required_scope",
   "status",

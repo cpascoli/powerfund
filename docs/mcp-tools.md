@@ -357,7 +357,7 @@ The catalyst calendar and the book's review record. Open statuses are the work q
 
 ### `update_dossier` — Update a company dossier
 
-Write research to the live dossier after the user approves the change: a re-underwrite, a first dossier (version 1) for a new name, refreshed scenarios, or advancing next_review_at. Call get_dossier first and pass its current version as expected_version; a stale version is refused rather than overwriting newer work. A new immutable version is created only if the content actually changed. Every earlier version is kept.
+Write research to the live dossier after the user approves the change: a re-underwrite, a first dossier (version 1) for a new name, refreshed scenarios, or advancing next_review_at. Call get_dossier first and pass its current version as expected_version; a stale version is refused rather than overwriting newer work. A new immutable version is created only if the content actually changed. Every earlier version is kept. `source` is rendered as Markdown on the PowerFund website. Use descriptive Markdown links (`[title](URL)`) for external sources. URLs supplied in `research_sources` are not automatically rendered into `source`.
 
 | | |
 |---|---|
@@ -372,7 +372,7 @@ Write research to the live dossier after the user approves the change: a re-unde
 | `expected_version` | integer (≥ 0) \| null | yes | current_version.number from get_dossier (0 if the dossier exists with no version). null only when get_dossier returned no dossier at all — a first write, which also needs changes.summary. |
 | `change_reason` | string | yes | Why this write is happening, e.g. 'Q3 print re-underwrite'. |
 | `changes` | { status?, research_level?, summary?, thesis?, catalysts?, risks?, invalidation?, competitive_notes?, next_diligence?, source?, as_of_at?, verified_at?, next_review_at? } | yes | Only the fields you are changing. Omit unchanged fields. |
-| `research_sources` | string[] |  | URLs or citations used. |
+| `research_sources` | string[] |  | URLs or citations consulted, recorded in the change reason only. Not rendered on the website and not copied into source: put every cited document in changes.source as [title](URL). |
 | `actor_name` | string |  | The name you go by. The server stamps it on the row as attribution. Never write an [agent:…] tag into any text field yourself. |
 
 ### `record_decision` — Record a journal decision

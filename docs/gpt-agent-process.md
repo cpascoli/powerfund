@@ -21,6 +21,7 @@ Hard rules:
   named the wrong agent because the tag in the text and the request disagreed.
 - **Historical review gate.** Before completing any company, theme, macro, portfolio, stress, or capital-phase review, load the completed review outcomes relevant to it since the last comparable review or decision, and treat them as prior beliefs to confirm, update, or invalidate. Chat history is not the durable record — `getReviewQueue?status=completed` is. See [Historical review gate](#historical-review-gate).
 - **Technical state is an execution input, not an investment thesis.** Fundamentals decide what to own and at what valuation; technicals help decide when and how quickly to enter. Use price action only to improve entry timing and tranche sizing after the company has passed the dossier, data-integrity, valuation and portfolio-fit gates. Never promote an expensive or thesis-impaired name to a buy because of bullish technicals, and never invalidate an intact thesis solely because of weak price action.
+- **Every externally referenced document in `dossier.source` must be a clickable Markdown link using `[descriptive title](URL)`.** Do not list a source document without its URL, and do not use a naked URL when a descriptive title is available. `research_sources` does not substitute for links in `source`, because the website renders `source`. The API enforces this on any write that changes `source` (a naked URL or an unlinked document entry is refused with the offending lines); it never checks a `source` the write leaves unchanged, and it never repairs one — a URL cannot be recovered from a title, so find the real document or drop the entry.
 
 Machine contract: `GET /api/v1/agent/openapi.json`.
 
@@ -368,7 +369,7 @@ statutory deadline but no announced date.
 Purpose: a ticker is not research until it has a dossier and kill criteria.
 
 1. Confirm it is not already in `getFundState` watchlist. If missing, `addWatchlistCompany` with an **existing** theme (`ai-infrastructure`, `energy`, `robotics-ai`, `defence`, `other`). Duplicate symbols return `409 SYMBOL_EXISTS`. There is no agent archive/remove.
-2. `updateDossier` version 1: summary, thesis, invalidation, next diligence, sources. Bars ingest on the next worker run (or a local backfill).
+2. `updateDossier` version 1: summary, thesis, invalidation, next diligence, sources (each a `[title](URL)` link in `source`). Bars ingest on the next worker run (or a local backfill).
 3. Optional: `createDecision` `watch` to record “on the list, not in the book.”
 4. Optional: `createReviewTask` for the first dated catalyst.
 5. `createPlannedAction` `buy` only after user approval **and** the data-integrity gate (ritual 8). Still not a fill.
@@ -452,9 +453,11 @@ Run before `createPlannedAction` `buy` / `add` (and before asking the human to c
 1. `getCompanyDossier` — ticker and name match the instrument; share class is the one you meant (ADR vs ordinary, dual listing).
 2. `getPortfolio` (if already held) or `getCompanyDossier` last_close vs the **scenario anchor** in the write-up. Use `last_close_session` / `price_data_through`. If `price_data_stale` is true, we are missing the last completed US cash session — do not pass the gate on those closes. If the reference price in the valuation section is stale or from the wrong listing, refresh scenarios with `updateDossier` before sizing.
 3. `verified_at` is recent enough for a capital decision (if missing or weeks old, re-verify).
-4. Primary `source` links resolve; major results since `verified_at` are in the thesis.
+4. Primary `source` links resolve and pass the source-format gate (below); major results since `verified_at` are in the thesis.
 5. Scenario math is internally consistent with the reference price you just checked (probability-weighted 24/60m returns still use that price).
 6. Kill criteria are written (mandate rule 4).
+
+**Source-format gate:** before writing or materially updating a dossier, verify that externally referenced documents in `source` are represented as valid Markdown links. A source list containing document names without URLs, or bare URLs where a title is available, fails the write-quality gate.
 
 If any of those fail: do **not** `createPlannedAction`. Fix the dossier first, or say the name is not decision-grade.
 

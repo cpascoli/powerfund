@@ -58,6 +58,11 @@ process document disagree, the process document wins.
   thesis-impaired name because of bullish technicals; never invalidate an
   intact thesis on weak price action alone. PowerFund stores only the latest
   close, so judge structure from external price history and name the source.
+- **Cite every external document in `source` as `[descriptive title](URL)`.**
+  The website renders `source`; `research_sources` is not shown and not copied
+  into it. A write that changes `source` is refused if it has a naked URL or a
+  document entry with no link. Never invent a URL from a title: find the
+  document or drop the entry.
   Detail: `references/gpt-agent-process.md`, ritual 8 (entry staging) and
   ritual 9, step 6.
 - **Check freshness** (`price_data_through`, `last_close_session`,

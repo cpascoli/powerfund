@@ -464,7 +464,7 @@ const updateDossier = defineTool({
   name: "update_dossier",
   title: "Update a company dossier",
   description:
-    "Write research to the live dossier after the user approves the change: a re-underwrite, a first dossier (version 1) for a new name, refreshed scenarios, or advancing next_review_at. Call get_dossier first and pass its current version as expected_version; a stale version is refused rather than overwriting newer work. A new immutable version is created only if the content actually changed. Every earlier version is kept.",
+    "Write research to the live dossier after the user approves the change: a re-underwrite, a first dossier (version 1) for a new name, refreshed scenarios, or advancing next_review_at. Call get_dossier first and pass its current version as expected_version; a stale version is refused rather than overwriting newer work. A new immutable version is created only if the content actually changed. Every earlier version is kept. `source` is rendered as Markdown on the PowerFund website. Use descriptive Markdown links (`[title](URL)`) for external sources. URLs supplied in `research_sources` are not automatically rendered into `source`.",
   inputSchema: {
     symbol,
     expected_version: z
@@ -481,7 +481,12 @@ const updateDossier = defineTool({
       .min(1)
       .describe("Why this write is happening, e.g. 'Q3 print re-underwrite'."),
     changes: dossierChanges,
-    research_sources: z.array(z.string()).optional().describe("URLs or citations used."),
+    research_sources: z
+      .array(z.string())
+      .optional()
+      .describe(
+        "URLs or citations consulted, recorded in the change reason only. Not rendered on the website and not copied into source: put every cited document in changes.source as [title](URL).",
+      ),
     actor_name: actorName,
   },
   scopes: ["powerfund:dossier:write"],

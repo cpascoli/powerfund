@@ -320,7 +320,11 @@ const dossierChangesSchema = {
     invalidation: { type: "string" },
     competitive_notes: { type: "string" },
     next_diligence: { type: "string" },
-    source: { type: "string" },
+    source: {
+      type: "string",
+      description:
+        "Primary sources. `source` is rendered as Markdown on the PowerFund website. Use descriptive Markdown links (`[title](URL)`) for external sources. URLs supplied in `research_sources` are not automatically rendered into `source`. A changed source is refused if it has a naked URL or a list entry naming a document without a link; an unchanged source is not checked. Never invent a URL from a title.",
+    },
     as_of_at: { type: "string", format: "date-time" },
     verified_at: { type: "string", format: "date-time" },
     next_review_at: { type: "string", format: "date-time" },
@@ -720,7 +724,7 @@ export function agentOpenApiDocument(origin: string) {
           operationId: "updateDossier",
           summary: "Update the live dossier",
           description:
-            "Writes the live dossier and creates the next version only if assembled JSON changed. Send expected_version to avoid clobbering. Do not POST versions separately.",
+            "Writes the live dossier and creates the next version only if assembled JSON changed. Send expected_version to avoid clobbering. Do not POST versions separately. Cite sources in changes.source as [title](URL); research_sources is not rendered.",
           scope: "powerfund:dossier:write",
           mutating: true,
           parameters: [symbolParam],
@@ -744,6 +748,8 @@ export function agentOpenApiDocument(origin: string) {
                     research_sources: {
                       type: "array",
                       items: { type: "string" },
+                      description:
+                        "URLs or citations consulted, recorded in the change reason only. Not rendered on the website and not copied into source: put every cited document in changes.source as [title](URL).",
                     },
                     changes: dossierChangesSchema,
                   },

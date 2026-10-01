@@ -20,3 +20,4 @@ export * from "./decision-returns";
 export * from "./review-tasks";
 export * from "./inflection";
 export * from "./vendor-symbol";
+export * from "./dossier-source";
