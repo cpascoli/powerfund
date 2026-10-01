@@ -20,6 +20,7 @@ Hard rules:
   shared, so the row will not say who wrote it. The 19 September BWXT deferral
   named the wrong agent because the tag in the text and the request disagreed.
 - **Historical review gate.** Before completing any company, theme, macro, portfolio, stress, or capital-phase review, load the completed review outcomes relevant to it since the last comparable review or decision, and treat them as prior beliefs to confirm, update, or invalidate. Chat history is not the durable record — `getReviewQueue?status=completed` is. See [Historical review gate](#historical-review-gate).
+- **Technical state is an execution input, not an investment thesis.** Fundamentals decide what to own and at what valuation; technicals help decide when and how quickly to enter. Use price action only to improve entry timing and tranche sizing after the company has passed the dossier, data-integrity, valuation and portfolio-fit gates. Never promote an expensive or thesis-impaired name to a buy because of bullish technicals, and never invalidate an intact thesis solely because of weak price action.
 
 Machine contract: `GET /api/v1/agent/openapi.json`.
 
@@ -459,11 +460,33 @@ If any of those fail: do **not** `createPlannedAction`. Fix the dossier first, o
 
 There is no separate integrity API. The agent compares dossier text to `getPortfolio` / live marks. Contribution math and split-adjusted history are not machine-checked yet.
 
+### Entry staging (after the gate passes)
+
+The gate decides *whether* a buy/add is valid; entry staging decides *how much* and *how fast*. The principle is to scale capital with expected return and evidence. Technical state refines execution inside that; it is not a second thesis and it does not make PowerFund a trading system.
+
+7. **Entry-staging check.** Classify the current `technical_state` (ritual 9, step 6) and choose one execution:
+   - **normal tranche**
+   - **reduced starter**
+   - **staged entry** (split the tranche across levels or dates)
+   - **wait for confirmation**
+   - **wait for deeper valuation dislocation**
+
+   Technical state can change the **timing or size** of an otherwise valid action. It must not change intrinsic value by itself, and it can never turn a failed gate into a pass.
+
+**Two-dimensional entry triggers.** A planned buy/add may carry either or both, written in its `window_label` and rationale:
+- a **valuation trigger**: buy/add below the price at which expected return clears the hurdle (e.g. `price_below:125`);
+- a **technical confirmation trigger**: a base, a higher low, or a break and retest of resistance (e.g. `confirm:higher_low_above_118`).
+
+A technical confirmation may justify entering at a somewhat higher price **only if the fundamental expected return still clears the hurdle** at that price. A lower price does not by itself justify buying: if the move is driven by new thesis deterioration, re-underwrite first (`updateDossier`, then this gate again), because intrinsic value may have fallen with it.
+
+*Example.* A stock is fundamentally attractive at $120–125 but is still in a persistent downtrend: use a reduced starter, or wait for stabilization, rather than deploy the full tranche at once. If it then forms a base or a higher low while the thesis stays intact, the same valuation band can justify more normal sizing. A bullish breakout above the valuation hurdle does not justify buying there.
+
 | Step | Tool |
 |------|------|
 | Live thesis | `getCompanyDossier` |
 | Mark / last close | `getPortfolio` or `getCompanyDossier` (`last_close_session`) |
 | Refresh if the anchor moved | `updateDossier` |
+| Entry staging | External price history; the choice and any confirmation trigger go in the planned action's `window_label` / rationale |
 
 ---
 
@@ -485,7 +508,27 @@ Purpose: the fund succeeds by answering “given everything else we could own, i
 
 4. Rank into **Buy now / Buy on condition / Hold / Too expensive / Thesis weak**. Prefer dislocation/panic in names we already understand over a new story that merely fell. Do not queue CEG because the last chat was about CEG if VST or BWXT rank higher.
 5. Check factor overlap: several “different” themes can still be one AI-capex trade. Prefer the next dollar in an independent sleeve when the ranking is close. Crowding raises the required dislocation; it is not an automatic skip.
-6. Only then `createPlannedAction` for the names that won the rank, after user approval and ritual 8.
+6. **Technical state (entry staging only).** For each serious **Buy now** or **Buy on condition** name — and only those, after steps 2–5 have placed it there — record a lightweight `technical_state`:
+
+   | `technical_state` | Market structure |
+   |-------------------|------------------|
+   | `downtrend` | Still making lower highs and lower lows |
+   | `basing` | A multi-week base is forming; lows holding, no breakout yet |
+   | `reversal_candidate` | A higher low has formed, or prior resistance is being tested or broken |
+   | `uptrend` | Higher highs and higher lows |
+   | `capitulation` | Abnormal volume and a washout move into support |
+   | `unclear` | Structure does not support a call |
+
+   Answer only these questions, from simple market structure rather than indicators or short-term trading signals:
+   - Is price still making lower highs / lower lows?
+   - Is a multi-week base forming?
+   - Is there a meaningful support / resistance zone?
+   - Has the stock formed a higher low or broken prior resistance?
+   - Is there evidence of capitulation or abnormal volume?
+   - Does the technical state argue for **smaller initial size**, **waiting for confirmation**, or **normal sizing**?
+
+   The state changes *how* and *how fast* to enter, never *whether* the name belongs on the list: it cannot move a name between ranking buckets. **Tie-break only:** when two candidates have similar expected return and evidence quality, prefer better factor diversification first, then the cleaner entry structure (less adverse technical momentum). Expected return, downside, thesis quality and factor fit still rank ahead of any technical setup. The PowerFund API returns only the latest close (`last_close`, `last_close_session`), not price history, so judge structure from external chart data and say which source and timeframe you used. There is no `technical_state` field or endpoint; it lives in the ranking table you persist in the review outcome (below), next to the bucket, with its sizing implication.
+7. Only then `createPlannedAction` for the names that won the rank, after user approval and ritual 8, including its entry-staging check for the size and trigger.
 
 On the **monthly** pass, this ranking is a section of `Monthly book pass — YYYY-MM` — persist the table in that task’s `outcome`, not a second review task. If you rank before a material tranche **after** that month’s task is already completed, `createReviewTask` `scope: portfolio` titled `Opportunity pass — YYYY-MM-DD`, complete it with the ranking in `outcome`, and do not roll a next “opportunity” task (the monthly cadence already rolls).
 
@@ -496,8 +539,9 @@ No ranking endpoint. `getPerformance` is book-level TWR vs SPY/QQQ plus dollar c
 | Universe | `getFundState?include_watchlist=true` |
 | Each name | `getCompanyDossier`, `getJournal?symbol=` |
 | Book context | `getPortfolio` |
+| Technical state (Buy now / Buy on condition only) | External price history; PowerFund holds only the latest close |
 | Queue the winner | `createPlannedAction` `buy` / `add` |
-| Persist the rank | `completeReviewTask` on the monthly (or ad-hoc opportunity) portfolio task |
+| Persist the rank | `completeReviewTask` on the monthly (or ad-hoc opportunity) portfolio task, with `technical_state` beside each serious candidate |
 
 ---
 

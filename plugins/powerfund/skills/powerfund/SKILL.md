@@ -50,6 +50,16 @@ process document disagree, the process document wins.
   Shipping software never authorises more capital.
 - **The 15% deployed-sleeve drawdown is a diagnostic** in capital Phase 1, not an
   automatic trim or buy halt. Per-name invalidation still forces reduce/exit.
+- **Technical state is an execution input, not an investment thesis.**
+  Fundamentals decide what to own and at what valuation; technicals help
+  decide when and how quickly to enter. Use price action only for entry
+  timing and tranche sizing after the dossier, data-integrity, valuation and
+  portfolio-fit gates have passed. Never promote an expensive or
+  thesis-impaired name because of bullish technicals; never invalidate an
+  intact thesis on weak price action alone. PowerFund stores only the latest
+  close, so judge structure from external price history and name the source.
+  Detail: `references/gpt-agent-process.md`, ritual 8 (entry staging) and
+  ritual 9, step 6.
 - **Check freshness** (`price_data_through`, `last_close_session`,
   `price_data_stale`) before treating any close as current.
 - **Use ids from results.** Never guess a decision, review task, planned action
