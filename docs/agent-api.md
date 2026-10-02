@@ -13,6 +13,7 @@ Private agent API: `/api/v1/agent/*` — Bearer token, scoped permissions, dolla
 | `getFundState` | no | Compact current investment state |
 | `getPortfolio` | no | Private book from the ledger. Marks include `last_close_session` and `price_data_through`. Flags include the kill-switch: `due: false` means the 15% condition is live but ritual 11 is done for this breach. TWR is `getPerformance` |
 | `getPerformance` | no | NAV and deployed TWR vs SPY/QQQ, unitized drawdowns, and dollar contribution by ticker / theme / factor. Optional `from`/`to`. Percent returns. `price_data_through` is the last session, not `as_of` |
+| `getRiskSnapshot` | no | Workbench → Risk, read-only and computed by the same code as the page: pairwise log-return correlations (400 calendar days, ≥20 shared days), AI-capex / memory / diversifier and theme concentration, and the hyperscaler-capex −20% stress by holding, theme and factor with its assumptions. `universe=holdings` (default) or `all`; optional `min_abs_correlation` |
 | `getJournal` | no | Decisions + pinned `dossier_version`, 30/90/180d vs SPY from each decision's anchor, append-only outcomes. `horizon_due=true` is the grading worklist. `price_data_through` is the last bar used |
 | `getCalibrationStatus` | no | The whole grading worklist plus its reconciliation: what is owed by decision and horizon, what has been recorded, and which decisions can never be graded (`ungradeable_reason: no_fill`). Re-read after a batch |
 | `getResearchInbox` | no | Briefing Research tab, derived. Same clocks as the UI (`needs_dossier`, `review_due_date`, `diligence`). A save clears a row only if it moves the clock that kind uses |
@@ -122,6 +123,11 @@ curl -sS -H "Authorization: Bearer $TOKEN" "$ORIGIN/api/v1/agent/portfolio"
 curl -sS -H "Authorization: Bearer $TOKEN" "$ORIGIN/api/v1/agent/performance"
 curl -sS -H "Authorization: Bearer $TOKEN" \
   "$ORIGIN/api/v1/agent/performance?from=2026-08-12&to=2026-08-22"
+
+# Risk: correlation, concentration, hyperscaler-capex −20% stress (Workbench → Risk)
+curl -sS -H "Authorization: Bearer $TOKEN" "$ORIGIN/api/v1/agent/risk"
+curl -sS -H "Authorization: Bearer $TOKEN" \
+  "$ORIGIN/api/v1/agent/risk?universe=all&min_abs_correlation=0.6"
 
 # Journal
 curl -sS -H "Authorization: Bearer $TOKEN" \

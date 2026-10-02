@@ -36,6 +36,7 @@ const SAMPLE_ARGS: Record<string, Record<string, unknown>> = {
   get_fund_state: {},
   get_portfolio: {},
   get_performance: { from: "2026-09-01" },
+  get_risk_snapshot: { universe: "all", min_abs_correlation: 0.6 },
   get_research_inbox: { kinds: ["diligence"] },
   get_review_context: { symbol: "SNDK" },
   get_dossier: { symbol: "SNDK" },

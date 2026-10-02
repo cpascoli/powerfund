@@ -18,6 +18,7 @@ import * as plannedActionRoute from "@/app/api/v1/agent/planned-actions/[id]/rou
 import * as plannedActionsRoute from "@/app/api/v1/agent/planned-actions/route";
 import * as portfolioRoute from "@/app/api/v1/agent/portfolio/route";
 import * as researchRoute from "@/app/api/v1/agent/research/route";
+import * as riskRoute from "@/app/api/v1/agent/risk/route";
 import * as reviewQueueRoute from "@/app/api/v1/agent/review-queue/route";
 import * as completeReviewRoute from "@/app/api/v1/agent/review-tasks/[id]/complete/route";
 import * as reviewTaskRoute from "@/app/api/v1/agent/review-tasks/[id]/route";
@@ -46,6 +47,7 @@ export interface PowerFundAgentClient {
   getFundState(query?: Query): Promise<Json>;
   getPortfolio(): Promise<Json>;
   getPerformance(query?: Query): Promise<Json>;
+  getRiskSnapshot(query?: Query): Promise<Json>;
   getJournal(query?: Query): Promise<Json>;
   getCalibrationStatus(): Promise<Json>;
   getPlannedActions(): Promise<Json>;
@@ -206,6 +208,9 @@ export class InProcessAgentClient implements PowerFundAgentClient {
   }
   getPerformance(query?: Query) {
     return this.call({ operationId: "getPerformance", method: "GET", path: "/api/v1/agent/performance", handler: performanceRoute.GET, query });
+  }
+  getRiskSnapshot(query?: Query) {
+    return this.call({ operationId: "getRiskSnapshot", method: "GET", path: "/api/v1/agent/risk", handler: riskRoute.GET, query });
   }
   getJournal(query?: Query) {
     return this.call({ operationId: "getJournal", method: "GET", path: "/api/v1/agent/journal", handler: journalRoute.GET, query });

@@ -67,6 +67,7 @@ scopes are in `POWERFUND_AGENT_API_KEYS`, and the OpenAPI document is public at
 | getFundState | GET `/state` | Compact current state: mandate, cash, holdings, flags, queue, due/upcoming reviews, recent decisions | R\* | — | state:read | `recent_decisions`, `include_watchlist` | object | `get_fund_state` |
 | getPortfolio | GET `/portfolio` | Ledger book, marks, flags | R | — | portfolio:read | — | object | `get_portfolio` |
 | getPerformance | GET `/performance` | TWR vs SPY/QQQ, drawdowns, contribution | R | — | portfolio:read | `from`, `to` | object | `get_performance` |
+| getRiskSnapshot | GET `/risk` | Workbench → Risk: correlation, concentration, capex −20% stress | R | — | portfolio:read | `universe`, `min_abs_correlation` | object | `get_risk_snapshot` |
 | getJournal | GET `/journal` | Decisions, pins, relative returns, outcomes | R | — | journal:read | symbol, type, dates, paging, `graded`, `horizon_due` | object | `get_journal` |
 | getCalibrationStatus | GET `/calibration` | Grading worklist + reconciliation | R | — | journal:read | — | object | `get_calibration_status` |
 | getPlannedActions | GET `/deployment-queue` | Open intended trades | R | — | deployment:read | — | object | `list_planned_actions` |

@@ -556,7 +556,7 @@ This ritual shares **one** portfolio review task with ritual 12: `Quarterly book
 
 1. **Prior beliefs first** — the previous `Quarterly book review`, every monthly portfolio outcome since, and the theme's own completed reviews (`getReviewQueue?status=completed&theme=<slug>`). A print is read in the context of the chain, not alone.
 2. `getFundState` + `getPortfolio` — weight by theme, AI-capex and memory flags, largest names.
-3. Operator opens **Workbench → Risk** (pairwise correlation, standing hyperscaler-capex −20% stress). The agent API cannot read that surface yet; paste or describe the stress result in chat **and** in the task `outcome`.
+3. `getRiskSnapshot` — the exact **Workbench → Risk** calculations, read-only: pairwise correlation of held names (window, method, observations), AI-capex / memory / diversifier and theme concentration against the caps, and the standing hyperscaler-capex −20% stress (NAV impact, by holding, theme and factor, with its assumptions). Quote it; do not recompute it or ask the operator to paste it. Record in the task `outcome` the snapshot's `as_of`, `price_data_through`, the stress NAV impact, and the highest held pairs, so the quarter is reproducible. If `price_data_stale` is true, say so next to every number. `universe=all` adds the investigate / active_thesis names; `min_abs_correlation` trims to the pairs worth discussing.
 4. Rank each core theme (AI infrastructure, energy, robotics/AI, defence, other) by thesis health, valuation, evidence trend, portfolio weight, and shared-factor exposure. Name the **next under-obsessed bottleneck** ([themes.md](./themes.md)).
 5. Identify hidden correlation (e.g. cooling + power + EMS as one AI-capex trade).
 6. Conclude **more / same / less capital** for each theme next quarter. Update dossiers and, if the map changed, say so — factor weights live in code (`FACTOR_EXPOSURES`), not the agent API.
@@ -567,7 +567,7 @@ This ritual shares **one** portfolio review task with ritual 12: `Quarterly book
 |------|------|
 | Open or create this quarter’s task | `getReviewQueue`, `createReviewTask` `scope=portfolio` |
 | Weights and flags | `getFundState`, `getPortfolio` |
-| Correlation / −20% stress | Workbench → Risk (human) |
+| Correlation / −20% stress | `getRiskSnapshot` |
 | Theme thesis | `getCompanyDossier` on the sleeve’s names |
 
 ---
@@ -821,6 +821,6 @@ Write the Phase-2 proofs in [mandate.md](./mandate.md) (repeatability, portfolio
 | Step | Tool |
 |------|------|
 | Current cost vs authorized cap | `getPortfolio` (`invested_cost_usd`) |
-| Whether risk changed decisions | `getFundState`, `getJournal`, Workbench → Risk (human) |
+| Whether risk changed decisions | `getFundState`, `getJournal`, `getRiskSnapshot` |
 | Repeatability / calibration | `getPerformance`, `getJournal`, `recordDecisionOutcome` |
 | Persist the gate | `createReviewTask` `scope=portfolio`, `completeReviewTask` |

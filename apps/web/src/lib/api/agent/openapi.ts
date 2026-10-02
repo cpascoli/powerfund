@@ -447,6 +447,30 @@ export function agentOpenApiDocument(origin: string) {
           mutating: false,
         }),
       },
+      "/api/v1/agent/risk": {
+        get: op({
+          operationId: "getRiskSnapshot",
+          summary: "Workbench risk snapshot",
+          description:
+            "Read-only Workbench → Risk: pairwise return correlations (window, method), AI-capex and theme concentration, and the standing hyperscaler-capex −20% stress by holding, theme and factor. Quote, do not recompute.",
+          scope: "powerfund:portfolio:read",
+          mutating: false,
+          parameters: [
+            {
+              name: "universe",
+              in: "query",
+              description: "holdings (default) or all (adds investigate / active_thesis names).",
+              schema: { type: "string", enum: ["holdings", "all"] },
+            },
+            {
+              name: "min_abs_correlation",
+              in: "query",
+              description: "Only pairs with |correlation| at or above this (0–1).",
+              schema: { type: "number", minimum: 0, maximum: 1 },
+            },
+          ],
+        }),
+      },
       "/api/v1/agent/performance": {
         get: op({
           operationId: "getPerformance",

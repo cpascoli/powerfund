@@ -182,6 +182,29 @@ const getPerformance = defineTool({
   handler: (args, { client }) => client.getPerformance(compact({ ...args })),
 });
 
+const getRiskSnapshot = defineTool({
+  name: "get_risk_snapshot",
+  title: "Get the Workbench risk snapshot",
+  description:
+    "Use for the quarterly book review, factor or correlation questions, and 'what does the capex stress say?'. Returns the exact Workbench → Risk calculations, read-only: pairwise return correlations with their window and method, AI-capex / AI-memory / diversifier and theme concentration against the caps, and the standing hyperscaler-capex −20% stress (NAV impact, by holding, by theme, by factor, with its assumptions). Quote these numbers; do not recompute them. Check price_data_through first.",
+  inputSchema: {
+    universe: z
+      .enum(["holdings", "all"])
+      .optional()
+      .describe("holdings (default): pairs of held names. all: also investigate / active_thesis names in the Workbench matrix."),
+    min_abs_correlation: z
+      .number()
+      .min(0)
+      .max(1)
+      .optional()
+      .describe("Only pairs with |correlation| at or above this, e.g. 0.6. Omit for every pair."),
+  },
+  scopes: ["powerfund:portfolio:read"],
+  annotations: READ,
+  operations: ["getRiskSnapshot"],
+  handler: (args, { client }) => client.getRiskSnapshot(compact({ ...args })),
+});
+
 const getResearchInbox = defineTool({
   name: "get_research_inbox",
   title: "Get the research inbox",
@@ -754,6 +777,7 @@ export const POWERFUND_TOOLS: readonly PowerFundTool[] = [
   getFundState,
   getPortfolio,
   getPerformance,
+  getRiskSnapshot,
   getResearchInbox,
   getReviewContext,
   getDossier,

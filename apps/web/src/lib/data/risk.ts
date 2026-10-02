@@ -3,17 +3,21 @@ import {
   aiCapexWeight,
   aiMemoryNavPct,
   computeCrowding,
+  hyperscalerCapexStress,
   pairwiseCorrelations,
   RISK_DEFAULTS,
   type CrowdingSnapshot,
+  type CapexStressResult,
   type CorrelationPair,
 } from "@powerfund/domain";
 
 import { getOpenPortfolioBook } from "@/lib/data/portfolio";
+import type { DbClient } from "@/lib/supabase/db";
 import { createClient } from "@/lib/supabase/server";
 
 const BAR_PAGE_SIZE = 1000;
-const CORRELATION_WINDOW_DAYS = 400;
+/** Calendar days, ~13 months. Pairs need 20 shared return days (`pearson`). */
+export const CORRELATION_WINDOW_DAYS = 400;
 
 export type RiskCrowdingRow = {
   symbol: string;
@@ -25,6 +29,11 @@ export type RiskCrowdingRow = {
 };
 
 export type RiskView = {
+  /** When this view was computed (wall clock). */
+  asOf: string;
+  /** Latest stored session among the holdings' marks. */
+  priceDataThrough: string | null;
+  nav: number;
   deployed: number;
   aiCapexPct: number | null;
   aiMemoryPct: number | null;
@@ -36,11 +45,18 @@ export type RiskView = {
     symbol: string;
     name: string;
     themeName: string;
+    themeSlug: string;
     marketValue: number;
     aiCapexWeight: number | null;
   }>;
+  stress: CapexStressResult;
   crowding: RiskCrowdingRow[];
+  /** Correlation universe: holdings plus investigate / active_thesis dossiers. */
   symbols: string[];
+  heldSymbols: string[];
+  correlationFrom: string;
+  /** Last bar date in each correlation series. */
+  seriesThrough: Record<string, string | null>;
   pairs: CorrelationPair[];
 };
 
@@ -51,9 +67,9 @@ type BarRow = {
 };
 
 async function loadCloses(
+  supabase: DbClient,
   instrumentId: string,
 ): Promise<Array<{ date: string; close: number }>> {
-  const supabase = await createClient();
   const points: Array<{ date: string; close: number }> = [];
   for (let page = 0; ; page += 1) {
     const { data, error } = await supabase
@@ -76,9 +92,17 @@ async function loadCloses(
   return points;
 }
 
-export async function getRiskView(): Promise<RiskView> {
-  const supabase = await createClient();
-  const book = await getOpenPortfolioBook();
+/**
+ * Workbench → Risk. The agent API's risk snapshot calls this same function
+ * with the service client, so the quarterly review quotes the operator's
+ * numbers rather than a second model's.
+ */
+export async function getRiskView(client?: DbClient): Promise<RiskView> {
+  const asOf = new Date().toISOString();
+  // The page reads with the operator's session, as before; the agent route
+  // passes its service client.
+  const supabase = client ?? (await createClient());
+  const book = await getOpenPortfolioBook(client);
 
   const [
     { data: instrumentData, error: instrumentError },
@@ -151,11 +175,12 @@ export async function getRiskView(): Promise<RiskView> {
   const series = await Promise.all(
     instruments.map(async (instrument) => ({
       instrument,
-      points: await loadCloses(instrument.id),
+      points: await loadCloses(supabase, instrument.id),
     })),
   );
 
   const crowding: RiskCrowdingRow[] = [];
+  const seriesThrough: Record<string, string | null> = {};
   const correlationSeries: Array<{
     symbol: string;
     points: Array<{ date: string; close: number }>;
@@ -184,6 +209,7 @@ export async function getRiskView(): Promise<RiskView> {
       status === "investigate" ||
       status === "active_thesis";
     if (inCorr && points.length > 20) {
+      seriesThrough[instrument.symbol] = points.at(-1)?.date ?? null;
       correlationSeries.push({
         symbol: instrument.symbol,
         points: points.filter((point) => point.date >= corrCutoffIso),
@@ -204,6 +230,7 @@ export async function getRiskView(): Promise<RiskView> {
     symbol: row.symbol,
     name: row.name,
     themeName: row.themeName,
+    themeSlug: row.themeSlug,
     marketValue: row.marketValue ?? row.costBasis,
     aiCapexWeight: aiCapexWeight(row.symbol),
   }));
@@ -216,29 +243,31 @@ export async function getRiskView(): Promise<RiskView> {
   }));
   const aiCapexPct = aiCapexNavPct(mandatePositions, book.nav);
   const aiMemoryPct = aiMemoryNavPct(mandatePositions, book.nav);
-  const complexValue = holdings.reduce((sum, row) => {
-    if (row.aiCapexWeight == null) return sum;
-    return sum + row.marketValue * row.aiCapexWeight;
-  }, 0);
   const diversifierValue = holdings.reduce((sum, row) => {
     if (row.aiCapexWeight == null || row.aiCapexWeight > 0) return sum;
     return sum + row.marketValue;
   }, 0);
-  const stressNavDelta = 0.2 * complexValue;
-  const stressNav = book.nav - stressNavDelta;
+  const stress = hyperscalerCapexStress(holdings, book.nav);
 
   return {
+    asOf,
+    priceDataThrough: book.priceDataThrough,
+    nav: book.nav,
     deployed,
     aiCapexPct,
     aiMemoryPct,
     diversifierPct:
       book.nav > 0 ? (diversifierValue / book.nav) * 100 : null,
-    stressNav,
-    stressNavDelta,
-    stressNavDeltaPct: book.nav > 0 ? (stressNavDelta / book.nav) * 100 : null,
+    stressNav: stress.stressedNav,
+    stressNavDelta: stress.navDelta,
+    stressNavDeltaPct: stress.navDeltaPct,
     holdings,
+    stress,
     crowding,
     symbols: correlationSeries.map((row) => row.symbol),
+    heldSymbols: book.positions.map((row) => row.symbol),
+    correlationFrom: corrCutoffIso,
+    seriesThrough,
     pairs: pairwiseCorrelations(correlationSeries),
   };
 }

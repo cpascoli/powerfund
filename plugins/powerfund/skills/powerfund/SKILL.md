@@ -80,6 +80,7 @@ process document disagree, the process document wins.
 | What is due today? / run the briefing | `get_fund_state`, then `list_reviews` `status:["due"]` if thin |
 | Portfolio, cash, weights, cap headroom | `get_portfolio` (marks) · `get_fund_state` (flags, queue) |
 | Returns vs SPY/QQQ, drawdown, contribution | `get_performance` |
+| Correlation, factor concentration, capex −20% stress (quarterly review) | `get_risk_snapshot` |
 | Research inbox / watchlist hygiene | `get_research_inbox` |
 | A company's dossier | `get_dossier` |
 | Re-underwrite X · reassess a trigger · weekly hold on X · what remains before allocating to X | `get_review_context` first |

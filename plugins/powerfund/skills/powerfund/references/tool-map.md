@@ -9,6 +9,7 @@ single composite, `get_review_context`.
 | `getFundState` | `get_fund_state` | `include_watchlist`, `recent_decisions` |
 | `getPortfolio` | `get_portfolio` | |
 | `getPerformance` | `get_performance` | `from` / `to` |
+| `getRiskSnapshot` | `get_risk_snapshot` | `universe` (holdings / all), `min_abs_correlation` |
 | `getJournal?symbol=…` | `get_journal` | `horizon_due`, `graded`, `decision_type` (`material`) |
 | `getCalibrationStatus` | `get_calibration_status` | |
 | `getPlannedActions` | `list_planned_actions` | |

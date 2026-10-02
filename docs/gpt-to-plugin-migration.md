@@ -27,7 +27,7 @@ fallback afterwards.
 | Phase | What | Status |
 |-------|------|--------|
 | A | Audit GPT behaviour and the agent API | Done: [architecture § audit](./mcp-architecture.md#the-existing-agent-api-audited) |
-| B | Build the MCP server in parallel | Done: `/api/v1/mcp`, 22 tools, OAuth |
+| B | Build the MCP server in parallel | Done: `/api/v1/mcp`, 22 tools, OAuth (23 since `get_risk_snapshot`) |
 | C | Test with MCP Inspector | Done locally, CLI and real server (below) |
 | D | Deploy a preview endpoint | Migration applied; every review fix pushed; PR #1 checks green; preview live, and its unauthenticated checks pass. **Operator**: the authenticated smoke test below (Inspector with an agent key) |
 | E | ChatGPT Developer Mode | **Operator**: OAuth via ChatGPT's CIMD against the preview |
@@ -127,7 +127,7 @@ Approve **read only** first.
 Verify:
 
 - [ ] `initialize` returns the server instructions; no `Mcp-Session-Id`
-- [ ] `tools/list` shows 22 tools with annotations and `securitySchemes`
+- [ ] `tools/list` shows 23 tools with annotations and `securitySchemes`
 - [ ] every read tool answers; `get_review_context` returns all six sections
 - [ ] a write tool on the read-only grant returns `INSUFFICIENT_SCOPE`, and nothing changes in the database
 - [ ] invalid arguments (bad UUID, unknown field) return a readable `isError` without calling PowerFund
@@ -158,7 +158,7 @@ not allow dynamic registration, so Inspector's OAuth flow cannot run there;
 use a **read-role agent key** instead (CLI form above with the preview URL, or
 the UI with an `Authorization: Bearer <key>` header):
 
-- [ ] `tools/list` shows 22 tools, each with annotations, `securitySchemes` and an `outputSchema`
+- [ ] `tools/list` shows 23 tools, each with annotations, `securitySchemes` and an `outputSchema`
 - [ ] `get_fund_state`, `get_dossier`, `get_review_context` answer from production data
 - [ ] any write tool returns `WRITES_DISABLED`, and nothing changes
 - [ ] `/.well-known/oauth-authorization-server` names the preview URL as issuer and advertises no `registration_endpoint`
@@ -180,7 +180,7 @@ OAuth on the preview is for CIMD clients: that is phase E, with ChatGPT.
    client metadata document (CIMD); no client id or secret is entered.
 3. Consent: the page names **ChatGPT**, identified by chatgpt.com, and sends you
    back to `chatgpt.com`. Choose **Allow read only** for the first pass.
-4. Review the discovered tools: 22 tools, read tools unmarked, writes marked as
+4. Review the discovered tools: 23 tools, read tools unmarked, writes marked as
    such.
 5. In a new conversation, run the `writes: none` cases from
    [evals/mcp](../evals/mcp/README.md). For each, inspect the tool chosen, the

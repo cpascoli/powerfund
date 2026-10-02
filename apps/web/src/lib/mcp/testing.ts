@@ -28,6 +28,7 @@ export const READ_METHODS = [
   "getFundState",
   "getPortfolio",
   "getPerformance",
+  "getRiskSnapshot",
   "getJournal",
   "getCalibrationStatus",
   "getPlannedActions",

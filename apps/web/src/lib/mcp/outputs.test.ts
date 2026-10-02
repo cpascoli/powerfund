@@ -42,6 +42,16 @@ const SAMPLES: Record<string, Record<string, unknown>> = {
     contribution: { tickers: [] },
     notes: ["percent"],
   },
+  get_risk_snapshot: {
+    as_of: "2026-10-02T12:00:00Z",
+    price_data_through: "2026-10-01",
+    price_data_stale: false,
+    nav_usd: 250000,
+    correlation: { pairs: [{ a: "VRT", b: "SNDK", correlation: 0.41 }] },
+    concentration: { ai_capex_pct_nav: 8.2 },
+    hyperscaler_capex_stress: { nav_impact_usd: -4100, by_holding: [] },
+    notes: ["read-only"],
+  },
   get_research_inbox: { as_of: "x", returned: 1, items: [{ kind: "diligence", symbol: "AVGO" }] },
   get_review_context: {
     symbol: "SNDK",

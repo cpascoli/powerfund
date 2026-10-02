@@ -93,6 +93,16 @@ export const TOOL_OUTPUTS: Record<string, z.ZodRawShape> = {
     contribution: section("Dollar contribution by ticker, theme and factor (pnl_usd is dollars, not TWR)."),
     notes: notes("How to read the numbers."),
   },
+  get_risk_snapshot: {
+    as_of: str("When the snapshot was computed."),
+    ...freshness,
+    nav_usd: num("Net asset value, dollars, cash included."),
+    deployed_usd: num("Market value of positions, dollars."),
+    correlation: section("method, window (calendar_days, from, through per symbol), held_symbols, pairs: a, b, correlation, observations, both_held."),
+    concentration: section("ai_capex_pct_nav, ai_memory_pct_nav, diversifier_pct_nav, themes, the caps, unclassified symbols."),
+    hyperscaler_capex_stress: section("shock_pct, nav_impact_usd / _pct (negative), stressed_nav_usd, by_holding, by_theme, by_factor, assumptions."),
+    notes: notes("How to read the numbers."),
+  },
   get_research_inbox: {
     as_of: str("When the inbox was derived."),
     returned: num("Items returned."),

@@ -24,6 +24,7 @@ export const AGENT_OPERATION_EXPOSURE: Record<string, OperationExposure> = {
   getFundState: { mcp: "exposed" },
   getPortfolio: { mcp: "exposed" },
   getPerformance: { mcp: "exposed" },
+  getRiskSnapshot: { mcp: "exposed" },
   getJournal: { mcp: "exposed" },
   getCalibrationStatus: { mcp: "exposed" },
   getPlannedActions: { mcp: "exposed" },

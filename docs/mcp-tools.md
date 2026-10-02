@@ -141,6 +141,7 @@ reconnect with more scope.
 | `get_fund_state` | Read | `powerfund:state:read` | getFundState |
 | `get_portfolio` | Read | `powerfund:portfolio:read` | getPortfolio |
 | `get_performance` | Read | `powerfund:portfolio:read` | getPerformance |
+| `get_risk_snapshot` | Read | `powerfund:portfolio:read` | getRiskSnapshot |
 | `get_research_inbox` | Read | `powerfund:dossier:read` | getResearchInbox |
 | `get_review_context` | Read | `powerfund:dossier:read` `powerfund:journal:read` `powerfund:reviews:read` `powerfund:deployment:read` | getCompanyDossier, getJournal, getReviewQueue, getPlannedActions |
 | `get_dossier` | Read | `powerfund:dossier:read` | getCompanyDossier |
@@ -205,6 +206,22 @@ Use for the scoreboard: NAV and deployed-capital time-weighted returns against S
 |---|---|---|---|
 | `from` | string (YYYY-MM-DD) |  | Inclusive start, YYYY-MM-DD. Omit for since inception. |
 | `to` | string (YYYY-MM-DD) |  | Inclusive end, YYYY-MM-DD. Omit to include today's mark. |
+
+### `get_risk_snapshot` — Get the Workbench risk snapshot
+
+Use for the quarterly book review, factor or correlation questions, and 'what does the capex stress say?'. Returns the exact Workbench → Risk calculations, read-only: pairwise return correlations with their window and method, AI-capex / AI-memory / diversifier and theme concentration against the caps, and the standing hyperscaler-capex −20% stress (NAV impact, by holding, by theme, by factor, with its assumptions). Quote these numbers; do not recompute them. Check price_data_through first.
+
+| | |
+|---|---|
+| Kind | Read |
+| Annotations | readOnlyHint=true, destructiveHint=false, idempotentHint=true, openWorldHint=false |
+| Scopes (all required) | `powerfund:portfolio:read` |
+| Backing REST | `getRiskSnapshot` (`GET /api/v1/agent/risk`) |
+
+| Argument | Type | Required | Notes |
+|---|---|---|---|
+| `universe` | "holdings" \| "all" |  | holdings (default): pairs of held names. all: also investigate / active_thesis names in the Workbench matrix. |
+| `min_abs_correlation` | number (0–1) |  | Only pairs with \|correlation\| at or above this, e.g. 0.6. Omit for every pair. |
 
 ### `get_research_inbox` — Get the research inbox
 

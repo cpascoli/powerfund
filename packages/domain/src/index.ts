@@ -5,6 +5,7 @@ export * from "./risk";
 export * from "./mandate";
 export * from "./crowding";
 export * from "./correlation";
+export * from "./capex-stress";
 export * from "./performance";
 export * from "./snapshots";
 export * from "./vintages";

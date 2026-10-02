@@ -22,6 +22,15 @@
       "pass_if": "Reports NAV, cash %, invested cost vs the capital Phase-1 $75k cap, positions and flags; says 'capital Phase 1', never a bare phase; notes price_data_through."
     },
     {
+      "id": "quarterly-risk",
+      "category": "read",
+      "prompt": "For the quarterly book review: what are the pairwise correlations between our holdings, and what does the hyperscaler-capex −20% stress do to NAV?",
+      "expect": ["get_risk_snapshot"],
+      "allow": ["get_fund_state", "get_portfolio", "get_performance", "list_reviews"],
+      "writes": "none",
+      "pass_if": "Quotes the Workbench numbers from get_risk_snapshot rather than recomputing them or asking the user to paste them: the correlation window and method, the highest held pairs, AI-capex % of NAV against the 40% cap, and the stress NAV impact in dollars and percent by holding and theme; names any unclassified holdings; notes price_data_through."
+    },
+    {
       "id": "research-inbox",
       "category": "read",
       "prompt": "What is in the research inbox?",
