@@ -52,7 +52,7 @@ export function Landing() {
       <section className="hero">
         <div className="hero-copy">
           <p className="hero-eyebrow">Power Fund</p>
-          <h1>Follow the bottleneck.</h1>
+          <h1>Investment intelligence for the machine age.</h1>
           <p className="hero-lede">
             We treat <strong>AI</strong>, <strong>energy</strong>,{" "}
             <strong>robotics</strong> and <strong>defence</strong> as one
