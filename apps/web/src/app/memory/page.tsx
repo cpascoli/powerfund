@@ -125,8 +125,7 @@ export default async function MemoryPage({ searchParams }: PageProps) {
       <section className="panel">
         <h2>Memory</h2>
         <p className="muted">
-          The book&apos;s record of what it thought at the time — not what we
-          remember thinking. Every review starts here, so a judgement is
+          The book&apos;s record of what it thought at the time. Every review starts here, so a judgement is
           checked against the beliefs it inherits rather than rebuilt from a
           recent conversation. {total} memories
           {symbol ? ` · filtered to ${symbol}` : ""}.
