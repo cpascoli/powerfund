@@ -3,7 +3,7 @@ import { isSellSide, RISK_DEFAULTS } from "@powerfund/domain";
 
 import { CashEntryForm } from "@/components/cash-entry-form";
 import { ConfirmFillForm } from "@/components/confirm-fill-form";
-import { PortfolioFormModal } from "@/components/portfolio-form-modal";
+import { UrlModal } from "@/components/url-modal";
 import { LiveMarksRefresh } from "@/components/live-marks-refresh";
 import { NavHistoryChart } from "@/components/nav-history-chart";
 import { PlannedActionForm } from "@/components/planned-action-form";
@@ -901,13 +901,13 @@ export default async function PortfolioPage({
       />
 
       {flowForm ? (
-        <PortfolioFormModal
+        <UrlModal
           key={flowForm.key}
           title={flowForm.title}
           closeHref={href({ tab: flowForm.tab })}
         >
           {flowForm.body}
-        </PortfolioFormModal>
+        </UrlModal>
       ) : null}
     </>
   );

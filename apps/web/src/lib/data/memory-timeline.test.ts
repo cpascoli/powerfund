@@ -3,6 +3,7 @@ import {
   buildMemoryStrip,
   groupMemoryByDay,
   isMemoryKind,
+  memoryCounts,
   stripIntensity,
   type MemoryEvent,
   type MemoryKind,
@@ -110,6 +111,28 @@ describe("buildMemoryStrip", () => {
   it("has no buckets at all when there is nothing to show", () => {
     expect(buildMemoryStrip([]).buckets).toEqual([]);
   });
+
+  /**
+   * The stream only has a section for days with memories. A cell has to link
+   * to one of those, per lane, or a click lands nowhere — on a quiet first day
+   * of a multi-day bucket, or on the day another lane's memory sits.
+   */
+  it("anchors each lane's cell on the first day that lane has a memory", () => {
+    const strip = buildMemoryStrip(
+      [
+        event("2026-01-01T10:00:00Z", "decision"),
+        event("2026-01-03T10:00:00Z", "company"),
+        event("2026-01-02T09:00:00Z", "company"),
+        event("2026-12-31T10:00:00Z", "decision"),
+      ],
+      { maxBuckets: 60 },
+    );
+    expect(strip.bucketDays).toBeGreaterThan(2);
+    const first = strip.buckets[0]!;
+    expect(first.firstDay).toEqual({ decision: "2026-01-01", company: "2026-01-02" });
+    // Quiet buckets offer nothing to link to.
+    expect(strip.buckets[1]!.firstDay).toEqual({});
+  });
 });
 
 describe("stripIntensity", () => {
@@ -137,5 +160,30 @@ describe("isMemoryKind", () => {
     expect(isMemoryKind("company")).toBe(true);
     expect(isMemoryKind("calendar")).toBe(true);
     expect(isMemoryKind("positions")).toBe(false);
+  });
+});
+
+describe("memoryCounts", () => {
+  const events = [
+    event("2026-09-01T10:00:00Z", "decision", { symbol: "VRT" }),
+    event("2026-09-02T10:00:00Z", "company", { symbol: "VRT" }),
+    event("2026-09-02T11:00:00Z", "company", { symbol: "SNDK" }),
+    event("2026-09-03T10:00:00Z", "portfolio"),
+  ];
+
+  it("counts everything when no name is chosen", () => {
+    expect(memoryCounts(events)).toEqual({
+      total: 4,
+      inScope: 4,
+      byKind: { company: 2, decision: 1, portfolio: 1, calendar: 0 },
+    });
+  });
+
+  it("scopes the header and the lane counts to the chosen name, keeping the total", () => {
+    expect(memoryCounts(events, "VRT")).toEqual({
+      total: 4,
+      inScope: 2,
+      byKind: { company: 1, decision: 1, portfolio: 0, calendar: 0 },
+    });
   });
 });

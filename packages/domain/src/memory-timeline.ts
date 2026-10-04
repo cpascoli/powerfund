@@ -77,12 +77,19 @@ export function groupMemoryByDay(events: MemoryEvent[]): MemoryDayGroup[] {
 }
 
 export type MemoryStripBucket = {
-  /** First day in the bucket; the anchor a click scrolls to. */
+  /** First calendar day in the bucket. Not necessarily a day with memories. */
   date: string;
   /** Inclusive last day, equal to `date` when bucketing daily. */
   endDate: string;
   counts: Record<MemoryKind, number>;
   total: number;
+  /**
+   * Earliest day in the bucket holding a memory of each kind: what a click on
+   * that lane's cell scrolls to. The stream only has a section for days with
+   * memories, so linking to `date` lands nowhere on a weekend or, once days
+   * are bucketed, on any bucket whose first day was quiet.
+   */
+  firstDay: Partial<Record<MemoryKind, string>>;
 };
 
 export type MemoryStrip = {
@@ -134,6 +141,7 @@ export function buildMemoryStrip(
       endDate: addDays(first, Math.min(offset + bucketDays - 1, span - 1)),
       counts: { company: 0, decision: 0, portfolio: 0, calendar: 0 },
       total: 0,
+      firstDay: {},
     });
   }
 
@@ -146,6 +154,8 @@ export function buildMemoryStrip(
     if (bucket == null) continue;
     bucket.counts[event.kind] += 1;
     bucket.total += 1;
+    const seen = bucket.firstDay[event.kind];
+    if (seen == null || day < seen) bucket.firstDay[event.kind] = day;
   }
 
   return {
@@ -166,4 +176,26 @@ export function buildMemoryStrip(
 export function stripIntensity(count: number, peak: number): number {
   if (count <= 0 || peak <= 0) return 0;
   return Math.min(1, Math.sqrt(count) / Math.sqrt(peak));
+}
+
+export type MemoryCounts = {
+  /** Every memory, whatever the filters. */
+  total: number;
+  /** Memories for the filtered name, or every memory when none is chosen. */
+  inScope: number;
+  /** Per lane, within the name filter: what each lane toggle would show. */
+  byKind: Record<MemoryKind, number>;
+};
+
+/**
+ * Counts for the page header and the lane toggles. They follow the name
+ * filter, because "305 memories · filtered to VRT" reads as VRT having 305;
+ * they ignore the lane filter, because a toggle should say what turning that
+ * lane on would show.
+ */
+export function memoryCounts(events: readonly MemoryEvent[], symbol?: string): MemoryCounts {
+  const scoped = symbol ? events.filter((event) => event.symbol === symbol) : events;
+  const byKind: Record<MemoryKind, number> = { company: 0, decision: 0, portfolio: 0, calendar: 0 };
+  for (const event of scoped) byKind[event.kind] += 1;
+  return { total: events.length, inScope: scoped.length, byKind };
 }

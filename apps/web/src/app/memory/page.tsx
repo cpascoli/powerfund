@@ -5,12 +5,14 @@ import {
   buildMemoryStrip,
   groupMemoryByDay,
   isMemoryKind,
+  memoryCounts,
   stripIntensity,
   utcDay,
   type MemoryEvent,
   type MemoryKind,
 } from "@powerfund/domain";
 
+import { UrlModal } from "@/components/url-modal";
 import { loadMemoryTimeline } from "@/lib/data/memory-timeline";
 
 export const dynamic = "force-dynamic";
@@ -115,10 +117,7 @@ export default async function MemoryPage({ searchParams }: PageProps) {
     ...new Set(events.map((row) => row.symbol).filter((row): row is string => !!row)),
   ].sort();
 
-  const total = events.length;
-  const kindTotals = Object.fromEntries(
-    MEMORY_KINDS.map((row) => [row, events.filter((e) => e.kind === row).length]),
-  ) as Record<MemoryKind, number>;
+  const counts = memoryCounts(events, symbol);
 
   return (
     <>
@@ -127,8 +126,10 @@ export default async function MemoryPage({ searchParams }: PageProps) {
         <p className="muted">
           The book&apos;s record of what it thought at the time. Every review starts here, so a judgement is
           checked against the beliefs it inherits rather than rebuilt from a
-          recent conversation. {total} memories
-          {symbol ? ` · filtered to ${symbol}` : ""}.
+          recent conversation.{" "}
+          {symbol
+            ? `${counts.inScope} of ${counts.total} memories · filtered to ${symbol}.`
+            : `${counts.total} memories.`}
         </p>
 
         <div className="memory-guide">
@@ -169,7 +170,8 @@ export default async function MemoryPage({ searchParams }: PageProps) {
             <p className="muted">
               Planned trades wait in the{" "}
               <Link href="/portfolio?tab=queue">deployment queue</Link>, not
-              here. An intention becomes memory once it is decided.
+              here. A trade enters memory when it is recorded as a decision in
+              the journal.
             </p>
           </div>
         </div>
@@ -200,7 +202,7 @@ export default async function MemoryPage({ searchParams }: PageProps) {
               >
                 <span className={`memory-dot is-${row}`} aria-hidden />
                 {KIND_LABEL[row]}
-                <span className="memory-count">{kindTotals[row]}</span>
+                <span className="memory-count">{counts.byKind[row]}</span>
               </Link>
             ))}
           </div>
@@ -220,17 +222,29 @@ export default async function MemoryPage({ searchParams }: PageProps) {
                   <div className="memory-strip-track">
                     {strip.buckets.map((bucket) => {
                       const count = bucket.counts[row];
-                      return (
+                      const target = bucket.firstDay[row];
+                      const label = `${bucket.date}${
+                        bucket.endDate !== bucket.date ? ` → ${bucket.endDate}` : ""
+                      }: ${count} ${KIND_LABEL[row].toLowerCase()}`;
+                      const style = {
+                        opacity: count === 0 ? 0.07 : 0.25 + 0.75 * stripIntensity(count, strip.peak),
+                      };
+                      // Only a day with memories has a section to scroll to;
+                      // an empty cell is a gap to see, not a link.
+                      return target ? (
                         <a
                           key={`${row}-${bucket.date}`}
-                          href={`#day-${bucket.date}`}
+                          href={`#day-${target}`}
                           className={`memory-strip-cell is-${row}`}
-                          style={{
-                            opacity: count === 0 ? 0.07 : 0.25 + 0.75 * stripIntensity(count, strip.peak),
-                          }}
-                          title={`${bucket.date}${
-                            bucket.endDate !== bucket.date ? ` → ${bucket.endDate}` : ""
-                          }: ${count} ${KIND_LABEL[row].toLowerCase()}`}
+                          style={style}
+                          title={label}
+                        />
+                      ) : (
+                        <span
+                          key={`${row}-${bucket.date}`}
+                          className={`memory-strip-cell is-${row}`}
+                          style={style}
+                          title={label}
                         />
                       );
                     })}
@@ -327,41 +341,35 @@ export default async function MemoryPage({ searchParams }: PageProps) {
       </section>
 
       {detail ? (
-        <div className="memory-overlay">
-          <Link
-            className="memory-overlay-backdrop"
-            href={href({ kinds, symbol })}
-            aria-label="Close"
-          />
-          <article className="memory-overlay-card">
-            <header>
-              <span className={`memory-kind is-${detail.kind}`}>
-                {KIND_LABEL[detail.kind]}
-              </span>
-              <h2>{detail.title}</h2>
-              <p className="muted">
-                {formatDay(utcDay(detail.at))}
-                {detail.symbol ? ` · ${detail.symbol}` : ""}
-              </p>
-            </header>
-            <dl className="memory-fields">
-              {detail.fields.map((field) => (
-                <div key={field.label}>
-                  <dt>{field.label}</dt>
-                  <dd>{field.value}</dd>
-                </div>
-              ))}
-            </dl>
-            <footer>
-              {detail.href ? (
-                <Link href={detail.href}>{detail.hrefLabel}</Link>
-              ) : null}
-              <Link className="memory-close" href={href({ kinds, symbol })}>
-                Close
-              </Link>
+        <UrlModal
+          key={detail.id}
+          size="wide"
+          title={detail.title}
+          closeHref={href({ kinds, symbol })}
+          eyebrow={
+            <span className={`memory-kind is-${detail.kind}`}>
+              {KIND_LABEL[detail.kind]}
+            </span>
+          }
+        >
+          <p className="memory-detail-meta muted">
+            {formatDay(utcDay(detail.at))}
+            {detail.symbol ? ` · ${detail.symbol}` : ""}
+          </p>
+          <dl className="memory-fields">
+            {detail.fields.map((field) => (
+              <div key={field.label}>
+                <dt>{field.label}</dt>
+                <dd>{field.value}</dd>
+              </div>
+            ))}
+          </dl>
+          {detail.href ? (
+            <footer className="memory-detail-footer">
+              <Link href={detail.href}>{detail.hrefLabel}</Link>
             </footer>
-          </article>
-        </div>
+          ) : null}
+        </UrlModal>
       ) : null}
     </>
   );
