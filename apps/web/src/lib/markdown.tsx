@@ -5,8 +5,9 @@ import { playbookHref } from "@/lib/docs";
 /**
  * Minimal, dependency-free Markdown renderer for our own docs. It supports
  * exactly the constructs we author: ATX headings, paragraphs, ordered/unordered
- * lists (including task checkboxes), GFM tables, horizontal rules, and inline
- * bold / italic / code / markdown links / bare http(s) URLs. It deliberately
+ * lists (including task checkboxes), GFM tables, fenced code, horizontal rules,
+ * and inline bold / italic / code / markdown links / bare http(s) URLs.
+ * Headings get GitHub-style ids, so a doc's own `[x](#heading)` links work. It deliberately
  * does not handle raw HTML, so rendering a trusted repo document cannot inject
  * markup.
  */
@@ -61,7 +62,7 @@ function renderInline(text: string, keyPrefix: string): ReactNode[] {
       case "link": {
         const label = best.match[1] ?? "";
         const href = best.match[2] ?? "";
-        const routed = playbookHref(href);
+        const routed = href.startsWith("#") ? href : playbookHref(href);
         if (routed) {
           nodes.push(
             <a key={key} href={routed}>
@@ -143,12 +144,25 @@ function alignStyle(alignment: Alignment | undefined): CSSProperties | undefined
   return alignment && alignment !== "left" ? { textAlign: alignment } : undefined;
 }
 
+/** GitHub's heading anchor: lowercase, markup and punctuation dropped, spaces → "-". */
+export function headingId(text: string): string {
+  return text
+    .replace(/\[([^\]]+)\]\([^)]*\)/g, "$1")
+    .replace(/[`*_]/g, "")
+    .trim()
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N}\s-]/gu, "")
+    .replace(/\s/g, "-");
+}
+
 export function renderMarkdown(markdown: string): ReactNode {
   const lines = markdown.replace(/\r\n/g, "\n").split("\n");
   const blocks: ReactNode[] = [];
   let index = 0;
   let key = 0;
   let strippedTitle = false;
+  const usedIds = new Map<string, number>();
+  const isFence = (line: string) => /^\s*```/.test(line);
 
   const isTable = (line: string) => line.trim().startsWith("|");
   const isOrdered = (line: string) => /^\s*\d+\.\s+/.test(line);
@@ -173,8 +187,32 @@ export function renderMarkdown(markdown: string): ReactNode {
         continue;
       }
       const Tag = `h${Math.min(level, 6)}` as "h1" | "h2" | "h3" | "h4" | "h5" | "h6";
-      blocks.push(<Tag key={`b${key++}`}>{renderInline(content, `b${key}`)}</Tag>);
+      const base = headingId(content);
+      const seen = usedIds.get(base) ?? 0;
+      usedIds.set(base, seen + 1);
+      const id = seen === 0 ? base : `${base}-${seen}`;
+      blocks.push(
+        <Tag key={`b${key++}`} id={id || undefined}>
+          {renderInline(content, `b${key}`)}
+        </Tag>,
+      );
       index += 1;
+      continue;
+    }
+
+    if (isFence(line)) {
+      const code: string[] = [];
+      index += 1;
+      while (index < lines.length && !isFence(lines[index] ?? "")) {
+        code.push(lines[index] ?? "");
+        index += 1;
+      }
+      index += 1; // the closing fence, if there is one
+      blocks.push(
+        <pre key={`b${key++}`}>
+          <code>{code.join("\n")}</code>
+        </pre>,
+      );
       continue;
     }
 
@@ -279,6 +317,7 @@ export function renderMarkdown(markdown: string): ReactNode {
       const current = lines[index] ?? "";
       if (
         current.trim() === "" ||
+        isFence(current) ||
         /^#{1,6}\s+/.test(current) ||
         /^-{3,}$/.test(current.trim()) ||
         isTable(current) ||

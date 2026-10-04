@@ -48,7 +48,10 @@ export function isPublicSitePath(
   if (pathname === "/themes" || pathname === "/mandate") return true;
   if (matchesPrefix(pathname, "/explore")) return true;
   if (matchesPrefix(pathname, "/calendar")) return true;
+  // Operator-only Playbook docs (`operatorOnly` in lib/docs.ts). Listed here
+  // rather than imported: the middleware must not pull in node:fs.
   if (matchesPrefix(pathname, "/docs/plan")) return false;
+  if (matchesPrefix(pathname, "/docs/gpt-agent-process")) return false;
   if (matchesPrefix(pathname, "/docs")) return true;
   if (pathname === "/workbench") {
     return searchParams?.get("view") !== "risk";

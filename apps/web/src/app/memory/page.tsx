@@ -126,7 +126,9 @@ export default async function MemoryPage({ searchParams }: PageProps) {
           Everything the book remembers, on one axis. A review that reads only
           part of this is working from a partial record — see the historical
           review gate in{" "}
-          <Link href="/docs/gpt-agent-process">the operating process</Link>.
+          <Link href="/docs/gpt-agent-process#historical-review-gate">
+            the operating process
+          </Link>.
           {" "}
           {total} memories{symbol ? ` · filtered to ${symbol}` : ""}.
         </p>

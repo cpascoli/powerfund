@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
 
+import { PLAYBOOK_DOCS } from "@/lib/docs";
+
 import {
   isMcpPath,
   isOAuthMachinePath,
@@ -30,9 +32,16 @@ describe("public HTML routes", () => {
     expect(isPublicSitePath("/decisions")).toBe(false);
     expect(isPublicSitePath("/decisions/new")).toBe(false);
     expect(isPublicSitePath("/docs/plan")).toBe(false);
+    expect(isPublicSitePath("/docs/gpt-agent-process")).toBe(false);
     expect(
       isPublicSitePath("/workbench", new URLSearchParams("view=risk")),
     ).toBe(false);
+  });
+
+  it("gates exactly the Playbook docs marked operator-only", () => {
+    for (const doc of PLAYBOOK_DOCS) {
+      expect(isPublicSitePath(`/docs/${doc.slug}`), doc.slug).toBe(!doc.operatorOnly);
+    }
   });
 
   it("does not treat the public catalog matcher as an HTML route helper", () => {

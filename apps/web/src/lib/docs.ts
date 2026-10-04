@@ -6,6 +6,12 @@ export type PlaybookDoc = {
   file: string;
   title: string;
   description: string;
+  /**
+   * Hidden from signed-out visitors. The page route does not enforce this;
+   * `isPublicSitePath` does, in the middleware, and paths.test.ts asserts the
+   * two lists agree.
+   */
+  operatorOnly?: boolean;
 };
 
 /** Operator-facing docs rendered in the app. Engineering docs (ux, deploy) stay in the repo. */
@@ -37,12 +43,21 @@ export const PLAYBOOK_DOCS: readonly PlaybookDoc[] = [
     title: "Plan",
     description:
       "Software plan: codify → augment → expand perception → constrain risk → optional scale. Not the capital ladder.",
+    operatorOnly: true,
+  },
+  {
+    slug: "gpt-agent-process",
+    file: "gpt-agent-process.md",
+    title: "Operating process",
+    description:
+      "How the agent helps run PowerFund: hard rules, cadence, the historical review gate, and every ritual from the daily sweep to capital-phase gates.",
+    operatorOnly: true,
   },
 ] as const;
 
-/** Investing constitution. The build plan stays operator-only. */
+/** Investing constitution. The build plan and the operating process stay operator-only. */
 export const PUBLIC_PLAYBOOK_DOCS: readonly PlaybookDoc[] = PLAYBOOK_DOCS.filter(
-  (doc) => doc.slug !== "plan",
+  (doc) => !doc.operatorOnly,
 );
 
 const SLUGS = new Set(PLAYBOOK_DOCS.map((doc) => doc.slug));
