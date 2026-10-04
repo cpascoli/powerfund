@@ -67,9 +67,23 @@ Build:
 - [x] Review queue — dated obligations with triggers, plus history query
       (`getReviewQueue` filters by status/scope/symbol/theme/date) so a review
       can read what the book concluded last time before writing a new one
-- [x] Agent API (`/api/v1/agent`, 19 operations) — the weekly process runs
-      through it, not by hand ([agent-api.md](./agent-api.md),
+- [x] Agent API (`/api/v1/agent`, 24 operations including the index) — the
+      weekly process runs through it, not by hand ([agent-api.md](./agent-api.md),
       [gpt-agent-process.md](./gpt-agent-process.md))
+- [x] MCP server and PowerFund plugin (2026-09-28 → 10-01) — the agent API
+      served as goal-named MCP tools at `/api/v1/mcp`, with PowerFund's own
+      OAuth, so the Custom GPT's Actions can be retired. Tools call the REST
+      handlers in-process, so validation, scopes and idempotency are one
+      implementation; only the production build writes
+      ([mcp-architecture.md](./mcp-architecture.md),
+      [gpt-to-plugin-migration.md](./gpt-to-plugin-migration.md)). The GPT
+      migration itself is the operator's step and has not happened yet.
+- [x] Memory timeline (2026-09-20) — dossier versions, decisions and their
+      grades, review conclusions and dated obligations on one axis, so a
+      review can see everything the historical gate asks it to read
+- [x] `instruments.status` follows the book (2026-09-20): a trigger on
+      `positions` moves a name to `active` and back; only `archived` is set
+      by hand
 - [x] Operator/viewer split — `requireOperator()` plus RLS; viewers read
       research and never the book
 - [x] CI on every push (typecheck, tests, web build, migrations against an
@@ -125,7 +139,7 @@ that sample: the universe is survivorship-contaminated.
 
 **Goal:** Fund-like discipline in software.
 
-**Minimum slice pulled forward (2026-08-13):** capital is live while this phase is unfinished. Before deployed cost crossed ~$40–50k we stood up (a) a pairwise correlation matrix of holdings and candidates, (b) an AI-capex factor exposure view (mandate rule 10), and (c) a standing “hyperscaler capex guidance −20%” stress. Workbench → Risk, 2026-08-14.
+**Minimum slice pulled forward (2026-08-13):** capital is live while this phase is unfinished. Before deployed cost crossed ~$40–50k we stood up (a) a pairwise correlation matrix of holdings and candidates, (b) an AI-capex factor exposure view (mandate rule 10), and (c) a standing “hyperscaler capex guidance −20%” stress. Workbench → Risk, 2026-08-14. Since 2026-10-02 the same calculations are readable by the agent (`getRiskSnapshot` / `get_risk_snapshot`), so the quarterly review quotes them rather than a pasted screenshot — readable, still not a gate.
 
 Still to encode:
 
@@ -183,12 +197,12 @@ Exit criteria: deliberate go/no-go; no premature multi-tenant complexity before 
 12. [x] Make the queue able to sell and the gate able to tell a sell from a buy (2026-09-18 review §1.1). Both P0, both fixed 2026-09-18/19: the gate takes a required side and a sell skips the caps and the kill-switch entirely, because every one of those limits constrains *new* risk and a reduction lowers all of them; the queue routes a confirmed `reduce`/`sell` through the sell path, stamping `planned_action_id` so a retried exit repairs the queue rather than booking a second one. **Untested against money — nothing has been sold yet.**
 13. [x] Start `watchlist_membership` (append-only: added, removed, why) so a future scorer replay can run on the names actually watched on a date rather than the surviving universe. Live 2026-09-18, written by triggers, with 55 names seeded from `instruments.created_at` and marked as seeded rather than observed. It accrues forward only, so the replay is now blocked on elapsed time rather than on a missing table — shipping it did not unblock evaluation, it started the clock.
 14. [ ] Move pipeline health out of `signals` (own row per scorer run), then delete the `data_completeness` rows so the inbox says "why look now" again.
-15. [x] Make the process score itself. Decisions are graded on a clock — 30/90/180 days from the decision's own anchor, the fill for an enter or add and `action_at` for a hold, since a hold buys nothing and is the judgement to keep owning the exposure from there. Grades are append-only and name the horizon they are about, so a grade written at day 100 cannot stand in for the day-30 judgement it would otherwise overwrite with hindsight. Four dimensions (thesis, timing, sizing, risk management) keep a market outcome distinct from a process grade. First cohort graded 2026-09-19: 15 decisions at 30 days. **One cohort of five correlated names is not evidence about skill; it is evidence the loop runs.**
+15. [x] Make the process score itself. Decisions are graded on a clock — 30/90/180 days from the decision's own anchor, the fill for an enter or add and `action_at` for a hold, since a hold buys nothing and is the judgement to keep owning the exposure from there. Grades are append-only and name the horizon they are about, so a grade written at day 100 cannot stand in for the day-30 judgement it would otherwise overwrite with hindsight. Four dimensions (thesis, timing, sizing, risk management) keep a market outcome distinct from a process grade. First cohort graded 2026-09-19: 15 decisions at 30 days; 44 graded at 30 days by 2026-10-04, none yet at 90. **One cohort of five correlated names is not evidence about skill; it is evidence the loop runs.**
 16. [ ] A canonical company-event source (`company_events`) so the catalyst calendar is derived rather than remembered, with confirmed dates distinguished from third-party estimates.
 17. [ ] Write the underwriting down in numbers at entry, not only in prose: expected 12-month return, probability the invalidation is hit, expected bear-case loss, and the observable that has to occur for the thesis to work. In a year the hit-rate is a fact rather than a feeling, and the hit-rate is what should decide sizing. Without it a grade can say the thesis was wrong but not *which* belief was wrong ([are-we-on-track](./reviews/2026-09-18-are-we-on-track.md) §2.1).
 18. [ ] Dollar-at-risk to invalidation on Portfolio → Book, and the sleeve total. Every desk shows it; nothing here does. Needs structured `warning_price` / `invalidation_price` where a price genuinely applies — **not** parsed out of the prose invalidation, most of which is fundamental (orders, margins, financing economics) and would become a false stop. Display only; it changes how the next tranche is sized, it does not size it (§2.3).
 19. [ ] Make the factor split a gate input rather than only a view. Theme caps do not constrain what is actually correlated: the diagnostics attribute most of the drawdown to one AI-infrastructure factor across names filed under five different themes. Measure and report first, on the monthly pass; decide a threshold only once enough of the portfolio's behaviour has been observed to know which threshold means anything (§2.5).
-20. [ ] One session rule, everywhere. `contributionFromLedger` still buckets fills by UTC day while snapshots and flows use the New York session, and `lastCompletedCashSession` knows weekends but not market holidays — which is why 32 spurious signals fired the day after Labor Day. Neither can bite today, and both are the same class of defect as the snapshot mislabelling that published a 25.1% drawdown that never happened (2026-09-18 review §6.3).
+20. [ ] One session rule, everywhere. Half done: `contributionFromLedger` buckets fills on the New York session since 2026-09-20, as snapshots and flows do. Still open: `lastCompletedCashSession` knows weekends but not market holidays — which is why 32 spurious signals fired the day after Labor Day, and why `bars:freshness` reports stale all day on a holiday. It is the same class of defect as the snapshot mislabelling that published a 25.1% drawdown that never happened (2026-09-18 review §6.3).
 
 ## Sequencing principles
 
@@ -204,7 +218,7 @@ Exit criteria: deliberate go/no-go; no premature multi-tenant complexity before 
 | Phase | Status |
 |-------|--------|
 | 0 — Operating model | Complete |
-| 1 — Research OS | In progress. Watchlist, dossiers, book, deployment queue, journal, review queue and the agent API are live; the weekly ritual has run since 2026-08-15; the queue can now sell as well as buy; and decisions are graded on a clock rather than on inspiration. Open: filings/earnings dates, signal inbox CRUD, `instruments.status` lifecycle, and one session rule across contribution and the trading calendar. |
+| 1 — Research OS | In progress. Watchlist, dossiers, book, deployment queue, journal, review queue, memory timeline and the agent API are live, and the agent API is also served over MCP for the PowerFund plugin; the weekly ritual has run since 2026-08-15; the queue can sell as well as buy (not yet exercised by a real sale); and decisions are graded on a clock rather than on inspiration. Open: filings/earnings dates (`company_events`), signal inbox CRUD, a market-holiday calendar, and the GPT → plugin migration itself. |
 | 2 — Data & quant pipelines | Input layer plus point-in-time vintages, as-of scoring and a replay harness. Exit criterion **not** met, and now known to be further off: the first scorer measured worse than its universe. Point-in-time watchlist membership records from 2026-09-18 forward, so evaluation is blocked on elapsed history rather than on tuning or on a missing table. |
-| 3 — Risk & portfolio construction | Minimum slice live (Workbench → Risk); kill-switch encoded, three diagnostics run and the re-open rules verified. The gate now knows direction, so a drawdown halt can no longer block the exit it recommends. Full pre-capital gate still not met. |
+| 3 — Risk & portfolio construction | Minimum slice live (Workbench → Risk), and readable by the agent since 2026-10-02; kill-switch encoded, three diagnostics run and the re-open rules verified. The gate now knows direction, so a drawdown halt can no longer block the exit it recommends. Full pre-capital gate still not met: the risk view informs a decision, it does not block one. |
 | 4 — Insight product / other capital | Not started |
