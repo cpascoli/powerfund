@@ -52,11 +52,13 @@ export function Landing() {
       <section className="hero">
         <div className="hero-copy">
           <p className="hero-eyebrow">Power Fund</p>
-          <h1>Investment intelligence for AI, energy, robotics, and defence.</h1>
+          <h1>Follow the bottleneck.</h1>
           <p className="hero-lede">
-            We manage and grow capital across those four themes as one
-            industrial transformation: a massive increase in the economic value
-            of computation, electricity, and autonomous machines.
+            We treat <strong>AI</strong>, <strong>energy</strong>,{" "}
+            <strong>robotics</strong> and <strong>defence</strong> as one
+            industrial transformation — the rising economic value of
+            computation, electricity and autonomous machines — and invest where
+            its next bottleneck is forming.
           </p>
           <div className="hero-actions">
             <Link className="buttonish" href="/explore">

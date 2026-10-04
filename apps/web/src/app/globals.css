@@ -431,6 +431,12 @@ a {
   max-width: 40rem;
 }
 
+/* The four theme names carry the lede; set them in full ink, not muted. */
+.hero-lede strong {
+  color: var(--ink);
+  font-weight: 650;
+}
+
 .hero-actions {
   display: flex;
   flex-wrap: wrap;
