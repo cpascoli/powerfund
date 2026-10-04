@@ -103,7 +103,7 @@ export function Landing() {
           media="start"
         >
           <p>
-            Not a black-box trading bot. A research, decision, and risk platform
+            A research, decision, and risk platform
             that records theses, actions, and outcomes so the process can improve
             — with a human in the loop for live capital.
           </p>
