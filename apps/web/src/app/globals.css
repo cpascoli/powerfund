@@ -1878,6 +1878,34 @@ a {
 .memory-dot.is-portfolio { background: var(--mem-portfolio); }
 .memory-dot.is-calendar { background: var(--mem-calendar); }
 
+.memory-guide {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr));
+  gap: 0.75rem 1.5rem;
+  margin: 1rem 0;
+  padding: 1rem 0;
+  border-top: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+}
+
+.memory-guide h3 {
+  margin: 0 0 0.4rem;
+  font-size: 0.8rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.memory-guide p {
+  margin: 0 0 0.5rem;
+  font-size: 0.9rem;
+  line-height: 1.45;
+}
+
+.memory-guide .memory-dot {
+  display: inline-block;
+  margin-right: 0.35rem;
+}
+
 .memory-filters {
   display: flex;
   flex-wrap: wrap;

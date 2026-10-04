@@ -24,16 +24,18 @@ export const metadata = {
 const KIND_LABEL: Record<MemoryKind, string> = {
   company: "Company",
   decision: "Decision",
-  portfolio: "Portfolio",
+  // Every completed review lands here, not only book-level ones: a theme or
+  // macro conclusion is a belief the book holds. The kind keeps its name.
+  portfolio: "Reviews",
   calendar: "Calendar",
 };
 
 /** Why each lane exists, straight from the historical review gate. */
 const KIND_BLURB: Record<MemoryKind, string> = {
-  company: "What we believed about a name, and what we believed before",
-  decision: "What we did, why, and how it turned out",
-  portfolio: "What the book concluded — the memory most often skipped",
-  calendar: "Dated obligations that trigger the next review",
+  company: "What we believe about a name, and every earlier version of that belief",
+  decision: "What we decided, on which dossier version, and how it was graded",
+  portfolio: "What completed reviews concluded — the memory most often skipped",
+  calendar: "What we committed to look at, and when",
 };
 
 function parseKinds(raw: string | undefined): MemoryKind[] {
@@ -123,14 +125,69 @@ export default async function MemoryPage({ searchParams }: PageProps) {
       <section className="panel">
         <h2>Memory</h2>
         <p className="muted">
-          Everything the book remembers, on one axis. A review that reads only
-          part of this is working from a partial record — see the historical
-          review gate in{" "}
+          The book&apos;s record of what it thought at the time — not what we
+          remember thinking. Every review starts here, so a judgement is
+          checked against the beliefs it inherits rather than rebuilt from a
+          recent conversation. {total} memories
+          {symbol ? ` · filtered to ${symbol}` : ""}.
+        </p>
+
+        <div className="memory-guide">
+          <div>
+            <h3>What we believe</h3>
+            <p>
+              <span className="memory-dot is-company" aria-hidden />
+              <strong>Company</strong> — each dossier version. The live dossier
+              is today&apos;s view of a name; earlier versions show what we
+              believed before and what changed it.
+            </p>
+            <p>
+              <span className="memory-dot is-portfolio" aria-hidden />
+              <strong>Reviews</strong> — what completed reviews concluded:
+              monthly passes, quarterly reviews, stress diagnostics, theme and
+              macro reads. Book-level beliefs often live nowhere else.
+            </p>
+          </div>
+          <div>
+            <h3>What we decided</h3>
+            <p>
+              <span className="memory-dot is-decision" aria-hidden />
+              <strong>Decision</strong> — the journal: every enter, add,
+              reduce, exit, hold or watch, with its reasoning and the dossier version it
+              relied on. Graded at 30, 90 and 180 days on thesis, timing,
+              sizing and risk. That is calibration: whether the judgement was
+              right, not only the price.
+            </p>
+          </div>
+          <div>
+            <h3>What we intend to do</h3>
+            <p>
+              <span className="memory-dot is-calendar" aria-hidden />
+              <strong>Calendar</strong> — dated obligations: earnings,
+              catalysts, price conditions, the next monthly or quarterly pass.
+              Each one is a promise to look again.
+            </p>
+            <p className="muted">
+              Planned trades wait in the{" "}
+              <Link href="/portfolio?tab=queue">deployment queue</Link>, not
+              here. An intention becomes memory once it is decided.
+            </p>
+          </div>
+        </div>
+
+        <p className="muted">
+          <strong>How it grows.</strong> A calendar date arrives or new
+          evidence lands (a filing, a print, a price trigger). The review loads
+          the prior beliefs, states <em>previous belief → new evidence →
+          updated belief</em>, and writes the result back: a new dossier
+          version, a review conclusion, a decision if we act, and the next
+          dated obligation. Grades arrive later and feed the review after that.
+          A review that reads only part of this works from a partial record —
+          see the{" "}
           <Link href="/docs/gpt-agent-process#historical-review-gate">
-            the operating process
-          </Link>.
-          {" "}
-          {total} memories{symbol ? ` · filtered to ${symbol}` : ""}.
+            historical review gate
+          </Link>{" "}
+          in the operating process.
         </p>
 
         <div className="memory-filters">
