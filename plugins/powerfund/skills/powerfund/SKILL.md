@@ -58,13 +58,19 @@ process document disagree, the process document wins.
   thesis-impaired name because of bullish technicals; never invalidate an
   intact thesis on weak price action alone. PowerFund stores only the latest
   close, so judge structure from external price history and name the source.
+  Detail: `references/gpt-agent-process.md`, ritual 8 (entry staging) and
+  ritual 9, step 6.
 - **Cite every external document in `source` as `[descriptive title](URL)`.**
   The website renders `source`; `research_sources` is not shown and not copied
   into it. A write that changes `source` is refused if it has a naked URL or a
   document entry with no link. Never invent a URL from a title: find the
   document or drop the entry.
-  Detail: `references/gpt-agent-process.md`, ritual 8 (entry staging) and
-  ritual 9, step 6.
+- **Dossier revision gate.** Before a substantive `update_dossier`, compare the
+  proposal with prior substantive versions (`list_dossier_versions`,
+  `get_dossier_version`) and carry forward, supersede, resolve or deliberately
+  retire every material item — never let research vanish because a field was
+  rewritten. Send only the fields the evidence changes. Detail:
+  `references/gpt-agent-process.md`, "Dossier revision gate".
 - **Check freshness** (`price_data_through`, `last_close_session`,
   `price_data_stale`) before treating any close as current.
 - **Use ids from results.** Never guess a decision, review task, planned action
