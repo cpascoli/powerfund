@@ -20,6 +20,7 @@ Hard rules:
   shared, so the row will not say who wrote it. The 19 September BWXT deferral
   named the wrong agent because the tag in the text and the request disagreed.
 - **Historical review gate.** Before completing any company, theme, macro, portfolio, stress, or capital-phase review, load the completed review outcomes relevant to it since the last comparable review or decision, and treat them as prior beliefs to confirm, update, or invalidate. Chat history is not the durable record — `getReviewQueue?status=completed` is. See [Historical review gate](#historical-review-gate).
+- **Dossier revision gate.** Before a substantive `updateDossier`, reconcile the proposed dossier against prior substantive versions. New evidence may supersede old evidence, but useful unresolved research, risks, kill criteria, competitive context, diligence questions, and valuation structure must either be carried forward, explicitly updated or superseded, or deliberately retired. Do not let information disappear merely because a field was rewritten. Prefer updating only the fields the evidence changes. See [Dossier revision gate](#dossier-revision-gate).
 - **Technical state is an execution input, not an investment thesis.** Fundamentals decide what to own and at what valuation; technicals help decide when and how quickly to enter. Use price action only to improve entry timing and tranche sizing after the company has passed the dossier, data-integrity, valuation and portfolio-fit gates. Never promote an expensive or thesis-impaired name to a buy because of bullish technicals, and never invalidate an intact thesis solely because of weak price action.
 - **Every externally referenced document in `dossier.source` must be a clickable Markdown link using `[descriptive title](URL)`.** Do not list a source document without its URL, and do not use a naked URL when a descriptive title is available. `research_sources` does not substitute for links in `source`, because the website renders `source`. The API enforces this on any write that changes `source` (a naked URL or an unlinked document entry is refused with the offending lines); it never checks a `source` the write leaves unchanged, and it never repairs one — a URL cannot be recovered from a title, so find the real document or drop the entry.
 
@@ -132,6 +133,150 @@ reasoning.
 Cite what you read in the new `outcome` — name the prior belief and say whether
 it held. A reader six months from now should be able to follow the chain without
 the conversation that produced it.
+
+## Dossier revision gate
+
+The historical review gate protects the **chain of conclusions**: what earlier
+reviews and decisions concluded, read before a new one is written. This gate
+protects the **research record itself**: what a new dossier version keeps from
+the versions before it. Both apply to a re-underwrite; neither replaces the
+other, nor user approval, the source-link rule, the data-integrity gate
+(ritual 8), or `expected_version`.
+
+**Why.** A dossier is cumulative. During a CEG re-underwrite, a new version
+rewrote several large fields around the latest event, and the research was
+valid — but parts of the verified operating baseline, catalysts, risks,
+invalidation, competitive notes, next diligence and the 24/60-month valuation
+tables silently disappeared. `expected_version` cannot catch this: it refuses a
+write over a *newer concurrent* version, not information lost inside a
+legitimate rewrite. Every version is kept, so nothing is unrecoverable, but the
+live dossier is what every ritual reads.
+
+**When.** The full gate is required for a **substantive research rewrite**:
+earnings re-underwrites, investor-day updates, material customer or contract
+news, acquisitions or financing, valuation rebuilds, thesis changes, and
+material risk or invalidation changes. It is unnecessary for **mechanical**
+edits — source-link formatting, typo fixes, a status-only change with no
+research change.
+
+### Prefer surgical updates
+
+`updateDossier` takes a partial `changes` object: omitted fields are left
+exactly as they are. If new evidence changes only `thesis`, `catalysts` and
+`next_diligence`, send those three and do not rewrite `risks` or
+`competitive_notes`. That is the safest default, and it shrinks the
+reconciliation to the fields you send. Rewrite a whole field only when it
+genuinely needs re-underwriting — and then reconcile it as below.
+
+There is **no dedicated valuation field**. Scenario tables live in prose,
+almost always in `thesis`, so rewriting `thesis` is the commonest way to lose
+one. Treat the valuation section as its own item when you reconcile.
+
+### Which versions to read
+
+1. `getCompanyDossier` — the live dossier and its current version.
+2. `getDossierVersions` — the headers (`number`, `change_reason`,
+   `created_at`). Use `change_reason` to find the **previous substantive
+   version**: skip versions that say they were only source-format cleanup,
+   Markdown-link repair, a status-only promotion, or another mechanical edit.
+3. `getDossierVersion` on that previous substantive version.
+4. For a major re-underwrite or a heavily revised dossier, also read the last
+   full decision-grade baseline (a snapshot whose `research_level` is
+   `primary_verified` or `investment_ready`, written as a full underwrite) and
+   earlier substantive versions as needed.
+
+Do not assume comparing version N with N−1 is enough: a useful item may have
+disappeared several revisions ago. There is no diff endpoint — compare the
+fetched snapshots yourself, field by field.
+
+### Reconcile section by section
+
+Before writing the replacement content, reconcile at least: summary and the
+verified operating baseline, thesis, valuation scenarios, catalysts, risks,
+invalidation / kill criteria, competitive notes, next diligence, sources,
+`next_review_at`, and `as_of_at` / `verified_at` where relevant.
+
+For every meaningful item in prior substantive research that the proposed
+version does not contain, decide which applies:
+
+1. **Carry forward** — still valid and unresolved.
+2. **Update / supersede** — newer evidence replaces it; keep the new form.
+3. **Resolved** — the question was answered or the catalyst happened; it may
+   go, but the answer belongs in the dossier where it is material.
+4. **Retired** — the fact, risk, catalyst or question is obsolete; drop it
+   deliberately.
+
+> Nothing material should disappear accidentally. Missing content must be
+> explainable as carried forward, superseded, resolved, or deliberately retired.
+
+This is not a rule to copy every historical sentence forever. The goal is to
+preserve useful research **state**, not to accumulate obsolete prose. When
+something material is resolved or retired, say so in `change_reason`.
+
+### Valuation scenario format
+
+Unless the company's economics make the framework inappropriate, a dossier
+with scenario valuation has separate **24-month** and **60-month** sections,
+each with this table:
+
+| Case | Weight | Core assumptions | Implied value | Return / CAGR |
+|---|---:|---|---:|---:|
+| Bear | … | … | … | … |
+| Base | … | … | … | … |
+| Bull | … | … | … | … |
+
+After each table state: the probability-weighted working value; the
+probability-weighted expected CAGR or annualised return; the reference share
+price and its date; whether dividends are included or excluded; and that the
+scenario assumptions and probabilities are PowerFund estimates, not company
+guidance.
+
+Do not replace a rigorous scenario table with a loose bullet-point range for
+brevity. If a 24/60-month framework genuinely does not fit the company, say why
+rather than forcing the table.
+
+### Next diligence is cumulative
+
+`next_diligence` carries forward unless an item is resolved or superseded. A
+new event normally **adds to or refines** the open programme; it does not
+replace unrelated outstanding work. A new hyperscaler PPA may create diligence
+on contract pricing and project IRR — it does not delete still-open work on
+leverage, fleet reliability, hedging, customer concentration, or an existing
+project milestone. When revising it, classify each prior item:
+
+- **still open** → keep, updated if needed;
+- **completed** → remove, and put the conclusion in the right section if material;
+- **superseded** → replace with the new question;
+- **obsolete** → retire deliberately.
+
+### Auditing existing dossiers
+
+To find information already lost across past revisions:
+
+1. Start with holdings, `active_thesis` names, and names with open planned
+   actions; then the other multi-version dossiers.
+2. Trace the research lineage, ignoring purely mechanical versions.
+3. For a heavily revised name, compare the live dossier with the **union of
+   useful unresolved material across its substantive prior versions**, not
+   only the version before it.
+4. Build a reconciliation matrix:
+
+| Section | Useful prior content | Current treatment | Action |
+|---|---|---|---|
+| Valuation | … | … | retain / rebuild |
+| Catalysts | … | … | retain / retire |
+| Risks | … | … | … |
+| Invalidation | … | … | … |
+| Competitive | … | … | … |
+| Next diligence | … | … | … |
+
+If useful unresolved information was lost, write a **new** dossier version that
+restores or updates it — versions are immutable and are never rewritten — with
+a change reason such as:
+
+> Historical dossier reconciliation: restore useful unresolved
+> research/risk/valuation/diligence material lost across prior revisions; no
+> investment conclusion change unless stated.
 
 ## Cadence
 
@@ -264,7 +409,7 @@ For each open holding:
 2. `getPortfolio` — size, weight, whether kill criteria are close.
 3. Optionally `getDossierVersion` on the pinned snapshot from the journal row (“what we believed then”).
 4. Decide: **hold** (stay), **add** / **reduce** (size), or **exit**.
-5. If the written thesis changed, `updateDossier` first (new version only if assembled JSON changed).
+5. If the written thesis changed, `updateDossier` first (new version only if assembled JSON changed). Send only the fields that changed; a substantive rewrite passes the [dossier revision gate](#dossier-revision-gate).
 6. `createDecision` today with that conclusion. This completes the weekly review.
 7. If size changes, pass the data-integrity gate (ritual 8) then `createPlannedAction` (`add` / `reduce` / `sell`). The human still books the fill.
 
