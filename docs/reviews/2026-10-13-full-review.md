@@ -450,7 +450,7 @@ Named so they are kept, not as reassurance.
 | Sev | Area | Issue |
 |---|---|---|
 | **P0** | Access control | `verify_book_against_ledger()` is `security definer` with `PUBLIC` execute; `anon` and `authenticated` receive every held symbol, quantity, cost basis and the cash balance via `/rest/v1/rpc/`. Migration: `revoke execute … from public, anon, authenticated; grant execute … to service_role` (the worker is the only caller). Then a SQL test that iterates `pg_proc` for `prosecdef` functions in `public` and asserts neither role can execute any that reads a book table, plus the positive: `service_role` still can. Re-run the Supabase security advisor after; it flagged this today under "anon can execute SECURITY DEFINER function". |
-| **P1** | Prices | `adj_close` splice at ex-dividend dates (§1.1b). Three changes: (1) **mark at `close`**, never `adj_close`, in `snapshots.ts`/worker `portfolio.ts`, `portfolio.ts`, `book.ts`, `companies.ts` `last_close` — a mark is a price, adjustment is for return series; (2) in `ingestBars`, compare the stored `close/adj_close` factor to the fetched one over the overlap and, when it has changed consistently, refetch the whole series (the split path, without the `close` discontinuity guard, which cannot fire on a dividend); or simply refetch benchmarks and held names in full weekly — 13 symbols; (3) `bars:audit` asserts the factor is non-increasing with date per symbol. Then rebuild snapshots and confirm `alignmentIssues: []` and that NAV history moved by cents, not dollars. |
+| **P1** | Prices | `adj_close` splice at ex-dividend dates (§1.1b). Three changes: (1) **mark at `close`**, never `adj_close`, in every level read — worker `snapshot/portfolio.ts`, `data/portfolio.ts`, `book.ts`, `companies.ts` `last_close`, `research.ts` `lastClose`, `performance.ts` `loadLivePerformanceMark`, and the `price` condition trigger in `packages/db/review-triggers.ts` (§11 item 2 has the full list) — a mark is a price, adjustment is for return series; (2) in `ingestBars`, compare the stored `close/adj_close` factor to the fetched one over the overlap and, when it has changed consistently, refetch the whole series (the split path, without the `close` discontinuity guard, which cannot fire on a dividend); or simply refetch benchmarks and held names in full weekly — 13 symbols; (3) `bars:audit` asserts the factor is non-increasing with date per symbol. Then rebuild snapshots and confirm `alignmentIssues: []` and that NAV history moved by cents, not dollars. |
 | **P1** | Scheduling | Ingest lands 5–7 h after its cron (§1.1c). Trigger the workflow from somewhere that keeps time: `pg_cron` + `pg_net` on the production project calling GitHub's `workflow_dispatch` at 03:07 UTC with a fine-grained PAT stored in Vault, leaving the schedule as the fallback. Add a freshness alert (the existing `bars:freshness` output, posted or emailed) if the store is still behind at 05:00 UTC. Record the arrival-time measurement in ADR 0006. |
 | **P1** | Signals | `data_completeness` transitions written as signals — carried, now 408/483. Stop writing them; one `scorer_runs` row per run; migration deletes the rows. |
 | **P1** | Calendar | Weekday-only session clock — carried. Thanksgiving 26 Nov is six weeks away; 27 Nov is a half-day. Use SPY's stored bars where they exist, a static NYSE list forward. |
@@ -564,10 +564,18 @@ should be finished before the prints start arriving, and the process work is
    trigger functions cannot be called directly but revoking costs nothing),
    grant `service_role`. SQL test over `pg_proc`. Confirm `verify:book` still
    runs. `db reset`, then `db push`.
-2. **Mark at `close`.** Replace `adj_close ?? close` with `close` in the mark
-   paths (worker snapshot, `portfolio.ts`, `book.ts`, `companies.ts`
-   `last_close`); keep `adj_close` for return series only. Rebuild snapshots;
-   `snapshot:verify` must still report zero alignment issues.
+2. **Mark at `close`.** Replace `adj_close ?? close` with `close` wherever a
+   price is used as a *level*: worker `snapshot/portfolio.ts`, `data/portfolio.ts`,
+   `api/v1/book.ts`, `agent/companies.ts` `last_close`, `data/research.ts`
+   `lastClose`, `data/performance.ts` `loadLivePerformanceMark`, and
+   `packages/db/review-triggers.ts` — the last one matters most, because a
+   `price` condition trigger is a threshold the operator set from a quoted
+   price and is today compared against an adjusted one. Keep `adj_close` for
+   return series only (`risk.ts`, `contribution.ts`, `decision-returns.ts`,
+   `explore.ts`, `workbench.ts`, `score/history.ts`, the `price_return_pct`
+   trigger). Search the repo rather than this list; a second reader found two
+   the first missed. Rebuild snapshots; `snapshot:verify` must still report
+   zero alignment issues.
 3. **Unsplice `adj_close`.** Factor-change detection on the overlap in
    `ingestBars`, refetching the whole series when it moves (no `close`
    discontinuity guard on this path); `bars:audit` factor-monotonic check;
