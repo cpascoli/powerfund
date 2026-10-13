@@ -3,6 +3,7 @@ import {
   agentJson,
   handleAgentRequest,
 } from "@/lib/api/agent/http";
+import { agentOperations } from "@/lib/api/agent/openapi";
 import { AGENT_SCOPES } from "@/lib/api/agent/scopes";
 
 export const dynamic = "force-dynamic";
@@ -21,97 +22,7 @@ export async function GET(request: Request) {
           description:
             "Authenticated domain operations for AI agents. Not table CRUD. Not trade execution.",
           scopes: AGENT_SCOPES,
-          operations: [
-            { operationId: "getFundState", method: "GET", path: "/api/v1/agent/state" },
-            { operationId: "getPortfolio", method: "GET", path: "/api/v1/agent/portfolio" },
-            {
-              operationId: "getPerformance",
-              method: "GET",
-              path: "/api/v1/agent/performance",
-            },
-            { operationId: "getJournal", method: "GET", path: "/api/v1/agent/journal" },
-            {
-              operationId: "getPlannedActions",
-              method: "GET",
-              path: "/api/v1/agent/deployment-queue",
-            },
-            {
-              operationId: "getReviewQueue",
-              method: "GET",
-              path: "/api/v1/agent/review-queue",
-            },
-            {
-              operationId: "createReviewTask",
-              method: "POST",
-              path: "/api/v1/agent/review-tasks",
-            },
-            {
-              operationId: "updateReviewTask",
-              method: "PATCH",
-              path: "/api/v1/agent/review-tasks/{id}",
-            },
-            {
-              operationId: "completeReviewTask",
-              method: "POST",
-              path: "/api/v1/agent/review-tasks/{id}/complete",
-            },
-            {
-              operationId: "getResearchInbox",
-              method: "GET",
-              path: "/api/v1/agent/research",
-            },
-            {
-              operationId: "getCompanyDossier",
-              method: "GET",
-              path: "/api/v1/agent/companies/{symbol}",
-            },
-            {
-              operationId: "getDossierVersions",
-              method: "GET",
-              path: "/api/v1/agent/companies/{symbol}/versions",
-            },
-            {
-              operationId: "getDossierVersion",
-              method: "GET",
-              path: "/api/v1/agent/companies/{symbol}/versions/{version}",
-            },
-            {
-              operationId: "updateDossier",
-              method: "PATCH",
-              path: "/api/v1/agent/companies/{symbol}/dossier",
-            },
-            {
-              operationId: "addWatchlistCompany",
-              method: "POST",
-              path: "/api/v1/agent/watchlist",
-            },
-            {
-              operationId: "getCalibrationStatus",
-              method: "GET",
-              path: "/api/v1/agent/calibration",
-            },
-            {
-              operationId: "setWatchlistArchived",
-              method: "PATCH",
-              path: "/api/v1/agent/watchlist/{symbol}",
-            },
-            { operationId: "createDecision", method: "POST", path: "/api/v1/agent/decisions" },
-            {
-              operationId: "recordDecisionOutcome",
-              method: "POST",
-              path: "/api/v1/agent/decisions/{id}/outcome",
-            },
-            {
-              operationId: "createPlannedAction",
-              method: "POST",
-              path: "/api/v1/agent/planned-actions",
-            },
-            {
-              operationId: "updatePlannedAction",
-              method: "PATCH",
-              path: "/api/v1/agent/planned-actions/{id}",
-            },
-          ].map((row) => ({ ...row, url: `${origin}${row.path}` })),
+          operations: agentOperations(origin),
           openapi: `${origin}/api/v1/agent/openapi.json`,
         },
         { remaining: ctx.remaining },

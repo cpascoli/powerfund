@@ -1311,3 +1311,19 @@ export function agentOpenApiDocument(origin: string) {
     },
   };
 }
+
+/**
+ * The discovery index's operation list, read off the OpenAPI document so the
+ * two cannot disagree. A hand-kept copy drifted once: `getRiskSnapshot` shipped
+ * with a route, a schema and an MCP tool and never reached the index.
+ */
+export function agentOperations(origin: string) {
+  const doc = agentOpenApiDocument(origin);
+  return Object.entries(doc.paths).flatMap(([path, item]) =>
+    Object.entries(item as Record<string, { operationId?: string }>).flatMap(([method, op]) =>
+      op?.operationId
+        ? [{ operationId: op.operationId, method: method.toUpperCase(), path, url: `${origin}${path}` }]
+        : [],
+    ),
+  );
+}

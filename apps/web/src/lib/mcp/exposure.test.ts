@@ -4,7 +4,7 @@ import { fileURLToPath } from "node:url";
 
 import { describe, expect, it } from "vitest";
 
-import { agentOpenApiDocument } from "@/lib/api/agent/openapi";
+import { agentOpenApiDocument, agentOperations } from "@/lib/api/agent/openapi";
 
 import { AGENT_OPERATION_EXPOSURE } from "./exposure";
 import { POWERFUND_TOOLS } from "./tools";
@@ -50,6 +50,17 @@ describe("MCP exposure manifest", () => {
     for (const id of new Set([...routeOperationIds(), ...openApiOperationIds()])) {
       expect(AGENT_OPERATION_EXPOSURE[id], `${id} is not classified in exposure.ts`).toBeDefined();
     }
+  });
+
+  // The HTTP index is derived from the OpenAPI document (agentOperations), so
+  // this is what keeps a new route from shipping undocumented and unindexed.
+  it("documents every route operation in OpenAPI, and so in the HTTP index", () => {
+    const listed = new Set(agentOperations("https://example.test").map((row) => row.operationId));
+    for (const id of routeOperationIds()) {
+      if (id === "getAgentIndex") continue;
+      expect(listed, `${id} is missing from the OpenAPI document`).toContain(id);
+    }
+    expect([...listed].sort()).toEqual([...new Set(openApiOperationIds())].sort());
   });
 
   it("does not classify operations that no longer exist", () => {
