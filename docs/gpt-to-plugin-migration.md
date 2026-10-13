@@ -24,20 +24,34 @@ fallback afterwards.
 
 ## Status
 
+**Where this stands (13 October 2026).** ChatGPT has been running the whole
+operating process over MCP against **production** since 1 October: every
+agent write since then carries the `chatgpt-mcp` principal (the name the
+server derives from ChatGPT's client metadata), the last REST-key write is
+dated 30 September, and all 156 reserved idempotency keys are MCP writes that
+returned `200` ([13 Oct review](./reviews/2026-10-13-full-review.md) §4.1). So
+phases D and E have passed in the only way that counts, and the cutover is
+done. What the database cannot tell is *which* ChatGPT surface made the
+calls — a Developer Mode connection or a migrated plugin look identical to the
+server — so the operator-side rows below record what is known. Two things are
+owed regardless of the surface: the published-GPT backup (phase I) before
+OpenAI retires GPTs, reported for 11 December 2026, and the regression
+results, which `evals/mcp/results/` does not yet hold.
+
 | Phase | What | Status |
 |-------|------|--------|
 | A | Audit GPT behaviour and the agent API | Done: [architecture § audit](./mcp-architecture.md#the-existing-agent-api-audited) |
-| B | Build the MCP server in parallel | Done: `/api/v1/mcp`, 22 tools, OAuth (23 since `get_risk_snapshot`) |
+| B | Build the MCP server in parallel | Done: `/api/v1/mcp`, 23 tools (22 at launch, `get_risk_snapshot` added 2 Oct), OAuth |
 | C | Test with MCP Inspector | Done locally, CLI and real server (below) |
-| D | Deploy a preview endpoint | Migration applied; every review fix pushed; PR #1 checks green; preview live, and its unauthenticated checks pass. **Operator**: the authenticated smoke test below (Inspector with an agent key) |
-| E | ChatGPT Developer Mode | **Operator**: OAuth via ChatGPT's CIMD against the preview |
-| F | Staging plugin (skill + MCP) | Package built: `plugins/powerfund/build.sh --staging` |
-| G | Regression suite vs the legacy GPT | **Operator**: [evals/mcp](../evals/mcp/README.md) |
-| H | Resolve differences | — |
-| I | Publish + back up the GPT | **Operator** |
-| J | Migrate | **Operator** |
-| K | Attach MCP to the migrated plugin, reconcile skills | **Operator** |
-| L | Regression suite against the migrated plugin | **Operator** |
+| D | Deploy a preview endpoint | Done. Superseded by production: `https://powerfund.finance/api/v1/mcp` has served ChatGPT since 1 Oct. One Deploy Preview grant (read scopes, never used) is still live and should be revoked |
+| E | ChatGPT Developer Mode | Done against production (OAuth via CIMD, read-write grant, writes landing since 1 Oct) |
+| F | Staging plugin (skill + MCP) | Package built: `plugins/powerfund/build.sh --staging`; skill kept current with the process docs (last 7 Oct, dossier revision gate) |
+| G | Regression suite vs the legacy GPT | **Not recorded.** The process runs over MCP in production, but no results have been written to `evals/mcp/results/` |
+| H | Resolve differences | Nothing recorded to resolve (see G) |
+| I | Publish + back up the GPT | **Operator — still owed**, independent of everything else: due before 11 Dec 2026 |
+| J | Migrate | **Operator**: not visible from the server; confirm and record here |
+| K | Attach MCP to the migrated plugin, reconcile skills | **Operator**: as J |
+| L | Regression suite against the migrated plugin | **Operator**: as G |
 
 ## Production URL
 

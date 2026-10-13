@@ -1,16 +1,17 @@
 # PowerFund — working notes
 
 Personal investment intelligence system managing real capital ($250k allocated,
-~$27.5k invested) under a written mandate. Not a trading bot: a research →
+~$36.5k invested cost across 11 names) under a written mandate. Not a trading bot: a research →
 decision → risk platform with a human confirming every fill.
 
 **Read `docs/` before proposing anything about the investment process** —
 `goals.md`, `mandate.md`, `themes.md`, `plan.md`, `gpt-agent-process.md`,
 `agent-api.md`. They are living operator documents, not specs. Current open
-items live in `docs/reviews/` — the **2026-09-18 full review** (§6.3 bug
-table, §10 ordered next work) is the live list; the 2026-09-02 review and
-2026-09-03 remediation log are its closure record. Read those before proposing
-work, so you do not rediscover something already recorded.
+items live in `docs/reviews/` — the **2026-10-13 full review** (§7.3 bug
+table, §11 ordered sprint) is the live list; its §4.3 closes every item of the
+2026-09-18 review, which in turn closed 2026-09-02 and the 2026-09-03
+remediation log. Read those before proposing work, so you do not rediscover
+something already recorded.
 
 ## The rule that matters most
 
@@ -187,7 +188,7 @@ Each was a real production defect. See the remediation log for the full story.
   `instruments.created_at`, which is a lower bound, not an observation.
 - **A signal means "look at this name".** Pipeline state (`stale`,
   `completeness`) belongs on the setup row or a run log, never in `signals`.
-  296 of 351 live signals are `data_completeness` flips; do not add another
+  408 of 483 live signals are `data_completeness` flips; do not add another
   cause that fires when nothing about the company changed.
 
 ## Testing philosophy learned here

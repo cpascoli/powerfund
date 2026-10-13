@@ -52,8 +52,8 @@ Build:
       the company confirmed from a third-party estimate, which is the rule a
       data source would let the system apply rather than the operator.
 - [ ] Signal inbox CRUD (manual + later automated). Blocked on making the
-      inbox readable first: 296 of 351 live signals are `data_completeness`
-      pipeline flips, not research signals.
+      inbox readable first: 408 of 483 live signals (13 Oct; 296 of 351 on
+      18 Sep) are `data_completeness` pipeline flips, not research signals.
 - [x] Portfolio book (open positions, cash, NAV, mandate weights)
 - [x] Deployment queue (plan buy → confirm fill, or plan exit → confirm sale).
       Both sides route by direction as of 2026-09-19, and each stamps
@@ -67,7 +67,7 @@ Build:
 - [x] Review queue — dated obligations with triggers, plus history query
       (`getReviewQueue` filters by status/scope/symbol/theme/date) so a review
       can read what the book concluded last time before writing a new one
-- [x] Agent API (`/api/v1/agent`, 24 operations including the index) — the
+- [x] Agent API (`/api/v1/agent`, 23 operations including the index) — the
       weekly process runs through it, not by hand ([agent-api.md](./agent-api.md),
       [gpt-agent-process.md](./gpt-agent-process.md))
 - [x] MCP server and PowerFund plugin (2026-09-28 → 10-01) — the agent API
@@ -76,8 +76,14 @@ Build:
       handlers in-process, so validation, scopes and idempotency are one
       implementation; only the production build writes
       ([mcp-architecture.md](./mcp-architecture.md),
-      [gpt-to-plugin-migration.md](./gpt-to-plugin-migration.md)). The GPT
-      migration itself is the operator's step and has not happened yet.
+      [gpt-to-plugin-migration.md](./gpt-to-plugin-migration.md)). **ChatGPT
+      has run the process over MCP against production since 1 October**: every
+      agent write since then carries the `chatgpt-mcp` principal and the last
+      REST-key write is dated 30 September ([13 Oct review](./reviews/2026-10-13-full-review.md)
+      §4.1). The REST API stays the fallback. Still owed on the runbook: the
+      published-GPT backup (phase I) before OpenAI retires GPTs (reported
+      11 Dec 2026), the regression results in `evals/mcp/results/`, and
+      revoking the unused Deploy Preview grant.
 - [x] Memory timeline (2026-09-20) — dossier versions, decisions and their
       grades, review conclusions and dated obligations on one axis, so a
       review can see everything the historical gate asks it to read
@@ -189,7 +195,7 @@ Exit criteria: deliberate go/no-go; no premature multi-tenant complexity before 
 4. [x] Connect UI to Supabase (auth + CRUD).
 5. [x] Manual research workflow for a starter universe (~15–30 names across core themes).
 6. [x] Ship one automated scorer (e.g. growth/CapEx inflection + anti-parabolic filter). Shadow `fundamental_inflection_v1` on Explore + Signals; not wired to Briefing or the buy gate.
-7. [x] Establish weekly review ritual (queue + book; later, review writes into the queue). Running since 2026-08-15: 42 `hold` decisions, the last pass covering all eight open names (2026-09-15; the week of 8–12 Sep was skipped). Monthly book pass, opportunity ranking and three drawdown diagnostics are persisted as `scope: portfolio` review tasks. Reviews now write into the queue, and the historical gate makes reading prior conclusions a precondition for completing a comparable one. Decision grading started 2026-09-19 (see item 15).
+7. [x] Establish weekly review ritual (queue + book; later, review writes into the queue). Running since 2026-08-15: 68 `hold` decisions by 13 Oct, the last pass on 10 Oct (eight names; the 30 Sep → 10 Oct gap is the second ten-day slip in eight weeks, after 8–12 Sep). Monthly book passes (the latest completed 1 Oct with a 14-name ranking), the first quarterly review (Q3, 1 Oct), opportunity ranking and three drawdown diagnostics are persisted as `scope: portfolio` review tasks. Reviews now write into the queue, and the historical gate makes reading prior conclusions a precondition for completing a comparable one. Decision grading started 2026-09-19 (see item 15).
 8. [x] Backfill written invalidation criteria for all open positions missing them (mandate rule 4). Written to the book 2026-08-13; enter-decision invalidation now copies onto the open position.
 9. [x] Set the deployment-ladder baseline tranche: **~$10k/month** (decided 2026-08-13), reaching the **capital** Phase-1 $75k cap ~January 2027. Acceleration-tranche sizes for the −10%/−20% triggers still to be set at a monthly review.
 10. [x] Minimum viable risk view (correlation matrix + AI-capex stress) before deployed cost crossed ~$40–50k (software Phase 3 pull-forward). Workbench → Risk, 2026-08-14.
@@ -197,7 +203,7 @@ Exit criteria: deliberate go/no-go; no premature multi-tenant complexity before 
 12. [x] Make the queue able to sell and the gate able to tell a sell from a buy (2026-09-18 review §1.1). Both P0, both fixed 2026-09-18/19: the gate takes a required side and a sell skips the caps and the kill-switch entirely, because every one of those limits constrains *new* risk and a reduction lowers all of them; the queue routes a confirmed `reduce`/`sell` through the sell path, stamping `planned_action_id` so a retried exit repairs the queue rather than booking a second one. **Untested against money — nothing has been sold yet.**
 13. [x] Start `watchlist_membership` (append-only: added, removed, why) so a future scorer replay can run on the names actually watched on a date rather than the surviving universe. Live 2026-09-18, written by triggers, with 55 names seeded from `instruments.created_at` and marked as seeded rather than observed. It accrues forward only, so the replay is now blocked on elapsed time rather than on a missing table — shipping it did not unblock evaluation, it started the clock.
 14. [ ] Move pipeline health out of `signals` (own row per scorer run), then delete the `data_completeness` rows so the inbox says "why look now" again.
-15. [x] Make the process score itself. Decisions are graded on a clock — 30/90/180 days from the decision's own anchor, the fill for an enter or add and `action_at` for a hold, since a hold buys nothing and is the judgement to keep owning the exposure from there. Grades are append-only and name the horizon they are about, so a grade written at day 100 cannot stand in for the day-30 judgement it would otherwise overwrite with hindsight. Four dimensions (thesis, timing, sizing, risk management) keep a market outcome distinct from a process grade. First cohort graded 2026-09-19: 15 decisions at 30 days; 44 graded at 30 days by 2026-10-04, none yet at 90. **One cohort of five correlated names is not evidence about skill; it is evidence the loop runs.**
+15. [x] Make the process score itself. Decisions are graded on a clock — 30/90/180 days from the decision's own anchor, the fill for an enter or add and `action_at` for a hold, since a hold buys nothing and is the judgement to keep owning the exposure from there. Grades are append-only and name the horizon they are about, so a grade written at day 100 cannot stand in for the day-30 judgement it would otherwise overwrite with hindsight. Four dimensions (thesis, timing, sizing, risk management) keep a market outcome distinct from a process grade. First cohort graded 2026-09-19: 15 decisions at 30 days; 44 graded at 30 days by 2026-10-04 (still 44 on 13 Oct), none yet at 90 — the first 90-day grades fall due around 10 Nov. Of 44 thesis grades none is `wrong`, which on eleven correlated names that just recovered says more about the sample than the process. **One cohort of five correlated names is not evidence about skill; it is evidence the loop runs.**
 16. [ ] A canonical company-event source (`company_events`) so the catalyst calendar is derived rather than remembered, with confirmed dates distinguished from third-party estimates.
 17. [ ] Write the underwriting down in numbers at entry, not only in prose: expected 12-month return, probability the invalidation is hit, expected bear-case loss, and the observable that has to occur for the thesis to work. In a year the hit-rate is a fact rather than a feeling, and the hit-rate is what should decide sizing. Without it a grade can say the thesis was wrong but not *which* belief was wrong ([are-we-on-track](./reviews/2026-09-18-are-we-on-track.md) §2.1).
 18. [ ] Dollar-at-risk to invalidation on Portfolio → Book, and the sleeve total. Every desk shows it; nothing here does. Needs structured `warning_price` / `invalidation_price` where a price genuinely applies — **not** parsed out of the prose invalidation, most of which is fundamental (orders, margins, financing economics) and would become a false stop. Display only; it changes how the next tranche is sized, it does not size it (§2.3).
@@ -218,7 +224,7 @@ Exit criteria: deliberate go/no-go; no premature multi-tenant complexity before 
 | Phase | Status |
 |-------|--------|
 | 0 — Operating model | Complete |
-| 1 — Research OS | In progress. Watchlist, dossiers, book, deployment queue, journal, review queue, memory timeline and the agent API are live, and the agent API is also served over MCP for the PowerFund plugin; the weekly ritual has run since 2026-08-15; the queue can sell as well as buy (not yet exercised by a real sale); and decisions are graded on a clock rather than on inspiration. Open: filings/earnings dates (`company_events`), signal inbox CRUD, a market-holiday calendar, and the GPT → plugin migration itself. |
+| 1 — Research OS | In progress. Watchlist, dossiers, book, deployment queue, journal, review queue, memory timeline and the agent API are live, and the agent API is also served over MCP for the PowerFund plugin; the weekly, monthly and quarterly rituals have run since 2026-08-15 and, since 2026-10-01, entirely through ChatGPT over MCP; the queue can sell as well as buy (not yet exercised by a real sale); and decisions are graded on a clock rather than on inspiration. Open: filings/earnings dates (`company_events`), signal inbox CRUD, a market-holiday calendar, and the runbook's closing steps (GPT backup, recorded regression results). |
 | 2 — Data & quant pipelines | Input layer plus point-in-time vintages, as-of scoring and a replay harness. Exit criterion **not** met, and now known to be further off: the first scorer measured worse than its universe. Point-in-time watchlist membership records from 2026-09-18 forward, so evaluation is blocked on elapsed history rather than on tuning or on a missing table. |
 | 3 — Risk & portfolio construction | Minimum slice live (Workbench → Risk), and readable by the agent since 2026-10-02; kill-switch encoded, three diagnostics run and the re-open rules verified. The gate now knows direction, so a drawdown halt can no longer block the exit it recommends. Full pre-capital gate still not met: the risk view informs a decision, it does not block one. |
 | 4 — Insight product / other capital | Not started |
