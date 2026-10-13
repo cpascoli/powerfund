@@ -5,6 +5,11 @@ intent → capital → software → process → bugs → tests → what next. Re
 [2026-09-03 remediation log](./2026-09-03-remediation-log.md) as the closure
 record for the last review's P0/P1 items and does not re-argue them.
 
+**Closure record:** the [13 October review](./2026-10-13-full-review.md)
+§4.3 re-verifies every item below against production and carries what is
+still open. Items struck in this document were closed between 18 Sep and
+13 Oct; the strike notes say when.
+
 Measured against production on **18 Sep 2026, 09:56 Bangkok** (= 17 Sep
 22:56 ET, after the 17 Sep cash close and before the 03:07 UTC ingest job).
 Every number below is from PostgREST reads with the service role, from
@@ -226,13 +231,13 @@ kind of gate for sells).
 | `review_tasks.sql` not in `db:test` (P3) | **Closed** | `db:test` globs `supabase/tests/*.sql` |
 | Benchmarks labelled TR, data is PR (P1) | **Open** | `label: "S&P 500 TR"` unchanged; every bar still `adj_close == close` |
 | No holiday calendar (P1) | **Open, now with a measured cost** | Labor Day 7 Sep: 32 `data_completeness` signals at 01:55 UTC 8 Sep because `lastCompletedCashSession` said a session had happened |
-| cancelled → pending ungated (P1) | **Open** | Code unchanged |
-| `withActor` double prefix (P2) | **Open, worsened** | Live rows read `[agent:chatgpt] [agent:chatgpt]` (ISRG, MRCY) |
-| Signals 65% noise (P2) | **Open, worse** | 351 rows; **296 `data_completeness`**, 256 `X → X` (73%) |
-| `bookFill` unplanned-fill retry (P2) | **Open** | Unchanged |
+| ~~cancelled → pending ungated (P1)~~ | **Closed 18 Sep** (`9ffd429`) | Gate re-runs whenever status becomes `pending` |
+| ~~`withActor` double prefix (P2)~~ | **Closed 19 Sep** | Strips a leading tag before stamping; stacked rows collapsed by migration |
+| Signals 65% noise (P2) | **Open, worse** | 351 rows; **296 `data_completeness`**, 256 `X → X` (73%). 408 of 483 on 13 Oct |
+| ~~`bookFill` unplanned-fill retry (P2)~~ | **Closed 20 Sep** | `client_key` with a partial unique index |
 | ~~`listDecisions` unbounded (P2)~~ | **Closed 20 Sep** | Paged with `.range()` |
 | ~~`instruments.status='active'` dead (P2)~~ | **Closed 20 Sep** | 8 owned names now `active` |
-| `agent_idempotency_keys` empty (P2) | **Open** | **0 rows** after ~60 agent writes |
+| ~~`agent_idempotency_keys` empty (P2)~~ | **Closed 1 Oct** | Every MCP write is keyed by construction; 156 rows by 13 Oct |
 | DATA-2 `price_basis` (P2) | **Open** | No column |
 
 ---
@@ -275,12 +280,12 @@ commit history reads like reasoning rather than changelog. Keep that.
 
 | Finding | Why it matters |
 |---|---|
-| Weekly review skipped the week of 8–12 Sep (10-day gap) | The `thesis_review` Due flag fires at 7 days; the process document says weekly. One miss is noise; measure it, do not excuse it |
-| `decision_outcomes` = 0 after 57 decisions | Ritual 12 (calibration) has no input. The 30 Aug enters are 19 days old with a −13.8% sleeve — that is exactly the row that should be graded |
-| No earnings tasks for held names in the next 45 days | Ritual 3 says 2–3 months. ISRG and VRT report in ~5 weeks |
-| Held names are `investigate` dossiers and `watchlist` instruments | Ritual 5 (hygiene) has no state to move things into. Fixing `status` is the enabler |
-| BWXT pending at $745 since 5 Sep, no `due_by` | A "buy if it reclaims" stub with no date is a condition, not a planned action; it will sit as clutter or be confirmed on impulse |
-| `agent_idempotency_keys` empty | Agent retries can double-write decisions and tasks. The API supports keys; the agent is not sending them, and nothing on the server *requires* them for POSTs |
+| Weekly review skipped the week of 8–12 Sep (10-day gap) | The `thesis_review` Due flag fires at 7 days; the process document says weekly. One miss is noise; measure it, do not excuse it. **Recurred** 30 Sep → 10 Oct |
+| ~~`decision_outcomes` = 0 after 57 decisions~~ | **Closed 19 Sep** — first cohort graded; 44 grades, reconciled, by 13 Oct |
+| ~~No earnings tasks for held names in the next 45 days~~ | **Closed** — every held name has its Q3 print task by 13 Oct, confirmed dates `scheduled`, estimates as `event_window` |
+| Held names are `investigate` dossiers and `watchlist` instruments | **Half closed 20 Sep**: `instruments.status` follows the book. Dossier status still does not — 9 of 11 held names `investigate` on 13 Oct |
+| ~~BWXT pending at $745 since 5 Sep, no `due_by`~~ | **Closed 29 Sep** — cancelled when the Investor Day changed the information set, reason written on the row |
+| ~~`agent_idempotency_keys` empty~~ | **Closed 1 Oct** — MCP derives a key for every write; 156 keyed writes by 13 Oct. REST still does not require one; REST is the fallback |
 
 ### 6.2 Mandate vs code
 
@@ -301,19 +306,19 @@ commit history reads like reasoning rather than changelog. Keep that.
 | ~~**P1**~~ | Session vs UTC day | ~~`contributionFromLedger` and `fillSession` bucket fills by **UTC** day while snapshots and flows use `fillSessionDate`.~~ **Done:** decision returns 18 Sep, contribution 20 Sep. `anchorSession` moved to `dates.ts` and is now the one rule both use, which closes §7.7 with it — `holdings.ts` had its own copy. Verified against production: 0 live ledger rows have a UTC day differing from their New York session, so the rule is corrected without moving a published number. |
 | **P1** | Signals | `data_completeness` transitions written as signals. 296/351 rows. Stop writing them; the setup row already carries `stale`/`completeness`. Add a `scorer_runs` (or reuse a job-log) row per run with counts so pipeline health is visible without polluting the inbox. |
 | **P1** | Holiday calendar | `lastCompletedCashSession`/`lastWeekdayOnOrBefore` know weekends only. Measured effects: 32 spurious signals on 8 Sep; `bars-if-stale` will re-ingest on every US holiday; `priceDataStale` gates ritual 8 for a day. SPY's stored bars are already the calendar for snapshots — use them here too, with a small static holiday list for the *next* session (bars cannot tell you a holiday is coming). |
-| **P1** | Benchmarks | Label says TR, data is PR. Fix the label now (one line), the data when a dividend-adjusted source exists. |
-| **P1** | `updatePlannedAction` | `cancelled` → `pending` revival is exempt from the open-status check and the gate re-runs only on `planned_usd`/`action_type` change. A cancelled buy that now breaches a cap can be revived ungated. Re-run the gate whenever status becomes `pending`. |
-| **P2** | `withActor` | Stacks `[agent:x]` on every PATCH with `actor_name`. Live: ISRG and MRCY planned actions read `[agent:chatgpt] [agent:chatgpt]`. Prepend only when the text does not already start with the tag. |
+| ~~**P1**~~ | Benchmarks | ~~Label says TR, data is PR. Fix the label now (one line), the data when a dividend-adjusted source exists.~~ **Struck 19 Sep** (see §6.2) — and **superseded 13 Oct**: the label was right, but `adj_close` is now spliced at every ex-dividend date because the windowed refetch never rewrites prior rows. See the [13 Oct review](./2026-10-13-full-review.md) §1.1b. |
+| ~~**P1**~~ | `updatePlannedAction` | ~~`cancelled` → `pending` revival is exempt from the open-status check and the gate re-runs only on `planned_usd`/`action_type` change.~~ **Done 18 Sep** (`9ffd429`): the gate re-runs whenever status becomes `pending`. |
+| ~~**P2**~~ | `withActor` | ~~Stacks `[agent:x]` on every PATCH with `actor_name`.~~ **Done 19 Sep**: strips any leading tag before stamping; the three stacked live rows collapsed by migration. |
 | ~~**P2**~~ | `instruments.status` | ~~Never set to `active`; `archived` only read as an exclusion.~~ **Done 20 Sep.** A trigger on `positions` syncs `active`/`watchlist`, backfilling the eight owned names; `setWatchlistArchived` on the agent API writes `archived` and refuses while a position is open. Going active writes no watchlist-membership removal, asserted through the real trigger chain. |
 | ~~**P2**~~ | `bookFill` retry | ~~Post-ledger failures return `{ ok: false }` after money moved; unplanned fills have no idempotency key.~~ **Done 2026-09-20:** `client_key`, one per form mount, on the manual fill form and the position sell form, with a partial unique index. Measured first — 2 of the 8 live buys took the unkeyed route, and the sell form had no key at all. |
 | ~~**P2**~~ | `listDecisions` | ~~Unbounded select.~~ **Done 20 Sep** — paged with `.range()`, as `gradedDecisionIds` already was. It rose in priority on the way: this now feeds the grading worklist, so a silent truncation would drop decisions that are owed a grade, not just Briefing rows. |
-| **P2** | Agent idempotency | Server accepts `Idempotency-Key` but does not require it on mutating routes. Require it for `createDecision`, `createPlannedAction`, `createReviewTask`, `completeReviewTask`. |
-| **P2** | `computeDrawdown` NAV | Raw-peak NAV drawdown vs unitized elsewhere. Pick the unitized one. |
-| **P2** | `verify_book_against_ledger()` | Exists, tested in `ledger.sql`, **never run against production**. Should run after `snapshot:portfolio` in the scheduled job and fail the run if any row is `not ok`. Cheap; catches a `positions`/`transactions` split-brain the day it happens. |
+| ~~**P2**~~ | Agent idempotency | ~~Server accepts `Idempotency-Key` but does not require it on mutating routes.~~ **Closed in practice 1 Oct**: the MCP adapter derives a key for every write and all agent writes now arrive through it (156/156 keyed by 13 Oct). REST still accepts an unkeyed POST; left as is, REST is the fallback. |
+| ~~**P2**~~ | `computeDrawdown` NAV | ~~Raw-peak NAV drawdown vs unitized elsewhere.~~ **Done 19 Sep** (`7ee7fc0`). |
+| ~~**P2**~~ | `verify_book_against_ledger()` | ~~Never run against production.~~ **Done 19 Sep**: `verify:book` runs after `snapshot:portfolio` and fails the run on a mismatch. The function itself turned out to be `PUBLIC`-executable and `security definer` — a book leak, found 13 Oct (§1.1a there). |
 | P2 | `documents` table | Zero rows; nothing writes it. Either wire the SEC filing index into it (filing date, form, URL per `fundamentals_vintages.knowable_at`) or drop it from the schema and the plan. |
 | P2 | DATA-2 `price_basis` | Still no column; a Stooq fallback would silently write raw closes into `adj_close`. |
 | P3 | Rate limit | In-process `Map`; per-lambda on OpenNext. Public 60/min is not enforced. |
-| P3 | Queue empty-state copy | "No pending buys" — the queue also holds sells. Cosmetic, but it reflects §1.1. |
+| ~~P3~~ | Queue empty-state copy | ~~"No pending buys" — the queue also holds sells.~~ **Done** with the queue sell path; the string is gone. |
 
 ### 6.4 Risks not in the mandate
 
@@ -337,12 +342,14 @@ Ordered by how much they block a ritual.
    a manual/agent-written forward date. Then Calendar can show "ISRG: last
    four filings 21 Oct / 22 Jan / 22 Apr / 22 Jul — next expected ~21 Oct" and
    Due can flag a held name with no review task inside its window.
-2. **No sell path from the queue** (§1.1a) and **no sell-aware gate** (§1.1b).
+2. ~~**No sell path from the queue** (§1.1a) and **no sell-aware gate** (§1.1b).~~
+   **Closed 18–19 Sep.**
 3. **Pipeline health lives in the signals table.** Needs its own row per run.
 4. **Trading calendar is weekday-only.** Snapshots learned to use SPY's bars;
    dates.ts did not.
 5. **`documents` exists and is unused.** Decide.
-6. **Ledger verification is test-only.** Run it in production nightly.
+6. ~~**Ledger verification is test-only.** Run it in production nightly.~~
+   **Closed 19 Sep** (`verify:book`).
 7. ~~**Two session functions for one concept.**~~ **Closed 20 Sep.** `anchorSession`
    lives in `dates.ts`; `holdings.ts`'s private `sessionDate` is gone and decision
    returns import the same one.
@@ -425,8 +432,8 @@ a single afternoon and remove the two P0s.
    and fails the run on a mismatch. It also checks the append-only guards are
    armed, which the reconciliation alone cannot see: it compares a projection to
    the ledger, so a rewritten ledger moves both sides together and still passes.
-6. **One session function.** `contributionFromLedger` and `fillSession` use
-   `fillSessionDate`. Test with a 23:00 ET booking.
+6. ~~**One session function.**~~ — **done 20 Sep** (`2c973ec`):
+   `contributionFromLedger` buckets on `anchorSession` like snapshots and flows.
 7. **Holiday-aware session clock.** Use SPY bars as the calendar where a
    store exists; a static NYSE holiday list for forward dates. Confirm the
    `bars-if-stale` job does not re-ingest on Columbus Day (12 Oct).
@@ -443,9 +450,12 @@ a single afternoon and remove the two P0s.
 11. ~~**Fix the TR label**~~ — **struck 19 Sep**, see §6.2: the benchmark is
     already total-return and this repeats a finding struck on 7 September. The
     unitized NAV drawdown in `computeDrawdown` is **done 19 Sep**.
-12. **Grade the 30 Aug enters.** Not software: run ritual 12 once so
-    `decision_outcomes` has rows and the calibration ritual has something to
-    calibrate.
+12. ~~**Grade the 30 Aug enters.**~~ — **done 19 Sep**; §13 below is the
+    record of that run. 44 grades by 13 Oct, all reconciled.
+
+Still open from this list on 13 Oct: **4** (`data_completeness` signals, now
+408 rows), **7** (holiday calendar), **10** (earnings source — the calendar is
+met by hand). The 13 Oct review carries them with their original severity.
 
 For the mandate (operator decisions, not code): (a) state whether the Phase-1
 → 2 transition requires a *relative* return proof; (b) say what the fourth
