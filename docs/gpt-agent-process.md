@@ -22,6 +22,7 @@ Hard rules:
 - **Historical review gate.** Before completing any company, theme, macro, portfolio, stress, or capital-phase review, load the completed review outcomes relevant to it since the last comparable review or decision, and treat them as prior beliefs to confirm, update, or invalidate. Chat history is not the durable record — `getReviewQueue?status=completed` is. See [Historical review gate](#historical-review-gate).
 - **Dossier revision gate.** Before a substantive `updateDossier`, reconcile the proposed dossier against prior substantive versions. New evidence may supersede old evidence, but useful unresolved research, risks, kill criteria, competitive context, diligence questions, and valuation structure must either be carried forward, explicitly updated or superseded, or deliberately retired. Do not let information disappear merely because a field was rewritten. Prefer updating only the fields the evidence changes. See [Dossier revision gate](#dossier-revision-gate).
 - **Technical state is an execution input, not an investment thesis.** Fundamentals decide what to own and at what valuation; technicals help decide when and how quickly to enter. Use price action only to improve entry timing and tranche sizing after the company has passed the dossier, data-integrity, valuation and portfolio-fit gates. Never promote an expensive or thesis-impaired name to a buy because of bullish technicals, and never invalidate an intact thesis solely because of weak price action.
+- **Price weakness alone never authorizes an add, and an open secondary question does not automatically forbid one.** An add needs primary evidence that is recent and re-checked after the drop, intrinsic value that held, and no warning, reduce or invalidation condition fired. When those hold and a real dislocation lifts expected return over the hurdle, unresolved *secondary* risk can mean a smaller staged tranche, with the rest reserved for the next evidence gate, rather than zero. Staging never rescues a weak thesis, never bypasses a warning or invalidation, and never sizes up because the price fell. See [Adds under incomplete evidence](#adds-under-incomplete-evidence-staged-adds).
 - **Every externally referenced document in `dossier.source` must be a clickable Markdown link using `[descriptive title](URL)`.** Do not list a source document without its URL, and do not use a naked URL when a descriptive title is available. `research_sources` does not substitute for links in `source`, because the website renders `source`. The API enforces this on any write that changes `source` (a naked URL or an unlinked document entry is refused with the offending lines); it never checks a `source` the write leaves unchanged, and it never repairs one — a URL cannot be recovered from a title, so find the real document or drop the entry.
 
 Machine contract: `GET /api/v1/agent/openapi.json`.
@@ -411,7 +412,7 @@ For each open holding:
 4. Decide: **hold** (stay), **add** / **reduce** (size), or **exit**.
 5. If the written thesis changed, `updateDossier` first (new version only if assembled JSON changed). Send only the fields that changed; a substantive rewrite passes the [dossier revision gate](#dossier-revision-gate).
 6. `createDecision` today with that conclusion. This completes the weekly review.
-7. If size changes, pass the data-integrity gate (ritual 8) then `createPlannedAction` (`add` / `reduce` / `sell`). The human still books the fill.
+7. If size changes, pass the data-integrity gate (ritual 8), and for an add its [staged-add cases](#adds-under-incomplete-evidence-staged-adds), then `createPlannedAction` (`add` / `reduce` / `sell`). The human still books the fill.
 
 Then the next name. Do not batch several holdings into one journal row.
 
@@ -608,9 +609,53 @@ If any of those fail: do **not** `createPlannedAction`. Fix the dossier first, o
 
 There is no separate integrity API. The agent compares dossier text to `getPortfolio` / live marks. Contribution math and split-adjusted history are not machine-checked yet.
 
+### Adds under incomplete evidence (staged adds)
+
+The gate above decides whether a dossier is fit to authorize capital. This step decides how much of an intended **add** the evidence supports. It exists because a binary evidence gate turns "uncertainty remains" into "zero tranche", and that is not always right. The rule was added after decision grading identified a case where strong primary evidence and a material valuation dislocation still resulted in zero incremental capital, because secondary uncertainties were treated as binary gates. The fix is to stage the add, not to weaken the gate.
+
+> *Provenance: CRDO.* Thesis and primary operating evidence already strong, no warning or invalidation fired, a sharp valuation dislocation — and no second tranche, because customer concentration, working-capital conversion and production diversification were still open. The 30-day grade: thesis correct, timing poor, sizing and risk management good.
+
+**Price weakness alone never authorizes an add.** That is mandate rule 5 and it is unchanged. But the evidence an add needs does not have to arrive on the same day as the dislocation. The "incremental information" rule 5 asks for, and the ladder's thesis-intact checklist, are met by **recent primary evidence re-checked after the drop**, plus a written showing that intrinsic value did not fall with the price. When both hold and the lower price materially improves expected return, the existing evidence plus the dislocation can justify a smaller staged add. The open secondary questions then constrain its size and hold back the rest for the next evidence gate.
+
+**Primary evidence versus secondary unresolved risk.**
+
+- *Primary evidence* is the documented fact the thesis rests on: revenue, orders, backlog, margins, guidance, funded contracts, customer production evidence, balance-sheet capacity — whatever the dossier's thesis says must be true. It comes from authoritative first-party or counterparty evidence — filings, earnings releases, contracts and awards, customer production disclosures, regulatory and government sources, and equivalent primary documents — not merely narrative, commentary or sell-side estimates. An official DoD contract award or a hyperscaler announcing production deployment is primary evidence even though the company being underwritten did not disclose it. It is **recent** when it dates from the latest reporting cycle or later, and nothing since contradicts it.
+- *Secondary unresolved risk* matters to **full** sizing but not to whether the already-supported thesis holds: customer diversification, working-capital conversion, exact product mix, incremental margin proof, integration detail.
+
+The test for which side a question falls on: **if the answer came back bad, would the base case break?** A question is primary if a bad answer would trip a kill criterion, cut base-case value below the current price, or take the probability-weighted return under the hurdle. Anything named in the dossier's invalidation is primary by definition. If the classification is arguable, treat the question as primary. Never reclassify a question as secondary to make a name eligible.
+
+**Four cases.**
+
+| Case | Situation | Action |
+|------|-----------|--------|
+| 1. Thesis weak | Evidence deteriorating, or a warning / reduce / invalidation condition has fired | No add. Re-underwrite, freeze, reduce or exit as the kill criteria say |
+| 2. Evidence insufficient | Thesis intact, primary evidence not yet established | No add merely because the price fell. Wait for the evidence |
+| 3. Staged add | Primary evidence strong and recent; no material negative evidence; expected return now clears the hurdle because of a real dislocation; secondary risks still open | A **partial** add may be right, sized to the open risks, with the rest reserved for a named evidence gate |
+| 4. Gates clear | Thesis strong, valuation attractive, remaining evidence gates also cleared | Normal intended tranche, subject to caps and factor exposure |
+
+**Before case 3 applies, answer in writing:**
+
+- **Q1.** Has intrinsic value stayed roughly intact? Re-run the scenario tables at the new price. The working value must not have been cut to explain the drop.
+- **Q2.** Did expected return improve because price fell more than intrinsic value? The move should change the name's correction-readiness state (ritual 9) to Attractive or better by scenario value, not by raw percentage drawdown.
+- **Q3.** Are the primary thesis assumptions still supported by the latest reported evidence, checked after the drop?
+- **Q4.** Has any warning, reduce or invalidation threshold fired? Find the cause of the drop first: company-specific news that touches a primary assumption makes this case 1 or 2 until re-underwritten (`updateDossier`, then this gate again).
+- **Q5.** What unresolved evidence remains? It must be in `next_diligence`.
+- **Q6.** Does that evidence justify a smaller tranche rather than blocking the add?
+- **Q7.** Is the name still attractive against the next-best use of capital and current factor exposure? That is ritual 9, not this gate.
+
+If Q1–Q3 are not a clear yes, or Q4 is not a clear no, the rule does not apply: it is case 1 or 2.
+
+**Sizing.** Prefer **25–50%** of the otherwise intended add now — the add ritual 9 would size if every gate were clear, still inside the mandate caps, the deployment ladder and the authorized capital-phase cap — and reserve the remaining **50–75%** for the evidence gate. These are guidance, not limits. Set the actual tranche from expected return, downside case, thesis confidence, volatility, factor overlap and how much evidence risk is still open; more open questions, a wider bear case or a crowded factor push toward the bottom. The point is that "uncertainty remains" can mean "smaller tranche", not automatically "zero tranche".
+
+**The reserve is not a commitment.** The planned action's rationale says: case 3, the fraction taken and why, each open secondary question, the evidence gate that resolves it, and the answer that would cancel the reserve rather than release it. The gate is usually a dated print or filing. If it is a dated catalyst it is a company `review_task`, never a planned action for the print. Do not pre-queue the reserved tranche. When the gate resolves, the reserve competes again in ritual 9 at that day's price and evidence: a good answer moves the name to case 4; a bad answer on a secondary question shrinks or cancels the reserve; a bad answer that turns out to touch the base case is case 1.
+
+**Technical state** then refines execution of the staged tranche exactly as in entry staging below. A support zone, base, higher low or falling-wedge support can improve confidence in the timing or place the tranche within the band; a persistent downtrend can split or delay it. It cannot lift the tranche above what the evidence supports, make a failed valuation gate pass, raise intrinsic value, or justify averaging into a deteriorating thesis. Fundamentals and expected return authorize the capital. (A staged *add* is an evidence decision about size. The technical *staged entry* below splits a tranche across levels or dates. A staged add may be executed as a staged entry.)
+
+*Example.* A holding has strong primary evidence verified at its last print, intact scenario values and nothing fired. It falls 20–25% with no company news touching a primary assumption; re-running the scenarios at the new price moves it from Fair to Attractive. Two important secondary questions are still open. Both wrong answers are tempting: "price is down, so add" skips Q1–Q4, and "two questions are open, so zero" treats secondary risk as a gate on eligibility. The right answer is case 3. Rank it in ritual 9 against the other candidates and the book's factor exposure. If it still wins the next dollar, queue roughly 25–50% of the intended add, write both open questions and the event that resolves them into the rationale and `next_diligence`, and hold the rest back for that event.
+
 ### Entry staging (after the gate passes)
 
-The gate decides *whether* a buy/add is valid; entry staging decides *how much* and *how fast*. The principle is to scale capital with expected return and evidence. Technical state refines execution inside that; it is not a second thesis and it does not make PowerFund a trading system.
+The gate decides *whether* a buy/add is valid, and the staged-add cases above how much of an add the evidence supports; entry staging decides *how fast*, and refines *how much* inside that. The principle is to scale capital with expected return and evidence. Technical state refines execution inside that; it is not a second thesis and it does not make PowerFund a trading system.
 
 7. **Entry-staging check.** Classify the current `technical_state` (ritual 9, step 6) and choose one execution:
    - **normal tranche**
@@ -625,7 +670,7 @@ The gate decides *whether* a buy/add is valid; entry staging decides *how much* 
 - a **valuation trigger**: buy/add below the price at which expected return clears the hurdle (e.g. `price_below:125`);
 - a **technical confirmation trigger**: a base, a higher low, or a break and retest of resistance (e.g. `confirm:higher_low_above_118`).
 
-A technical confirmation may justify entering at a somewhat higher price **only if the fundamental expected return still clears the hurdle** at that price. A lower price does not by itself justify buying: if the move is driven by new thesis deterioration, re-underwrite first (`updateDossier`, then this gate again), because intrinsic value may have fallen with it.
+A technical confirmation may justify entering at a somewhat higher price **only if the fundamental expected return still clears the hurdle** at that price. A lower price does not by itself justify buying: if the move is driven by new thesis deterioration, re-underwrite first (`updateDossier`, then this gate again), because intrinsic value may have fallen with it. A lower price with intrinsic value intact can support a staged add under the [cases above](#adds-under-incomplete-evidence-staged-adds): the evidence authorizes it, and the price only improves the return.
 
 *Example.* A stock is fundamentally attractive at $120–125 but is still in a persistent downtrend: use a reduced starter, or wait for stabilization, rather than deploy the full tranche at once. If it then forms a base or a higher low while the thesis stays intact, the same valuation band can justify more normal sizing. A bullish breakout above the valuation hurdle does not justify buying there.
 
@@ -654,7 +699,7 @@ Purpose: the fund succeeds by answering “given everything else we could own, i
 | Panic | Forced/factor selling, thesis intact, exceptional asymmetry | Aggressive within caps |
 | Thesis impairment | Intrinsic value fell with the price | Not an opportunity |
 
-4. Rank into **Buy now / Buy on condition / Hold / Too expensive / Thesis weak**. Prefer dislocation/panic in names we already understand over a new story that merely fell. Do not queue CEG because the last chat was about CEG if VST or BWXT rank higher.
+4. Rank into **Buy now — normal tranche / Buy now — staged tranche / Buy on condition / Hold / Too expensive / Thesis weak**. *Staged tranche* is case 3 of the [staged-add rule](#adds-under-incomplete-evidence-staged-adds); record its fraction and the evidence gate holding back the rest. *Hold* includes case 2: thesis intact, primary evidence not yet there, price lower. A staged candidate competes for the next dollar on expected return like any other. A large drawdown in a holding does not give it priority over a superior new opportunity, and the reserve held back is no claim on future tranches. Prefer dislocation/panic in names we already understand over a new story that merely fell. Do not queue CEG because the last chat was about CEG if VST or BWXT rank higher.
 5. Check factor overlap: several “different” themes can still be one AI-capex trade. Prefer the next dollar in an independent sleeve when the ranking is close. Crowding raises the required dislocation; it is not an automatic skip.
 6. **Technical state (entry staging only).** For each serious **Buy now** or **Buy on condition** name — and only those, after steps 2–5 have placed it there — record a lightweight `technical_state`:
 
@@ -676,7 +721,7 @@ Purpose: the fund succeeds by answering “given everything else we could own, i
    - Does the technical state argue for **smaller initial size**, **waiting for confirmation**, or **normal sizing**?
 
    The state changes *how* and *how fast* to enter, never *whether* the name belongs on the list: it cannot move a name between ranking buckets. **Tie-break only:** when two candidates have similar expected return and evidence quality, prefer better factor diversification first, then the cleaner entry structure (less adverse technical momentum). Expected return, downside, thesis quality and factor fit still rank ahead of any technical setup. The PowerFund API returns only the latest close (`last_close`, `last_close_session`), not price history, so judge structure from external chart data and say which source and timeframe you used. There is no `technical_state` field or endpoint; it lives in the ranking table you persist in the review outcome (below), next to the bucket, with its sizing implication.
-7. Only then `createPlannedAction` for the names that won the rank, after user approval and ritual 8, including its entry-staging check for the size and trigger.
+7. Only then `createPlannedAction` for the names that won the rank, after user approval and ritual 8, including its staged-add sizing for an add and its entry-staging check for the size and trigger.
 
 On the **monthly** pass, this ranking is a section of `Monthly book pass — YYYY-MM` — persist the table in that task’s `outcome`, not a second review task. If you rank before a material tranche **after** that month’s task is already completed, `createReviewTask` `scope: portfolio` titled `Opportunity pass — YYYY-MM-DD`, complete it with the ranking in `outcome`, and do not roll a next “opportunity” task (the monthly cadence already rolls).
 
@@ -726,7 +771,7 @@ Purpose: when the 15% deployed-sleeve diagnostic fires (or a major factor shock 
 3. For each open name: `getCompanyDossier` + `getJournal?symbol=`. Has invalidation triggered? Have estimates/backlog/guidance changed, or only the multiple?
 4. Classify the book move as **valuation / factor / earnings / thesis failure** ([mandate.md](./mandate.md) rule 8).
 5. Act:
-   - Valuation shock, theses intact → hold; consider acceleration per the ladder (ritual 9 still applies).
+   - Valuation shock, theses intact → hold; consider acceleration per the ladder (ritual 9 still applies; where secondary evidence is still open, acceleration is a staged add, ritual 8).
    - Factor shock → pause more capital into that factor; keep independent themes in play.
    - Earnings shock or thesis failure → `createPlannedAction` `reduce` / `sell` on **those** names; `createDecision` with the conclusion.
 6. Record the **book-level** diagnosis: `createReviewTask` with `scope: portfolio` (or complete the existing one) titled as a deployed-drawdown diagnostic. Put the classification and the current unitized deployed drawdown in `outcome`. Per-name `createDecision` still records each holding. That completed portfolio task is what clears Due for this breach.
@@ -809,7 +854,7 @@ A name can fall 15% while the business does exactly what was underwritten:
 wrong: **thesis wrong, timing lucky**. Those two are the whole point, and a grade
 that collapses them into the return teaches nothing.
 
-`lessons` records behaviour to repeat or change. Not a P&L restatement.
+`lessons` records behaviour to repeat or change. Not a P&L restatement. When timing was poor, name what set it: a binary evidence gate, a technical wait and a valuation trigger are different lessons, and 12g reads them across decisions.
 
 ### 12d. Decision classes — grade all, pool none
 
@@ -887,9 +932,19 @@ Persist in that task's `outcome`; chat is not the archive.
    That is the mandate scoreboard.
 2. Read the accumulated grades by class. Ask: did stock selection add value? Did
    cash timing help or hurt? Were we right for the right reason? Did we add only
-   on new evidence? Were scenario estimates systematically optimistic? Is one
-   dimension failing repeatedly across names — which is a process finding, not a
-   stock finding?
+   on evidence, never on price alone? Were scenario estimates systematically
+   optimistic? Is one dimension failing repeatedly across names — which is a
+   process finding, not a stock finding?
+
+   **Grades change the rules.** A repeated pattern should change the process,
+   aimed at the dimension that failed. If grades keep reading *thesis correct,
+   sizing / risk management good, timing poor* because an evidence gate was
+   binary, use [staged sizing](#adds-under-incomplete-evidence-staged-adds)
+   more readily. Do not weaken the primary-evidence gate. If staged adds keep
+   losing before their evidence gate resolves, tighten the staging rule
+   (smaller fractions, a stricter primary/secondary test) rather than dropping
+   it. Write the proposed change in this quarter's outcome for the operator to
+   adopt into this document. A lesson that changes nothing is only hindsight.
 3. Record cohort context that explains a period without excusing it. The first
    entries partly served to exercise a live operating system that had never run
    with money in it; later entries are expected to clear the investment gates
