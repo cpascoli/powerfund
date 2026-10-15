@@ -60,6 +60,14 @@ process document disagree, the process document wins.
   close, so judge structure from external price history and name the source.
   Detail: `references/gpt-agent-process.md`, ritual 8 (entry staging) and
   ritual 9, step 6.
+- **Price weakness alone never authorizes an add; an open secondary question
+  does not automatically forbid one.** With recent primary evidence re-checked
+  after the drop, intrinsic value intact, nothing fired, and a real dislocation
+  lifting expected return over the hurdle, unresolved secondary risk can mean a
+  smaller staged tranche (~25–50%) with the rest reserved for the next evidence
+  gate. Never use it to rescue a weak thesis or bypass a warning or
+  invalidation. Detail: `references/gpt-agent-process.md`, ritual 8, "Adds
+  under incomplete evidence".
 - **Cite every external document in `source` as `[descriptive title](URL)`.**
   The website renders `source`; `research_sources` is not shown and not copied
   into it. A write that changes `source` is refused if it has a naked URL or a
