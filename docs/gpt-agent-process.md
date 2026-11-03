@@ -21,6 +21,7 @@ Hard rules:
   named the wrong agent because the tag in the text and the request disagreed.
 - **Historical review gate.** Before completing any company, theme, macro, portfolio, stress, or capital-phase review, load the completed review outcomes relevant to it since the last comparable review or decision, and treat them as prior beliefs to confirm, update, or invalidate. Chat history is not the durable record — `getReviewQueue?status=completed` is. See [Historical review gate](#historical-review-gate).
 - **Dossier revision gate.** Before a substantive `updateDossier`, reconcile the proposed dossier against prior substantive versions. New evidence may supersede old evidence, but useful unresolved research, risks, kill criteria, competitive context, diligence questions, and valuation structure must either be carried forward, explicitly updated or superseded, or deliberately retired. Do not let information disappear merely because a field was rewritten. Prefer updating only the fields the evidence changes. See [Dossier revision gate](#dossier-revision-gate).
+- **Bottom-up valuation gate — every company.** Any new or revised intrinsic-value estimate, 24/60-month scenario, expected-return comparison, or buy/add proposal must derive its EPS and cash flow from business-specific operating drivers, margins, financing, tax and diluted shares, and must justify its terminal valuation separately. Reverse-test the required assumptions; an unsupported EPS × P/E table is **provisional**, not decision-grade. Apply this to holdings and watchlist names, not only to new buys. See [Bottom-up valuation standard](#bottom-up-valuation-standard).
 - **Technical state is an execution input, not an investment thesis.** Fundamentals decide what to own and at what valuation; technicals help decide when and how quickly to enter. Use price action only to improve entry timing and tranche sizing after the company has passed the dossier, data-integrity, valuation and portfolio-fit gates. Never promote an expensive or thesis-impaired name to a buy because of bullish technicals, and never invalidate an intact thesis solely because of weak price action.
 - **Price weakness alone never authorizes an add, and an open secondary question does not automatically forbid one.** An add needs primary evidence that is recent and re-checked after the drop, intrinsic value that held, and no warning, reduce or invalidation condition fired. When those hold and a real dislocation lifts expected return over the hurdle, unresolved *secondary* risk can mean a smaller staged tranche, with the rest reserved for the next evidence gate, rather than zero. Staging never rescues a weak thesis, never bypasses a warning or invalidation, and never sizes up because the price fell. See [Adds under incomplete evidence](#adds-under-incomplete-evidence-staged-adds).
 - **Every externally referenced document in `dossier.source` must be a clickable Markdown link using `[descriptive title](URL)`.** Do not list a source document without its URL, and do not use a naked URL when a descriptive title is available. `research_sources` does not substitute for links in `source`, because the website renders `source`. The API enforces this on any write that changes `source` (a naked URL or an unlinked document entry is refused with the offending lines); it never checks a `source` the write leaves unchanged, and it never repairs one — a URL cannot be recovered from a title, so find the real document or drop the entry.
@@ -226,15 +227,125 @@ each with this table:
 | Base | … | … | … | … |
 | Bull | … | … | … | … |
 
-After each table state: the probability-weighted working value; the
-probability-weighted expected CAGR or annualised return; the reference share
-price and its date; whether dividends are included or excluded; and that the
-scenario assumptions and probabilities are PowerFund estimates, not company
-guidance.
+After each table state: the probability-weighted working value; the **CAGR
+to that weighted terminal value** and, when useful, the **weighted mean of the
+individual scenario CAGRs** (these are different metrics, neither guaranteed);
+the reference share price and its date; whether dividends are included or
+excluded; and that the scenario assumptions and probabilities are PowerFund
+estimates, not company guidance.
 
 Do not replace a rigorous scenario table with a loose bullet-point range for
 brevity. If a 24/60-month framework genuinely does not fit the company, say why
 rather than forcing the table.
+
+### Bottom-up valuation standard
+
+**Applies to every valuation, not just VRT.** Use this framework for all holdings
+and watchlist companies whenever publishing, revising, comparing, or relying on
+an intrinsic value, 24/60-month scenario, normalized EPS/FCF estimate, or
+buy/add expected return. An EPS × P/E table is the *output*, never the starting
+point. The November 2026 VRT audit found that seemingly plausible $12.50/$17.00
+2028 EPS assumptions were unsupported by a revenue-to-earnings-to-cash bridge;
+the revised working valuation and planned-add conclusion changed materially.
+Avoid repeating that error elsewhere.
+
+1. **Point-in-time primary baseline.** Begin with current 10-K/10-Q, earnings
+   release and relevant investor presentation/transcript, plus verified market
+   prices and the historical-review/dossier-revision context. State the period,
+   share class and units. Capture actual segment revenue, organic versus
+   acquired revenue, volume/price/mix, margins, GAAP/adjusted reconciliation,
+   operating cash flow, working capital, capex, financing, tax and diluted
+   shares. Clearly label **reported actual**, **management guidance or target**,
+   **external consensus** and **PowerFund assumption**. Never promote an
+   unverified headline or peak-quarter annualization to normalized earnings.
+2. **Build revenue from the business model.** Model the distinct drivers that
+   produce sales (shipments × price and mix; capacity × utilization; signed
+   contracts/RPO × timing and conversion; installed base × usage; customer
+   count × spend and retention; volumes × realized commodity or power prices;
+   or the equivalent for that industry). Model segments/geographies explicitly
+   where economically meaningful and reconcile their sum to total revenue.
+   Distinguish organic from acquisition growth and funded/noncancelable orders
+   from estimates, soft bookings or addressable market. Impose capacity,
+   competition, customer concentration, supply and execution constraints.
+   Reconcile FY+1/FY+2/FY+5 sales to management's multiyear objectives **without
+   treating those objectives as guaranteed**.
+3. **Derive margins and EPS.** Forecast segment gross/operating margins,
+   corporate/unallocated costs and consolidated operating profit; then
+   financing expenses and interest earned, taxes, minority interests (where
+   applicable), recurring or normalization adjustments and diluted share
+   count. Reflect acquisitions, debt, leases, stock compensation, dilution,
+   buybacks, splits and ADR/ADS ratios on a consistent per-share basis. Show
+   operating profit → pretax profit → GAAP-like and adjusted net profit →
+   normalized EPS. State which reconciling adjustments are recurring economic
+   costs. Do **not** assume future buybacks or net margin expansion without
+   showing their financing and operating basis.
+4. **Independently reconcile cash flow.** Start from net income and bridge to
+   operating cash flow using noncash items, receivables, inventories, payables,
+   contract assets/liabilities, customer deposits and deferred revenue.
+   Subtract maintenance **and growth** capex, and capitalized development or
+   software as appropriate, to derive sustainable free cash flow. Reconcile
+   FCF to adjusted earnings, capex intensity, returns on incremental capital,
+   funding requirements and balance-sheet capacity. Account separately for
+   acquisition outlays, contingent earn-outs, debt/lease claims and share
+   issuance (and their impact on equity value); never treat one-time customer
+   advances, asset sales or financing inflows as repeatable operating cash.
+5. **Build independent bear/base/bull operating scenarios.** For **both 24 and
+   60 months**, assign each scenario its own driver assumptions, revenue,
+   margin, interest, tax, diluted shares, normalized EPS, CFO/FCF, reinvestment
+   needs, terminal value and probability. The bear case must include a
+   credible adverse demand/price/financing/cycle outcome, not merely a lower
+   multiple. Five-year scenarios must allow for supply response, competition,
+   normalized margins and capital intensity. Explain probability weights and
+   identify the evidence or milestone that would invalidate each case. Don't
+   fabricate precision when the necessary disclosures are missing.
+6. **Justify terminal valuation independently.** Choose an appropriate method:
+   P/E, FCF yield/DCF, EV/EBIT(DA), sum of parts, NAV, or a justified blend.
+   Benchmark peers and the company's own history on a comparable **forward or
+   trailing**, GAAP/adjusted and cycle-phase basis. Explain growth, ROIC,
+   balance-sheet and rate differences. For enterprise-value approaches,
+   reconcile cash, debt, leases and minority claims to equity and divide by
+   the correct diluted shares. Cross-check EPS × P/E against terminal FCF
+   yield/FCF multiple and a plausible cost of capital. Avoid double-counting
+   growth through both an aggressive earnings path and an aggressive multiple.
+7. **Reverse-solve and stress-test.** Show what revenue, margin, cash
+   conversion, share count, or terminal multiple the proposed price *requires*.
+   Test at least two material uncertainties (e.g., sales × operating margin,
+   margin × multiple, commodity price × volume, cash conversion × capex).
+   Compare implied economics with management targets, capacity, funded order
+   visibility, industry share, through-cycle outcomes and financing reality.
+   If a case requires implausible results years before management's own goal,
+   justify it with **new primary evidence** or reduce its weight and value.
+8. **Report return measures precisely and preserve the audit trail.** Calculate
+   each scenario's share value, downside/upside, weighted terminal value, the
+   **CAGR to the weighted endpoint** `(sum(p_i * V_i) / P0)^(1/T) - 1` and,
+   when informative, the **probability-weighted mean of scenario CAGRs**
+   `sum(p_i * ((V_i / P0)^(1/T) - 1))`. These need not agree, and neither is a
+   guaranteed realized annual return. State dividends, current price/date,
+   valuation uncertainty and required return hurdle. Explain the change from
+   the previous dossier model as **operating revisions vs. financing/share
+   count vs. multiple vs. market-price changes**; retain superseded valuations
+   visibly labeled as historical, consistent with the dossier revision gate.
+9. **Adapt drivers to each industry.** Semiconductors/memory: bits/units,
+   prices, yields, fab utilization, node mix and supply response. Energy:
+   contracted versus merchant volumes, hedges, prices, outages, fuel, debt and
+   project capex. Grid/construction: funded RPO versus estimated backlog,
+   execution, labor, billing milestones, customer advances and margins.
+   Defense: funded awards, serial production, milestone payments, capacity and
+   cash conversion. Cloud/software: workload usage, customers, retention,
+   depreciation, leases and GPU/server capex. Medtech/robotics: installed base,
+   procedures, utilization, service/consumables, regulation and product cycles.
+   Use a different model when the economics demand it, **not** a generic EPS
+   bridge by force.
+
+**Decision-grade gate.** If the company-specific driver → revenue → earnings →
+per-share cash-flow model and terminal valuation cannot be corroborated, mark
+the estimate **provisional / not decision-grade**. You may keep a research
+range or watch conclusion, but must not rank it as a verified expected return
+or use it to authorize a new `buy`/`add` planned action. Re-audit following
+material earnings, acquisitions, guidance, financing, supply-cycle or price
+changes. If an open plan depends on a model that fails, defer or cancel it
+before any human confirmation. This does not alter user-approval requirements,
+mandate caps, historical and dossier-revision gates, or the human-only fill rule.
 
 ### Next diligence is cumulative
 
@@ -290,7 +401,7 @@ a change reason such as:
 | Weekly — Saturday | **Comprehensive calendar refresh** — sweep the full holdings + active-thesis watchlist and relevant macro/theme calendars, looking roughly 2–3 months ahead. Add missing actionable events, update dates/checklists where better information is available, and remove duplication. |
 | Event-driven | Whenever company or market research uncovers a material future catalyst not already represented, add it immediately rather than waiting for Saturday. |
 | Ad hoc | New-name research; watchlist hygiene |
-| Before any `buy` / `add` planned action | Dossier / data-integrity gate |
+| Before any `buy` / `add` planned action | Bottom-up valuation standard **and** dossier / data-integrity gate |
 | Monthly | Book / mandate pass + opportunity ranking — one portfolio review task |
 | Whenever horizons come due | **Decision grading** — `getJournal?horizon_due=true`; grade what is owed at 30/90/180 days. Continuous, not quarterly: horizons elapse on their own clock (ritual 12) |
 | Quarterly | Theme/factor review + performance calibration roll-up — one portfolio review task |
@@ -515,7 +626,7 @@ statutory deadline but no announced date.
 Purpose: a ticker is not research until it has a dossier and kill criteria.
 
 1. Confirm it is not already in `getFundState` watchlist. If missing, `addWatchlistCompany` with an **existing** theme (`ai-infrastructure`, `energy`, `robotics-ai`, `defence`, `other`). Duplicate symbols return `409 SYMBOL_EXISTS`. There is no agent archive/remove.
-2. `updateDossier` version 1: summary, thesis, invalidation, next diligence, sources (each a `[title](URL)` link in `source`). Bars ingest on the next worker run (or a local backfill).
+2. `updateDossier` version 1: summary, thesis, invalidation, next diligence, sources (each a `[title](URL)` link in `source`). If giving a valuation, apply the [bottom-up valuation standard](#bottom-up-valuation-standard); otherwise label the research as a qualitative screen, **not decision-grade** for capital. Bars ingest on the next worker run (or a local backfill).
 3. Optional: `createDecision` `watch` to record “on the list, not in the book.”
 4. Optional: `createReviewTask` for the first dated catalyst.
 5. `createPlannedAction` `buy` only after user approval **and** the data-integrity gate (ritual 8). Still not a fill.
@@ -600,8 +711,9 @@ Run before `createPlannedAction` `buy` / `add` (and before asking the human to c
 2. `getPortfolio` (if already held) or `getCompanyDossier` last_close vs the **scenario anchor** in the write-up. Use `last_close_session` / `price_data_through`. If `price_data_stale` is true, we are missing the last completed US cash session — do not pass the gate on those closes. If the reference price in the valuation section is stale or from the wrong listing, refresh scenarios with `updateDossier` before sizing.
 3. `verified_at` is recent enough for a capital decision (if missing or weeks old, re-verify).
 4. Primary `source` links resolve and pass the source-format gate (below); major results since `verified_at` are in the thesis.
-5. Scenario math is internally consistent with the reference price you just checked (probability-weighted 24/60m returns still use that price).
-6. Kill criteria are written (mandate rule 4).
+5. Scenario math is internally consistent with the reference price you just checked (probability-weighted 24/60m returns still use that price); the distinction between CAGR to a weighted endpoint and a weighted mean of scenario CAGRs is made explicit.
+6. **Bottom-up valuation has passed** the [mandatory standard](#bottom-up-valuation-standard): company-specific revenue drivers → margins and normalized EPS → diluted shares and sustainable FCF → independently justified terminal multiples or valuation method, with a reverse-assumption test. Missing drivers or unsupported EPS/multiple guesses mean **not decision-grade**, even when the terminal-price arithmetic is correct.
+7. Kill criteria are written (mandate rule 4).
 
 **Source-format gate:** before writing or materially updating a dossier, verify that externally referenced documents in `source` are represented as valid Markdown links. A source list containing document names without URLs, or bare URLs where a title is available, fails the write-quality gate.
 
@@ -688,7 +800,7 @@ A technical confirmation may justify entering at a somewhat higher price **only 
 Purpose: the fund succeeds by answering “given everything else we could own, is this the best use of the next $1 of risk?” — not “is this company good?” Corrections are an expected source of return only when price fell more than intrinsic value.
 
 1. `getFundState?include_watchlist=true` — holdings, watchlist with `has_dossier`, cash, open planned dollars, factor flags. For each name you intend to rank, load its completed reviews (`getReviewQueue?status=completed&symbol=…&limit=3`): a name deferred last month for a stated reason has not become buyable because the reason was forgotten.
-2. For each decision-grade name (live dossier + kill criteria): `getCompanyDossier`. Refresh price vs the scenario anchor (ritual 8). Note probability-weighted 24/60m return, downside case, thesis quality, factor overlap, evidence status.
+2. For each **decision-grade** name (live dossier + kill criteria + [passed bottom-up valuation standard](#bottom-up-valuation-standard)): `getCompanyDossier`. Refresh price vs the scenario anchor (ritual 8). Compare 24/60m scenario values and their company-specific revenue/EPS/FCF bridges, terminal multiple assumptions, downside, model uncertainty, factor overlap and evidence status on a consistent share/cycle basis. List provisional/old EPS × P/E estimates separately as **research only**; do not rank them as verified expected returns.
 3. Classify each name into a **correction-readiness** state. Scenario values drive the state, not a raw % drawdown:
 
 | State | Meaning | Posture |
