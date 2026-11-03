@@ -21,8 +21,8 @@ Hard rules:
   named the wrong agent because the tag in the text and the request disagreed.
 - **Historical review gate.** Before completing any company, theme, macro, portfolio, stress, or capital-phase review, load the completed review outcomes relevant to it since the last comparable review or decision, and treat them as prior beliefs to confirm, update, or invalidate. Chat history is not the durable record — `getReviewQueue?status=completed` is. See [Historical review gate](#historical-review-gate).
 - **Dossier revision gate.** Before a substantive `updateDossier`, reconcile the proposed dossier against prior substantive versions. New evidence may supersede old evidence, but useful unresolved research, risks, kill criteria, competitive context, diligence questions, and valuation structure must either be carried forward, explicitly updated or superseded, or deliberately retired. Do not let information disappear merely because a field was rewritten. Prefer updating only the fields the evidence changes. See [Dossier revision gate](#dossier-revision-gate).
-- **Bottom-up valuation gate — every company.** Any new or revised intrinsic-value estimate, 24/60-month scenario, expected-return comparison, or buy/add proposal must derive its EPS and cash flow from business-specific operating drivers, margins, financing, tax and diluted shares, and must justify its terminal valuation separately. Reverse-test the required assumptions; an unsupported EPS × P/E table is **provisional**, not decision-grade. Apply this to holdings and watchlist names, not only to new buys. See [Bottom-up valuation standard](#bottom-up-valuation-standard).
-- **Technical state is an execution input, not an investment thesis.** Fundamentals decide what to own and at what valuation; technicals help decide when and how quickly to enter. Use price action only to improve entry timing and tranche sizing after the company has passed the dossier, data-integrity, valuation and portfolio-fit gates. Never promote an expensive or thesis-impaired name to a buy because of bullish technicals, and never invalidate an intact thesis solely because of weak price action.
+- **Valuation underwriting gate — independent of data-integrity QA.** Before an intrinsic-value model becomes decision-grade or authorizes a `buy`/`add`, derive earnings and sustainable cash flow from the company's business drivers, justify terminal valuation independently, and reverse-test the assumptions. Unsupported EPS × P/E tables are **provisional**, never authority to deploy capital. **Repricing a previously passed model at a new close is not re-underwriting it** unless material evidence has changed. Apply this gate to holdings and capital candidates, prioritizing open plans. See [Valuation underwriting gate](#valuation-underwriting-gate).
+- **Technical state is an execution input, not an investment thesis.** Fundamentals decide what to own and at what valuation; technicals help decide when and how quickly to enter. Use price action only to improve entry timing and tranche sizing after the company has passed the separate underwriting, data-integrity and portfolio-fit gates. Never promote an expensive or thesis-impaired name to a buy because of bullish technicals, and never invalidate an intact thesis solely because of weak price action.
 - **Price weakness alone never authorizes an add, and an open secondary question does not automatically forbid one.** An add needs primary evidence that is recent and re-checked after the drop, intrinsic value that held, and no warning, reduce or invalidation condition fired. When those hold and a real dislocation lifts expected return over the hurdle, unresolved *secondary* risk can mean a smaller staged tranche, with the rest reserved for the next evidence gate, rather than zero. Staging never rescues a weak thesis, never bypasses a warning or invalidation, and never sizes up because the price fell. See [Adds under incomplete evidence](#adds-under-incomplete-evidence-staged-adds).
 - **Every externally referenced document in `dossier.source` must be a clickable Markdown link using `[descriptive title](URL)`.** Do not list a source document without its URL, and do not use a naked URL when a descriptive title is available. `research_sources` does not substitute for links in `source`, because the website renders `source`. The API enforces this on any write that changes `source` (a naked URL or an unlinked document entry is refused with the offending lines); it never checks a `source` the write leaves unchanged, and it never repairs one — a URL cannot be recovered from a title, so find the real document or drop the entry.
 
@@ -39,7 +39,7 @@ Same phase numbers, different objects. Always say **software Phase N** or **capi
 
 **Current capital phase:** Phase 1 (authorized invested-cost cap **$75k**). Immediate objective is process evidence, not racing to the cap. $150k / ~$225k are **proposals** for later reviews, not live gates. Capital Phase 4 (outside money) is out of scope for this agent.
 
-Playbook links: mandate (cash, size caps, capital phases), goals, themes, software plan.
+Playbook links: mandate (cash, size caps, capital phases), goals, themes, software plan. **New software gap:** versioned structured valuation models and validation state, pending implementation; the underwriting rule applies now.
 
 ## Historical review gate
 
@@ -172,7 +172,9 @@ genuinely needs re-underwriting — and then reconcile it as below.
 
 There is **no dedicated valuation field**. Scenario tables live in prose,
 almost always in `thesis`, so rewriting `thesis` is the commonest way to lose
-one. Treat the valuation section as its own item when you reconcile.
+one. Keep the model inside the delimited **Valuation** subsection defined by
+the [underwriting gate](#valuation-underwriting-gate); reconcile that subsection
+as its own unit. Repricing alone should not force a thesis rewrite.
 
 ### Which versions to read
 
@@ -183,9 +185,11 @@ one. Treat the valuation section as its own item when you reconcile.
    Markdown-link repair, a status-only promotion, or another mechanical edit.
 3. `getDossierVersion` on that previous substantive version.
 4. For a major re-underwrite or a heavily revised dossier, also read the last
-   full decision-grade baseline (a snapshot whose `research_level` is
-   `primary_verified` or `investment_ready`, written as a full underwrite) and
-   earlier substantive versions as needed.
+   **substantive operating/valuation baseline that actually passed the
+   [underwriting gate](#valuation-underwriting-gate)** (check the explicit
+   valuation status, assumptions and date inside `thesis`), and earlier
+   substantive versions as needed. `research_level=primary_verified` or
+   `investment_ready` by itself is **not proof** that the valuation passed.
 
 Do not assume comparing version N with N−1 is enough: a useful item may have
 disappeared several revisions ago. There is no diff endpoint — compare the
@@ -227,125 +231,18 @@ each with this table:
 | Base | … | … | … | … |
 | Bull | … | … | … | … |
 
-After each table state: the probability-weighted working value; the **CAGR
-to that weighted terminal value** and, when useful, the **weighted mean of the
-individual scenario CAGRs** (these are different metrics, neither guaranteed);
-the reference share price and its date; whether dividends are included or
-excluded; and that the scenario assumptions and probabilities are PowerFund
-estimates, not company guidance.
+After each table state: the probability-weighted terminal value; the **CAGR
+to that weighted terminal value** and, where useful, the **weighted mean of
+individual scenario CAGRs** (different measures, neither guaranteed); the
+current verified share price/date and any dividend assumption; and the status
+of the [independent valuation underwriting gate](#valuation-underwriting-gate).
+These numbers are PowerFund estimates, not company guidance. The EPS, cash
+flow and exit assumptions must be *earned* by an operating model, not inferred
+from the table alone.
 
 Do not replace a rigorous scenario table with a loose bullet-point range for
 brevity. If a 24/60-month framework genuinely does not fit the company, say why
 rather than forcing the table.
-
-### Bottom-up valuation standard
-
-**Applies to every valuation, not just VRT.** Use this framework for all holdings
-and watchlist companies whenever publishing, revising, comparing, or relying on
-an intrinsic value, 24/60-month scenario, normalized EPS/FCF estimate, or
-buy/add expected return. An EPS × P/E table is the *output*, never the starting
-point. The November 2026 VRT audit found that seemingly plausible $12.50/$17.00
-2028 EPS assumptions were unsupported by a revenue-to-earnings-to-cash bridge;
-the revised working valuation and planned-add conclusion changed materially.
-Avoid repeating that error elsewhere.
-
-1. **Point-in-time primary baseline.** Begin with current 10-K/10-Q, earnings
-   release and relevant investor presentation/transcript, plus verified market
-   prices and the historical-review/dossier-revision context. State the period,
-   share class and units. Capture actual segment revenue, organic versus
-   acquired revenue, volume/price/mix, margins, GAAP/adjusted reconciliation,
-   operating cash flow, working capital, capex, financing, tax and diluted
-   shares. Clearly label **reported actual**, **management guidance or target**,
-   **external consensus** and **PowerFund assumption**. Never promote an
-   unverified headline or peak-quarter annualization to normalized earnings.
-2. **Build revenue from the business model.** Model the distinct drivers that
-   produce sales (shipments × price and mix; capacity × utilization; signed
-   contracts/RPO × timing and conversion; installed base × usage; customer
-   count × spend and retention; volumes × realized commodity or power prices;
-   or the equivalent for that industry). Model segments/geographies explicitly
-   where economically meaningful and reconcile their sum to total revenue.
-   Distinguish organic from acquisition growth and funded/noncancelable orders
-   from estimates, soft bookings or addressable market. Impose capacity,
-   competition, customer concentration, supply and execution constraints.
-   Reconcile FY+1/FY+2/FY+5 sales to management's multiyear objectives **without
-   treating those objectives as guaranteed**.
-3. **Derive margins and EPS.** Forecast segment gross/operating margins,
-   corporate/unallocated costs and consolidated operating profit; then
-   financing expenses and interest earned, taxes, minority interests (where
-   applicable), recurring or normalization adjustments and diluted share
-   count. Reflect acquisitions, debt, leases, stock compensation, dilution,
-   buybacks, splits and ADR/ADS ratios on a consistent per-share basis. Show
-   operating profit → pretax profit → GAAP-like and adjusted net profit →
-   normalized EPS. State which reconciling adjustments are recurring economic
-   costs. Do **not** assume future buybacks or net margin expansion without
-   showing their financing and operating basis.
-4. **Independently reconcile cash flow.** Start from net income and bridge to
-   operating cash flow using noncash items, receivables, inventories, payables,
-   contract assets/liabilities, customer deposits and deferred revenue.
-   Subtract maintenance **and growth** capex, and capitalized development or
-   software as appropriate, to derive sustainable free cash flow. Reconcile
-   FCF to adjusted earnings, capex intensity, returns on incremental capital,
-   funding requirements and balance-sheet capacity. Account separately for
-   acquisition outlays, contingent earn-outs, debt/lease claims and share
-   issuance (and their impact on equity value); never treat one-time customer
-   advances, asset sales or financing inflows as repeatable operating cash.
-5. **Build independent bear/base/bull operating scenarios.** For **both 24 and
-   60 months**, assign each scenario its own driver assumptions, revenue,
-   margin, interest, tax, diluted shares, normalized EPS, CFO/FCF, reinvestment
-   needs, terminal value and probability. The bear case must include a
-   credible adverse demand/price/financing/cycle outcome, not merely a lower
-   multiple. Five-year scenarios must allow for supply response, competition,
-   normalized margins and capital intensity. Explain probability weights and
-   identify the evidence or milestone that would invalidate each case. Don't
-   fabricate precision when the necessary disclosures are missing.
-6. **Justify terminal valuation independently.** Choose an appropriate method:
-   P/E, FCF yield/DCF, EV/EBIT(DA), sum of parts, NAV, or a justified blend.
-   Benchmark peers and the company's own history on a comparable **forward or
-   trailing**, GAAP/adjusted and cycle-phase basis. Explain growth, ROIC,
-   balance-sheet and rate differences. For enterprise-value approaches,
-   reconcile cash, debt, leases and minority claims to equity and divide by
-   the correct diluted shares. Cross-check EPS × P/E against terminal FCF
-   yield/FCF multiple and a plausible cost of capital. Avoid double-counting
-   growth through both an aggressive earnings path and an aggressive multiple.
-7. **Reverse-solve and stress-test.** Show what revenue, margin, cash
-   conversion, share count, or terminal multiple the proposed price *requires*.
-   Test at least two material uncertainties (e.g., sales × operating margin,
-   margin × multiple, commodity price × volume, cash conversion × capex).
-   Compare implied economics with management targets, capacity, funded order
-   visibility, industry share, through-cycle outcomes and financing reality.
-   If a case requires implausible results years before management's own goal,
-   justify it with **new primary evidence** or reduce its weight and value.
-8. **Report return measures precisely and preserve the audit trail.** Calculate
-   each scenario's share value, downside/upside, weighted terminal value, the
-   **CAGR to the weighted endpoint** `(sum(p_i * V_i) / P0)^(1/T) - 1` and,
-   when informative, the **probability-weighted mean of scenario CAGRs**
-   `sum(p_i * ((V_i / P0)^(1/T) - 1))`. These need not agree, and neither is a
-   guaranteed realized annual return. State dividends, current price/date,
-   valuation uncertainty and required return hurdle. Explain the change from
-   the previous dossier model as **operating revisions vs. financing/share
-   count vs. multiple vs. market-price changes**; retain superseded valuations
-   visibly labeled as historical, consistent with the dossier revision gate.
-9. **Adapt drivers to each industry.** Semiconductors/memory: bits/units,
-   prices, yields, fab utilization, node mix and supply response. Energy:
-   contracted versus merchant volumes, hedges, prices, outages, fuel, debt and
-   project capex. Grid/construction: funded RPO versus estimated backlog,
-   execution, labor, billing milestones, customer advances and margins.
-   Defense: funded awards, serial production, milestone payments, capacity and
-   cash conversion. Cloud/software: workload usage, customers, retention,
-   depreciation, leases and GPU/server capex. Medtech/robotics: installed base,
-   procedures, utilization, service/consumables, regulation and product cycles.
-   Use a different model when the economics demand it, **not** a generic EPS
-   bridge by force.
-
-**Decision-grade gate.** If the company-specific driver → revenue → earnings →
-per-share cash-flow model and terminal valuation cannot be corroborated, mark
-the estimate **provisional / not decision-grade**. You may keep a research
-range or watch conclusion, but must not rank it as a verified expected return
-or use it to authorize a new `buy`/`add` planned action. Re-audit following
-material earnings, acquisitions, guidance, financing, supply-cycle or price
-changes. If an open plan depends on a model that fails, defer or cancel it
-before any human confirmation. This does not alter user-approval requirements,
-mandate caps, historical and dossier-revision gates, or the human-only fill rule.
 
 ### Next diligence is cumulative
 
@@ -390,6 +287,179 @@ a change reason such as:
 > research/risk/valuation/diligence material lost across prior revisions; no
 > investment conclusion change unless stated.
 
+## Valuation underwriting gate
+
+**Purpose:** Determine whether an estimate has *earned* its projected EPS,
+free cash flow and terminal value. This is economic underwriting, **separate
+from** ritual 8's arithmetic, freshness, source and share-class QA. The 2026
+VRT failure was a coherent EPS × P/E table whose earnings and multiples had
+not been justified from operations. This gate stops that failure without
+turning every weekly repricing into another full research project.
+
+### When to run it: reprice versus re-underwrite
+
+- **First underwrite / substantive re-underwrite:** Required before calling a
+  new model decision-grade, issuing a new or materially changed intrinsic
+  value, or queuing a `buy`/`add` based on it. Reassess after **material**
+  earnings/guidance revisions, acquisitions, financing or dilution, supply-cycle
+  changes, contract losses/wins, changes in normalized economics or a thesis
+  revision. A new quarterly print calls for a *materiality check*, not
+  automatically a full rebuild.
+- **Reprice:** If the last validated operating model remains supported, use a
+  new verified share price to recompute scenario returns, downside, CAGRs and
+  ranking. Do **not** rebuild revenue/EPS/FCF merely because a price changed,
+  or rewrite the entire dossier. Record the close and date alongside the
+  repricing in the ranking/review outcome or a surgical dossier update if an
+  actual planned action requires a refreshed reference. A sell-off may trigger
+  an evidence/invalidation check and reverse-solve, **not** an automatic
+  assumption change or add.
+- **Validity:** A previously passed model remains passed **only while** its
+  operating drivers, material assumptions, share basis and evidence remain
+  credible. Recheck at the named next catalyst/review and before deploying
+  capital. If a critical assumption is contradicted or its evidence cannot
+  be verified, mark it provisional until re-underwritten; no grandfathering.
+
+### Six mandatory underwriting checks
+
+1. **Evidence labels.** Date and distinguish **reported actuals**, **company
+   guidance/targets**, **external consensus** and **PowerFund assumptions**.
+   Cite primary operating/financial sources, state the share class and
+   relevant reporting period. A market narrative or one exceptional quarter
+   is not normalized earnings.
+2. **Business-driver revenue.** Derive forward revenue from the mechanisms
+   that earn it—e.g. funded backlog conversion, units × price and mix,
+   capacity × utilization, contracts × delivered volumes, or recurring
+   customers × retention and spending. Reconcile segments where material.
+   Explicitly consider credible limits (customer funding, industry capacity,
+   competition, cyclicality, execution). A growth-rate assumption alone does
+   not prove the modeled sales.
+3. **Earnings per diluted share.** Bridge revenue → operating profit/margins
+   → financing and taxes → normalized net income → **diluted EPS**. Explain
+   adjusted-versus-GAAP differences that matter and assumptions for dilution,
+   issuance and repurchases. Do not start with an EPS target and work
+   backwards to produce cosmetic operating numbers.
+4. **Sustainable cash flow.** Reconcile modeled earnings to operating cash
+   flow and free cash flow after **required reinvestment/capex**. Identify
+   material working-capital needs and one-time cash sources; check that cash
+   conversion and funding can support the earnings path. A model supported
+   only by adjusted EPS, not cash economics, fails.
+5. **Independent terminal valuation and operating scenarios.** Choose a
+   valuation method appropriate to the company; justify multiples/discount
+   rates with same-basis peers, through-cycle history, growth, capital
+   intensity and rate sensitivity. Build bear/base/bull **business outcomes**
+   (not merely different P/Es); normally use the 24/60-month scenario format
+   above with probabilities, EPS, FCF and implied share values. Do not count
+   growth twice in both heroic operating forecasts and heroic multiples.
+6. **Reverse-solve and challenge.** Calculate what revenue, margins, earnings,
+   cash conversion and terminal valuation each important target requires.
+   Compare them with company targets, funded demand, capacity and the cycle.
+   Identify the assumptions on which the valuation is most sensitive, and
+   distinguish **arithmetical correctness**, **economic plausibility** and
+   **evidence confidence**. If critical inputs cannot be corroborated, label
+   the valuation **PROVISIONAL**, show the missing evidence, and do not use
+   it to authorize additional capital.
+
+**Adapt, do not fill a generic template.** Add working-capital details,
+minority interests, contingent earn-outs, ADR conversions, net debt, leases,
+stock compensation, maintenance versus growth capex and other line items
+**when material to that business**. Examples: memory/semiconductors need bit
+supply, ASPs, yields and cycle-normalized margins; utilities need contracted
+versus merchant production, power prices, hedges and debt; construction needs
+funded backlog, milestones, labor and customer advances; defense needs funded
+programs and serial production; cloud/software needs utilization, retention,
+GPU depreciation and leases; medtech needs procedure volumes, installed base
+and recurring consumables. If a missing item could overturn the base case,
+it is mandatory for *that* name. Don't invent numbers to complete a checklist.
+
+### Decision-grade status and dossier write shape
+
+A valuation has an **explicit, independent status**: `DECISION-GRADE` (all
+six checks passed, with model date and cited assumptions) or `PROVISIONAL`
+(missing or contradicted primary inputs, or not yet underwritten). The dossier
+`research_level` is **not this status**: `primary_verified` can describe well
+sourced facts around a provisional valuation, and a legacy
+`investment_ready` label cannot override a failed model. For **new** research,
+do not set `research_level=investment_ready` without a passed underwriting
+model *and* the other company/mandate requirements. Existing legacy statuses
+must be audited, not silently presumed valid.
+
+There is no structured model or valuation-status field in the current API.
+Until one exists, write a clearly delimited block **inside `thesis`** with
+these literal boundaries, so it can be reconciled as one item:
+
+```markdown
+<!-- VALUATION_MODEL_START -->
+### Valuation — [company] — as of YYYY-MM-DD
+**Valuation status:** DECISION-GRADE | PROVISIONAL
+**Evidence cutoff / next review:** ...
+**Actuals / guidance / consensus / PowerFund assumptions:** ...
+**Revenue drivers → earnings / shares → sustainable FCF:** ...
+**24-month and 60-month bear / base / bull:** ...
+**Valuation method / peer basis / reverse test / confidence:** ...
+**Unresolved primary gates / invalidation:** ...
+<!-- VALUATION_MODEL_END -->
+```
+
+This is a **minimum compact summary**, not an invitation to manufacture a
+new full model on every update. Keep detailed workings where useful, link
+sources in `dossier.source`, and reconcile the delimited block when
+substantively changing `thesis` under the dossier-revision gate. Earlier
+models should be explicitly labeled **historical / superseded**.
+
+**Return reporting:** State the current closing price/date, downside, scenario
+probabilities, weighted terminal value, and whether dividends are included.
+Distinguish (a) **CAGR to the probability-weighted terminal price**, computed
+as `(sum(p_i * V_i) / P0)^(1/T) - 1`, from (b) the **probability-weighted mean
+of individual scenario CAGRs**, `sum(p_i * ((V_i/P0)^(1/T) - 1))`. Neither is
+a guaranteed realized annual return. Document the impact of operating-model
+changes separately from **repricing**. Do not silently invent a fixed 12% or
+15% return hurdle: refer to ritual 9's **Attractive / Dislocation** judgement,
+downside, factor overlap and opportunity cost; where a numeric hurdle is used,
+name and justify it in that write-up, keep it consistent across revisions and
+explain any change. A universal numerical mandate hurdle requires an explicit
+mandate decision.
+
+### One-time audit of existing research and planned actions
+
+The first adoption pass will make **some previously called investment-ready
+names provisional**. That is an honest research backlog, *not* a mandatory
+liquidation or permission to skip the gate. Prioritize the work without
+trying to rebuild the whole universe in one weekly or Saturday ranking:
+
+1. **Open planned `buy`/`add` actions first:** compare each model to this gate.
+   Defer/cancel any plan whose valuation cannot be corroborated **before** a
+   human fill; never grandfather old EPS × P/E targets.
+2. **Current holdings next:** start with larger capital exposure, nearest
+   catalysts and thesis/valuation sensitivity. Keep normal holding reviews
+   running, but classify operating-thesis health separately from valuation
+   status. An unsupported estimate does **not** by itself order a sell.
+3. **Active-thesis watchlist next, other candidates later:** build full models
+   when a name approaches a capital decision or a material new catalyst.
+   Qualitative screens may remain `PROVISIONAL` without being researched to
+   the same depth immediately.
+
+Document the backlog and audit results in the next monthly portfolio pass
+(or a bounded separate opportunity pass if an earlier trade decision needs
+one). Unverified candidates appear as **research only**, not as ranked,
+verified expected returns. Keep existing mandate, position-risk and
+invalidation procedures active throughout the audit.
+
+### Software follow-up (not a prerequisite to ship the rule)
+
+Track a **structured, versioned valuation/scenario model** in the software
+backlog (`plan.md`), rather than indefinitely storing model state only in
+LLM-parsed `thesis` prose. The eventual object should record driver
+assumptions, source cutoff, units/share basis, operating/earnings/FCF bridge,
+scenario probabilities and values, return-calculation method, model status,
+validation history and links to the prior version. The Markdown delimiter is
+an interim safeguard, **not** a replacement for a validated data structure.
+
+**Capital prerequisite:** A `buy`/`add` requires an independently passed
+valuation underwriting gate, current data-integrity QA (ritual 8), valid
+invalidation and other mandate/portfolio/evidence gates, and human approval.
+If a previously queued plan is based on a model that fails, defer/cancel it
+before confirmation. No agent books a fill.
+
 ## Cadence
 
 | When | Ritual |
@@ -401,7 +471,7 @@ a change reason such as:
 | Weekly — Saturday | **Comprehensive calendar refresh** — sweep the full holdings + active-thesis watchlist and relevant macro/theme calendars, looking roughly 2–3 months ahead. Add missing actionable events, update dates/checklists where better information is available, and remove duplication. |
 | Event-driven | Whenever company or market research uncovers a material future catalyst not already represented, add it immediately rather than waiting for Saturday. |
 | Ad hoc | New-name research; watchlist hygiene |
-| Before any `buy` / `add` planned action | Bottom-up valuation standard **and** dossier / data-integrity gate |
+| Before any `buy` / `add` planned action | Independent valuation underwriting gate (**reuse a passed model if still valid**) followed by ritual 8 data-integrity QA and mandate checks |
 | Monthly | Book / mandate pass + opportunity ranking — one portfolio review task |
 | Whenever horizons come due | **Decision grading** — `getJournal?horizon_due=true`; grade what is owed at 30/90/180 days. Continuous, not quarterly: horizons elapse on their own clock (ritual 12) |
 | Quarterly | Theme/factor review + performance calibration roll-up — one portfolio review task |
@@ -523,7 +593,7 @@ For each open holding:
 4. Decide: **hold** (stay), **add** / **reduce** (size), or **exit**.
 5. If the written thesis changed, `updateDossier` first (new version only if assembled JSON changed). Send only the fields that changed; a substantive rewrite passes the [dossier revision gate](#dossier-revision-gate).
 6. `createDecision` today with that conclusion. This completes the weekly review.
-7. If size changes, pass the data-integrity gate (ritual 8), and for an add its [staged-add cases](#adds-under-incomplete-evidence-staged-adds), then `createPlannedAction` (`add` / `reduce` / `sell`). The human still books the fill.
+7. If a `buy`/`add` size changes, verify a still-valid passed [valuation underwriting](#valuation-underwriting-gate) and QA (ritual 8), and for an add its [staged-add cases](#adds-under-incomplete-evidence-staged-adds), then `createPlannedAction` (`add` / `reduce` / `sell`) after approval. The human still books the fill.
 
 Then the next name. Do not batch several holdings into one journal row.
 
@@ -626,10 +696,10 @@ statutory deadline but no announced date.
 Purpose: a ticker is not research until it has a dossier and kill criteria.
 
 1. Confirm it is not already in `getFundState` watchlist. If missing, `addWatchlistCompany` with an **existing** theme (`ai-infrastructure`, `energy`, `robotics-ai`, `defence`, `other`). Duplicate symbols return `409 SYMBOL_EXISTS`. There is no agent archive/remove.
-2. `updateDossier` version 1: summary, thesis, invalidation, next diligence, sources (each a `[title](URL)` link in `source`). If giving a valuation, apply the [bottom-up valuation standard](#bottom-up-valuation-standard); otherwise label the research as a qualitative screen, **not decision-grade** for capital. Bars ingest on the next worker run (or a local backfill).
+2. `updateDossier` version 1: summary, thesis, invalidation, next diligence, sources (each a `[title](URL)` link in `source`). A qualitative screening dossier may be **PROVISIONAL**; do not fabricate a full financial model to populate a watchlist. Before any capital decision, pass the independent [valuation underwriting gate](#valuation-underwriting-gate) and mark the valuation explicitly **DECISION-GRADE**. Bars ingest on the next worker run (or a local backfill).
 3. Optional: `createDecision` `watch` to record “on the list, not in the book.”
 4. Optional: `createReviewTask` for the first dated catalyst.
-5. `createPlannedAction` `buy` only after user approval **and** the data-integrity gate (ritual 8). Still not a fill.
+5. `createPlannedAction` `buy` only after user approval, a **passed valuation underwriting gate**, and the separate data-integrity gate (ritual 8). Still not a fill.
 
 | Step | Tool |
 |------|------|
@@ -703,7 +773,7 @@ The human confirms the fill in the UI. Then:
 
 ## 8. Dossier / data-integrity gate
 
-Purpose: a stale or internally inconsistent dossier cannot authorize a planned `buy` or `add`. This is QA, not a second research opinion.
+Purpose: a stale or internally inconsistent dossier cannot authorize a planned `buy` or `add`. **This is QA, not economic underwriting.** A separately passed [valuation underwriting gate](#valuation-underwriting-gate) is a prerequisite; ritual 8 checks its status/current applicability, not whether the financial thesis is economically correct.
 
 Run before `createPlannedAction` `buy` / `add` (and before asking the human to confirm that fill):
 
@@ -711,19 +781,19 @@ Run before `createPlannedAction` `buy` / `add` (and before asking the human to c
 2. `getPortfolio` (if already held) or `getCompanyDossier` last_close vs the **scenario anchor** in the write-up. Use `last_close_session` / `price_data_through`. If `price_data_stale` is true, we are missing the last completed US cash session — do not pass the gate on those closes. If the reference price in the valuation section is stale or from the wrong listing, refresh scenarios with `updateDossier` before sizing.
 3. `verified_at` is recent enough for a capital decision (if missing or weeks old, re-verify).
 4. Primary `source` links resolve and pass the source-format gate (below); major results since `verified_at` are in the thesis.
-5. Scenario math is internally consistent with the reference price you just checked (probability-weighted 24/60m returns still use that price); the distinction between CAGR to a weighted endpoint and a weighted mean of scenario CAGRs is made explicit.
-6. **Bottom-up valuation has passed** the [mandatory standard](#bottom-up-valuation-standard): company-specific revenue drivers → margins and normalized EPS → diluted shares and sustainable FCF → independently justified terminal multiples or valuation method, with a reverse-assumption test. Missing drivers or unsupported EPS/multiple guesses mean **not decision-grade**, even when the terminal-price arithmetic is correct.
+5. Scenario math is internally consistent with the reference price you just checked; bear/base/bull weights, shares/splits and 24/60-month return calculations are checked. The distinction between CAGR to the weighted endpoint and weighted average of scenario CAGRs is explicit.
+6. The dossier identifies a **previously passed, still-current `DECISION-GRADE` valuation** under the [separate underwriting gate](#valuation-underwriting-gate), and material new evidence has been checked for contradictions. **This step verifies the model's status and date; it does not re-perform underwriting by checklist.**
 7. Kill criteria are written (mandate rule 4).
 
 **Source-format gate:** before writing or materially updating a dossier, verify that externally referenced documents in `source` are represented as valid Markdown links. A source list containing document names without URLs, or bare URLs where a title is available, fails the write-quality gate.
 
-If any of those fail: do **not** `createPlannedAction`. Fix the dossier first, or say the name is not decision-grade.
+If any QA item fails, or the independent underwriting status is missing, provisional or contradicted: do **not** `createPlannedAction`. Resolve arithmetic/freshness issues here; refer economic questions to the underwriting gate rather than declaring them solved by a consistent table.
 
 There is no separate integrity API. The agent compares dossier text to `getPortfolio` / live marks. Contribution math and split-adjusted history are not machine-checked yet.
 
 ### Adds under incomplete evidence (staged adds)
 
-The gate above decides whether a dossier is fit to authorize capital. This step decides how much of an intended **add** the evidence supports. It exists because a binary evidence gate turns "uncertainty remains" into "zero tranche", and that is not always right. The rule was added after decision grading identified a case where strong primary evidence and a material valuation dislocation still resulted in zero incremental capital, because secondary uncertainties were treated as binary gates. The fix is to stage the add, not to weaken the gate.
+The independent underwriting gate **and** the QA gate above decide whether a dossier is fit to authorize capital. This step decides how much of an intended **add** the evidence supports. It exists because a binary evidence gate turns "uncertainty remains" into "zero tranche", and that is not always right. The rule was added after decision grading identified a case where strong primary evidence and a material valuation dislocation still resulted in zero incremental capital, because secondary uncertainties were treated as binary gates. The fix is to stage the add, not to weaken the gate.
 
 > *Provenance: CRDO.* Thesis and primary operating evidence already strong, no warning or invalidation fired, a sharp valuation dislocation — and no second tranche, because customer concentration, working-capital conversion and production diversification were still open. The 30-day grade: thesis correct, timing poor, sizing and risk management good.
 
@@ -800,7 +870,7 @@ A technical confirmation may justify entering at a somewhat higher price **only 
 Purpose: the fund succeeds by answering “given everything else we could own, is this the best use of the next $1 of risk?” — not “is this company good?” Corrections are an expected source of return only when price fell more than intrinsic value.
 
 1. `getFundState?include_watchlist=true` — holdings, watchlist with `has_dossier`, cash, open planned dollars, factor flags. For each name you intend to rank, load its completed reviews (`getReviewQueue?status=completed&symbol=…&limit=3`): a name deferred last month for a stated reason has not become buyable because the reason was forgotten.
-2. For each **decision-grade** name (live dossier + kill criteria + [passed bottom-up valuation standard](#bottom-up-valuation-standard)): `getCompanyDossier`. Refresh price vs the scenario anchor (ritual 8). Compare 24/60m scenario values and their company-specific revenue/EPS/FCF bridges, terminal multiple assumptions, downside, model uncertainty, factor overlap and evidence status on a consistent share/cycle basis. List provisional/old EPS × P/E estimates separately as **research only**; do not rank them as verified expected returns.
+2. For each name with a **still-valid `DECISION-GRADE` operating model** under the [valuation underwriting gate](#valuation-underwriting-gate): `getCompanyDossier`, then **reprice** its existing 24/60-month scenarios at the latest verified close. Do not rebuild revenue/EPS/FCF each month without material new evidence. Compare downside, sustainable cash conversion, independent terminal assumptions, model confidence, factor overlap and opportunity cost on a consistent share/cycle basis. If a new catalyst invalidates the assumptions, **re-underwrite before ranking**. List provisional/legacy EPS × P/E estimates separately as **research only**—not verified expected returns. This applies during the [first-pass audit](#one-time-audit-of-existing-research-and-planned-actions) as well.
 3. Classify each name into a **correction-readiness** state. Scenario values drive the state, not a raw % drawdown:
 
 | State | Meaning | Posture |
@@ -833,7 +903,7 @@ Purpose: the fund succeeds by answering “given everything else we could own, i
    - Does the technical state argue for **smaller initial size**, **waiting for confirmation**, or **normal sizing**?
 
    The state changes *how* and *how fast* to enter, never *whether* the name belongs on the list: it cannot move a name between ranking buckets. **Tie-break only:** when two candidates have similar expected return and evidence quality, prefer better factor diversification first, then the cleaner entry structure (less adverse technical momentum). Expected return, downside, thesis quality and factor fit still rank ahead of any technical setup. The PowerFund API returns only the latest close (`last_close`, `last_close_session`), not price history, so judge structure from external chart data and say which source and timeframe you used. There is no `technical_state` field or endpoint; it lives in the ranking table you persist in the review outcome (below), next to the bucket, with its sizing implication.
-7. Only then `createPlannedAction` for the names that won the rank, after user approval and ritual 8, including its staged-add sizing for an add and its entry-staging check for the size and trigger.
+7. Only then `createPlannedAction` for the names that won the rank, after user approval, the separate [valuation underwriting gate](#valuation-underwriting-gate), ritual 8 QA, and relevant mandate rules, including staged-add sizing for an add and entry-staging checks for the size and trigger.
 
 On the **monthly** pass, this ranking is a section of `Monthly book pass — YYYY-MM` — persist the table in that task’s `outcome`, not a second review task. If you rank before a material tranche **after** that month’s task is already completed, `createReviewTask` `scope: portfolio` titled `Opportunity pass — YYYY-MM-DD`, complete it with the ranking in `outcome`, and do not roll a next “opportunity” task (the monthly cadence already rolls).
 
