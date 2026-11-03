@@ -384,11 +384,17 @@ model *and* the other company/mandate requirements. Existing legacy statuses
 must be audited, not silently presumed valid.
 
 There is no structured model or valuation-status field in the current API.
-Until one exists, write a clearly delimited block **inside `thesis`** with
-these literal boundaries, so it can be reconciled as one item:
+Until one exists, write a clearly delimited block **inside `thesis`** so it
+can be reconciled as one item. The live block starts at a heading
+`### Valuation` and is identified by `**Valuation status:**`. Do not wrap it
+in HTML comments — the site renderer prints those as visible text.
+
+A dossier has **one live** Valuation heading. A re-underwrite **replaces**
+that block. Do not append a second live status; ritual 8 will not know which
+date to trust. If an earlier model still belongs in the dossier, move it
+below the live block and label it **historical / superseded**.
 
 ```markdown
-<!-- VALUATION_MODEL_START -->
 ### Valuation — [company] — as of YYYY-MM-DD
 **Valuation status:** DECISION-GRADE | PROVISIONAL
 **Evidence cutoff / next review:** ...
@@ -397,14 +403,12 @@ these literal boundaries, so it can be reconciled as one item:
 **24-month and 60-month bear / base / bull:** ...
 **Valuation method / peer basis / reverse test / confidence:** ...
 **Unresolved primary gates / invalidation:** ...
-<!-- VALUATION_MODEL_END -->
 ```
 
 This is a **minimum compact summary**, not an invitation to manufacture a
 new full model on every update. Keep detailed workings where useful, link
-sources in `dossier.source`, and reconcile the delimited block when
-substantively changing `thesis` under the dossier-revision gate. Earlier
-models should be explicitly labeled **historical / superseded**.
+sources in `dossier.source`, and reconcile the live Valuation heading when
+substantively changing `thesis` under the dossier-revision gate.
 
 **Return reporting:** State the current closing price/date, downside, scenario
 probabilities, weighted terminal value, and whether dividends are included.
@@ -778,7 +782,7 @@ Purpose: a stale or internally inconsistent dossier cannot authorize a planned `
 Run before `createPlannedAction` `buy` / `add` (and before asking the human to confirm that fill):
 
 1. `getCompanyDossier` — ticker and name match the instrument; share class is the one you meant (ADR vs ordinary, dual listing).
-2. `getPortfolio` (if already held) or `getCompanyDossier` last_close vs the **scenario anchor** in the write-up. Use `last_close_session` / `price_data_through`. If `price_data_stale` is true, we are missing the last completed US cash session — do not pass the gate on those closes. If the reference price in the valuation section is stale or from the wrong listing, refresh scenarios with `updateDossier` before sizing.
+2. `getPortfolio` (if already held) or `getCompanyDossier` last_close vs the **scenario anchor** in the write-up. Use `last_close_session` / `price_data_through`. If `price_data_stale` is true, we are missing the last completed US cash session — do not pass the gate on those closes. If the reference price in the valuation section is stale or from the wrong listing, **reprice** the existing model (new close and recomputed CAGRs) before sizing — a surgical update of the live Valuation heading, not a thesis rewrite and not a re-underwrite. See [reprice versus re-underwrite](#when-to-run-it-reprice-versus-re-underwrite).
 3. `verified_at` is recent enough for a capital decision (if missing or weeks old, re-verify).
 4. Primary `source` links resolve and pass the source-format gate (below); major results since `verified_at` are in the thesis.
 5. Scenario math is internally consistent with the reference price you just checked; bear/base/bull weights, shares/splits and 24/60-month return calculations are checked. The distinction between CAGR to the weighted endpoint and weighted average of scenario CAGRs is explicit.
