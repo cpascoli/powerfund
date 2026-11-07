@@ -257,6 +257,7 @@ We do not define edge as:
 | Whenever a horizon elapses | Decision grading — 30 / 90 / 180 days from each decision's anchor | Append-only **outcome** on the journal row. Continuous, because horizons elapse on their own clock; process: ritual 12. |
 | Monthly | Mandate compliance, theme mix, where the next dollar goes, lesson write-ups | One **portfolio** review task (`Monthly book pass — YYYY-MM`). Process: [gpt-agent-process.md](./gpt-agent-process.md) rituals 6 and 9. |
 | Quarterly | Strategy fit; theme and factor weights; NAV and deployed performance vs S&P 500 and QQQ; the accumulated decision grades read **by class**, never pooled; update defaults if needed | One **portfolio** review task (`Quarterly book review — YYYY-Qn`). Process: rituals 10 and 12g. |
+| Before a material dated factor-wide catalyst | Ex-ante book-level risk decision (HOLD / DEFER NEW RISK / conditional REDUCE). Ordinary Fed/CPI prints and recurring clustered earnings are not this row unless they clear the materiality screen. | One **portfolio** review task (`Pre-event portfolio risk — YYYY-MM-DD — EVENT`), scheduled at the pre-event deadline. Process: [gpt-agent-process.md](./gpt-agent-process.md) ritual 15. |
 
 ## Open mandate decisions
 

@@ -1,6 +1,6 @@
 ---
 name: powerfund
-description: Run the PowerFund book with its operator — the daily briefing sweep, weekly holding reviews, calendar fill, new-name research, re-underwrites, decision grading, monthly and quarterly book reviews — using the PowerFund MCP tools. Use whenever the user asks about PowerFund, its portfolio, dossiers, journal, research inbox, review calendar, planned trades, or any ritual in its operating process.
+description: Run the PowerFund book with its operator — the daily briefing sweep, weekly holding reviews, calendar fill, new-name research, re-underwrites, decision grading, monthly and quarterly book reviews, pre-event portfolio risk — using the PowerFund MCP tools. Use whenever the user asks about PowerFund, its portfolio, dossiers, journal, research inbox, review calendar, planned trades, or any ritual in its operating process.
 ---
 
 # PowerFund
@@ -38,7 +38,8 @@ process document disagree, the process document wins.
   complete a weekly review.
 - **Review tasks are dated obligations**: company/theme/macro catalysts, and
   `scope: portfolio` book rituals (monthly pass, quarterly review, stress
-  diagnostic, capital-phase gate). Not reminders, and never trades.
+  diagnostic, pre-event portfolio risk, capital-phase gate). Not reminders,
+  and never trades.
 - **Historical review gate.** Before reassessing a name or completing any review,
   call `get_review_context`. It loads the journal, the linked completed reviews,
   the book-level portfolio chain (which a symbol filter can never reach), the
@@ -50,6 +51,14 @@ process document disagree, the process document wins.
   Shipping software never authorises more capital.
 - **The 15% deployed-sleeve drawdown is a diagnostic** in capital Phase 1, not an
   automatic trim or buy halt. Per-name invalidation still forces reduce/exit.
+- **Pre-event portfolio risk gate.** For a dated catalyst that clears ritual
+  15's materiality screen, write an ex-ante HOLD / DEFER NEW RISK / conditional
+  REDUCE **before the event**. Screen first: ordinary Fed/CPI prints and
+  recurring clustered earnings are lightweight calendar/macro notes unless
+  that bar is crossed. Phase-1 default when theses are intact: defer new
+  factor risk, do not narrative-trim. Hedging is not an executable option
+  until the mandate names size, max loss and purpose. Detail:
+  `references/gpt-agent-process.md`, ritual 15.
 - **Technical state is an execution input, not an investment thesis.**
   Fundamentals decide what to own and at what valuation; technicals help
   decide when and how quickly to enter. Use price action only for entry
@@ -121,7 +130,9 @@ REST names; the tools are:
   duplicates) → `create_review_task` only for dated, actionable events.
   `scheduled` for **confirmed** dates, `event_window` for estimates. Promote
   with `update_review_task` when IR confirms. Keep the monthly and quarterly
-  portfolio tasks rolled.
+  portfolio tasks rolled. Screen material factor-wide events for ritual 15;
+  if it fires, the pre-event portfolio task is separate from the event-day
+  catalyst task.
 - **Ritual 4 · New-name research.** `add_watchlist_company` (existing theme) →
   `update_dossier` with `expected_version: null` for version 1 (needs a
   summary) → optionally `record_decision` `watch`.
@@ -131,11 +142,12 @@ REST names; the tools are:
 - **Ritual 8 · Data-integrity gate** before any `buy`/`add`: `get_dossier` +
   `get_portfolio`. Check listing, last close vs the scenario anchor, freshness,
   `verified_at` and kill criteria. If any fail, do not queue.
-- **Rituals 6/9, 10/12g, 11, 13/14 · Monthly book pass + ranking, quarterly
-  review, stress incident, capital-phase gates:** find or create the
-  `scope: portfolio` task, load the portfolio chain, run the ritual, put the
+- **Rituals 6/9, 10/12g, 11, 13/14, 15 · Monthly book pass + ranking, quarterly
+  review, stress incident, capital-phase gates, pre-event portfolio risk:**
+  find or create the `scope: portfolio` task, load the portfolio chain (ritual
+  11 also loads any relevant ritual-15 write), run the ritual, put the
   conclusions in `complete_review_task`'s outcome (never only in chat), and roll
-  the next period where the process says to.
+  the next period where the process says to. Ritual 15 does not roll.
 - **Ritual 12 · Decision grading.** `get_calibration_status` → `get_journal`
   `horizon_due:true` → `get_dossier_version` on each pin → batch approval →
   `record_decision_outcome` with `horizon_days` (30/90/180, or `null`
@@ -162,7 +174,7 @@ REST names; the tools are:
 
 ## References
 
-- `references/gpt-agent-process.md`: the operating process (rituals 1–14, object taxonomy, review gate)
+- `references/gpt-agent-process.md`: the operating process (rituals 1–15, object taxonomy, review gate)
 - `references/tool-map.md`: REST operation → MCP tool
 - `references/mandate.md`: risk rules, caps, capital phases
 - `references/goals.md`, `references/themes.md`: why the fund exists; the theme map
