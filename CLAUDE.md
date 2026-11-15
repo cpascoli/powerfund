@@ -7,10 +7,10 @@ decision → risk platform with a human confirming every fill.
 **Read `docs/` before proposing anything about the investment process** —
 `goals.md`, `mandate.md`, `themes.md`, `plan.md`, `gpt-agent-process.md`,
 `agent-api.md`. They are living operator documents, not specs. Current open
-items live in `docs/reviews/` — the **2026-10-13 full review** (§7.3 bug
-table, §11 ordered sprint) is the live list; its §4.3 closes every item of the
-2026-09-18 review, which in turn closed 2026-09-02 and the 2026-09-03
-remediation log. Read those before proposing work, so you do not rediscover
+items live in `docs/reviews/` — the **2026-11-15 full review** (§7.3 bug
+table, §11 ordered month) is the live list; its §4.3 carries every item of the
+2026-10-13 review (none closed), which closed 2026-09-18, which in turn closed
+2026-09-02 and the 2026-09-03 remediation log. Read those before proposing work, so you do not rediscover
 something already recorded.
 
 ## The rule that matters most
