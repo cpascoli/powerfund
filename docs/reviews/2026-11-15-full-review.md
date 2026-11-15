@@ -1015,3 +1015,57 @@ only proven property is caution. The ritual-13 transition review should be
 required to answer items 1–3 above with numbers, which makes them a concrete
 form of the relative-return clause the mandate has left open since
 19 September.
+
+---
+
+## 14. Reviewer's opinion: what else would raise the odds
+
+Asked by the operator as a follow-up to §13: beyond the items in §11, what
+would improve risk-adjusted returns? Opinion again, not measurement. The
+changes most likely to matter are mostly not software, and the largest are
+about portfolio structure rather than stock-picking. In rough order of
+expected impact:
+
+1. **Decide what the 88% cash is doing.** It is the largest position in the
+   fund, and the system spends almost all of its effort on the other 12%. The
+   book has no interest booking path (§7.2), so this review cannot tell
+   whether that $211k is earning anything. If it is not in T-bills or a
+   money-market fund, fixing that is worth more per year than anything in §11.
+   Beyond that, consider a core-satellite structure: a broad index core, with
+   the thematic picks as a satellite that has to earn its size.
+2. **Size by risk, not dollars.** NBIS and SNDK received the same kind of
+   dollar starter as ISRG and lost about 50% each. Scale each position
+   inversely to its volatility and to its bear-case loss, so a name that can
+   halve gets half the money. This is plan item 18 with a rule attached.
+3. **Cap the AI factor as a share of the sleeve, not of NAV.** It was 62% of
+   the sleeve going into the drawdown, and every cap passed because the caps
+   are measured against NAV. Treat the factor as one position with its own
+   limit (plan item 19, and the reason theme caps did not bind).
+4. **Spread entries over time.** Five of the first positions were bought
+   within two days in August at premium multiples. Splitting each intended
+   position into three tranches over three to six months would have cut the
+   entry-timing damage that every grade in §3.6 blames.
+5. **Require a margin of safety at entry.** The valuation gate asks whether
+   the model is earned; add a numeric bar on top of it, such as a maximum
+   bear-case loss or a minimum ratio of base-case upside to bear-case
+   downside. This is the hurdle the mandate has not written down (§6.2).
+6. **Pre-commit a loss budget per name.** Not a mechanical stop-loss: a level
+   at which the position is cut to half pending a re-underwrite. It forces
+   the sell path to be used and stops `hold` being the only answer the
+   process ever gives (112 of 133 decisions).
+7. **Separate the challenger from the decider.** Have a second agent write
+   the bear case before every buy, and grade decisions it did not make. It is
+   cheap with this setup and addresses the self-grading problem in §3.6
+   directly.
+8. **Give the picks a kill criterion of their own.** If after twelve months
+   the sleeve has not beaten a plain AI or semiconductor ETF, replace the
+   satellite with the ETF. The theme exposure is kept for a fraction of the
+   work.
+
+Items 1–4 would have changed this year's outcome materially; 5–8 improve the
+odds that the process finds out whether it has an edge. Items 1, 3, 5, 6 and
+8 are mandate decisions and belong beside the list at the end of §11; items
+2, 4 and 7 are process changes and, per §11's rule for the month, should wait
+for the quarterly roll-up rather than be added to the process document now.
+None of this is a forecast, and the structural choice in item 1 depends on
+the operator's wider finances, which this review cannot see.
