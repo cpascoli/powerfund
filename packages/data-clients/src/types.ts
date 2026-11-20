@@ -9,6 +9,17 @@ export type DailyBar = {
   source: string;
 };
 
+/**
+ * A split as the vendor reports it. `date` is the ex-date: the first session
+ * that trades on the new basis. `numerator` new shares per `denominator` old.
+ */
+export type VendorSplit = {
+  date: string; // YYYY-MM-DD
+  numerator: number;
+  denominator: number;
+  source: string;
+};
+
 export type MarketCapPoint = {
   asOfDate: string;
   marketCap: number;

@@ -1,8 +1,10 @@
 import {
   fractionToPercent,
   roundPercent,
+  type BookIntegrity,
   type ContributionReport,
 } from "@powerfund/domain";
+import { loadBookIntegrity } from "@powerfund/db";
 
 import { validationError } from "@/lib/api/agent/errors";
 import {
@@ -11,7 +13,8 @@ import {
 } from "@/lib/data/contribution";
 import {
   loadSuccessBenchmarkThrough,
-  freshnessPayload,
+  INTEGRITY_NOTE,
+  integrityPayload,
 } from "@/lib/data/price-freshness";
 import {
   buildPerformanceReport,
@@ -115,13 +118,14 @@ export function toAgentPerformance(
   contribution: ContributionReport,
   through: string | null,
   windowTo?: string,
+  integrity?: BookIntegrity | null,
 ) {
   const asOf = report.asOf;
   const markThrough =
     contribution.tradingDays > 0 ? contribution.end : through;
   return {
     as_of: asOf,
-    ...freshnessPayload(markThrough, windowTo ?? asOf),
+    ...integrityPayload(markThrough, integrity, windowTo ?? asOf),
     success_benchmark: "S&P 500 TR (SPY)",
     style_benchmark: "Nasdaq-100 TR (QQQ)",
     units: "percent",
@@ -138,6 +142,8 @@ export function toAgentPerformance(
       ...contribution.notes,
       "Return *_pct fields are percent (1.2 means 1.2%). Contribution pnl_usd is dollars, not TWR. Per-decision 30/90/180d vs SPY is on getJournal, not this payload.",
       "price_data_through is the last session in this series. as_of is when the response was built. If price_data_stale is true, we are missing the last completed US cash session.",
+      INTEGRITY_NOTE,
+      "The NAV series is rebuilt nightly from the ledger with quantities on the current share basis, so a split leaves no step in any return or drawdown here.",
     ],
   };
 }
@@ -148,10 +154,13 @@ export async function getAgentPerformance(
 ) {
   const live = await loadLivePerformanceMark(supabase);
   const window = resolvedContributionRange(range, live.asOf);
-  const [report, contribution, spyThrough] = await Promise.all([
+  const [report, contribution, spyThrough, integrity] = await Promise.all([
     buildPerformanceReport(supabase, live, range),
     loadContributionReport(supabase, window),
     loadSuccessBenchmarkThrough(supabase),
+    // Null, not a throw: the returns still compute, and the payload says they
+    // could not be vouched for.
+    loadBookIntegrity(supabase).catch(() => null),
   ]);
-  return toAgentPerformance(report, contribution, spyThrough, window.to);
+  return toAgentPerformance(report, contribution, spyThrough, window.to, integrity);
 }

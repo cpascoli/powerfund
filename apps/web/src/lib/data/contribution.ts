@@ -1,13 +1,15 @@
 import {
   INCEPTION_DATE,
   contributionFromLedger,
+  fillSessionDate,
+  ledgerOnCurrentBasis,
   utcDay,
   type ContributionReport,
   type HoldingInstrument,
   type HoldingLedgerRow,
   type PriceBar,
 } from "@powerfund/domain";
-import type { Database } from "@powerfund/db";
+import { loadAppliedSplits, type Database } from "@powerfund/db";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 import type { PerformanceRange } from "@/lib/data/performance";
@@ -59,15 +61,21 @@ export async function loadContributionReport(
     throw new Error(`Failed to load ledger for contribution: ${txError.message}`);
   }
 
-  const ledger: HoldingLedgerRow[] = ((txData as TxRow[] | null) ?? []).map(
-    (row) => ({
+  // Quantities go onto the current share basis before they meet a stored
+  // close, by the same rule the snapshot rebuild uses. Mark-to-market
+  // contribution is quantity x price on every day held; on mixed bases a split
+  // shows up as that name losing seven-eighths of its value.
+  const ledger: HoldingLedgerRow[] = ledgerOnCurrentBasis(
+    ((txData as TxRow[] | null) ?? []).map((row) => ({
       occurredAt: row.occurred_at,
       kind: row.kind,
       instrumentId: row.instrument_id,
       quantity: row.quantity == null ? null : Number(row.quantity),
       cashDelta: Number(row.cash_delta),
       realizedPnl: row.realized_pnl == null ? null : Number(row.realized_pnl),
-    }),
+    })),
+    await loadAppliedSplits(db),
+    fillSessionDate,
   );
 
   const instrumentIds = [

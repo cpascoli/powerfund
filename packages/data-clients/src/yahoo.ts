@@ -6,6 +6,7 @@ import type {
   MarketCapPoint,
   MarketState,
   QuarterlyFundamentals,
+  VendorSplit,
 } from "./types";
 
 const yahooFinance = new YahooFinance({
@@ -27,11 +28,20 @@ function num(value: unknown): number | null {
   return null;
 }
 
-export async function fetchYahooDailyBars(args: {
+/**
+ * Daily bars and the split events inside the same window, from one request.
+ *
+ * Yahoo's closes are split-adjusted to today: when a split takes effect it
+ * restates every earlier session. The events list is how it says so — but not
+ * reliably on time. For Sandisk's November 2026 split the restated prices were
+ * being served before any event was, so an empty list is not evidence that no
+ * split happened. Ingest treats this as one of two signals, never the only one.
+ */
+export async function fetchYahooChart(args: {
   symbol: string;
   startDate: string;
   endDate?: string;
-}): Promise<DailyBar[]> {
+}): Promise<{ bars: DailyBar[]; splits: VendorSplit[] }> {
   const result = await yahooFinance.chart(args.symbol, {
     period1: args.startDate,
     period2: args.endDate ?? new Date(),
@@ -40,7 +50,7 @@ export async function fetchYahooDailyBars(args: {
   });
 
   const quotes = result.quotes ?? [];
-  return quotes
+  const bars = quotes
     .map((row) => ({
       date: toDateOnly(row.date) ?? args.startDate,
       open: num(row.open),
@@ -52,6 +62,32 @@ export async function fetchYahooDailyBars(args: {
       source: "yahoo",
     }))
     .filter((row) => row.close != null);
+
+  return { bars, splits: splitsFromYahooEvents(result.events?.splits) };
+}
+
+/** Exported for tests: the vendor's event rows, kept only when well-formed. */
+export function splitsFromYahooEvents(events: unknown): VendorSplit[] {
+  if (!Array.isArray(events)) return [];
+  const out: VendorSplit[] = [];
+  for (const raw of events as Array<Record<string, unknown>>) {
+    const date = toDateOnly(raw?.date as Date | string | number | null | undefined);
+    const numerator = num(raw?.numerator);
+    const denominator = num(raw?.denominator);
+    if (date == null || numerator == null || denominator == null) continue;
+    if (!Number.isInteger(numerator) || !Number.isInteger(denominator)) continue;
+    if (numerator <= 0 || denominator <= 0 || numerator === denominator) continue;
+    out.push({ date, numerator, denominator, source: "yahoo" });
+  }
+  return out;
+}
+
+export async function fetchYahooDailyBars(args: {
+  symbol: string;
+  startDate: string;
+  endDate?: string;
+}): Promise<DailyBar[]> {
+  return (await fetchYahooChart(args)).bars;
 }
 
 export async function fetchYahooMarketCap(

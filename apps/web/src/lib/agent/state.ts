@@ -9,6 +9,7 @@ import {
   listOpenPlannedActions,
 } from "@/lib/data/planned-actions";
 import { getOpenPortfolioBook } from "@/lib/data/portfolio";
+import { integrityPayload } from "@/lib/data/price-freshness";
 import {
   listInstrumentsWithThemes,
   listThemes,
@@ -155,8 +156,10 @@ export async function getFundState(
       deposited_capital_usd: privateBook.deposited_capital_usd,
       flags,
       mark: privateBook.mark,
-      price_data_through: privateBook.price_data_through,
-      price_data_stale: privateBook.price_data_stale,
+      // Freshness and whether the valuation is fit to act on, exactly as
+      // getPortfolio reports them — the first read of a session should not be
+      // able to miss a provisional book.
+      ...integrityPayload(book.priceDataThrough, book.integrity),
     },
     theme_exposure: privateBook.theme_exposure,
     holdings: privateBook.holdings,

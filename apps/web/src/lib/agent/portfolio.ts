@@ -3,7 +3,7 @@ import { roundPercent } from "@powerfund/domain";
 import { listSleeveDiagnosticRecords } from "@/lib/data/drawdown-diagnostic";
 import { getLedgerSummary, type LedgerSummary } from "@/lib/data/ledger";
 import { getOpenPortfolioBook, type PortfolioBook } from "@/lib/data/portfolio";
-import { freshnessPayload } from "@/lib/data/price-freshness";
+import { INTEGRITY_NOTE, integrityPayload } from "@/lib/data/price-freshness";
 import {
   listLedgerFlows,
   listPortfolioSnapshots,
@@ -61,7 +61,7 @@ export function toPrivatePortfolio(book: PortfolioBook, ledger: LedgerSummary) {
     })),
     flags: book.flags,
     mark: { label: book.markLabel, as_of: book.markAsOf },
-    ...freshnessPayload(book.priceDataThrough),
+    ...integrityPayload(book.priceDataThrough, book.integrity),
   };
 }
 
@@ -105,6 +105,8 @@ export async function getPrivatePortfolio(supabase: DbClient) {
       "flags include the snapshot kill-switch. Warn + due means ritual 11 is still owed; warn with due=false means the 15% condition is live but the diagnostic for this breach is done. all_clear is book-only and can sit next to an ok kill-switch row.",
       "last_close_session is the market_bars date for last_close. price_data_through is the latest of those sessions. If price_data_stale is true, we are missing the last completed US cash session.",
       "cash.pct_nav, weight_pct_nav, and unrealized_pnl_pct are percent (1.2 means 1.2%).",
+      INTEGRITY_NOTE,
+      "quantity and avg_cost are on the current share basis: after a split they are restated, cost_basis_usd is not. recent_ledger rows are as booked, on the basis of their own day.",
     ],
   };
 }

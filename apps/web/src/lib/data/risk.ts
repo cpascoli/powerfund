@@ -33,6 +33,8 @@ export type RiskView = {
   asOf: string;
   /** Latest stored session among the holdings' marks. */
   priceDataThrough: string | null;
+  /** The book's integrity assessment; see `PortfolioBook.integrity`. */
+  integrity?: import("@powerfund/domain").BookIntegrity | null;
   nav: number;
   deployed: number;
   aiCapexPct: number | null;
@@ -252,6 +254,7 @@ export async function getRiskView(client?: DbClient): Promise<RiskView> {
   return {
     asOf,
     priceDataThrough: book.priceDataThrough,
+    integrity: book.integrity,
     nav: book.nav,
     deployed,
     aiCapexPct,

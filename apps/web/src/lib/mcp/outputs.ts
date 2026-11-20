@@ -33,6 +33,18 @@ const freshness = {
   price_data_stale: bool("True when the last completed US cash session is missing: do not treat closes as current."),
 };
 
+// Book-backed reads say more than "how fresh": whether the valuation is fit
+// to act on at all.
+const integrity = {
+  ...freshness,
+  price_data_stale: bool("True when ANY open holding lacks the last completed US cash session: do not treat closes as current."),
+  price_data_expected_session: str("The session every holding should have a close for."),
+  price_data_missing: list("Open holdings with no close for the expected session: symbol, last_close_session."),
+  corporate_actions_pending: list("Splits registered but not applied: symbol, ratio, effective_date, source, held."),
+  valuation_provisional: bool("True when NAV, returns, drawdown or risk here are unreliable (a holding lacks its close, or is on the wrong share basis). Do not base a deployment decision on a provisional valuation."),
+  valuation_warnings: notes("Why the valuation is provisional, by ticker."),
+};
+
 const reviewTask = section(
   "The review task: id, title, instructions, scope, priority, status, trigger, symbols, themes, dates, outcome, outputs.",
 );
@@ -56,7 +68,7 @@ export const TOOL_OUTPUTS: Record<string, z.ZodRawShape> = {
     mandate: section("Mandate reference and numeric risk defaults."),
     goals: section("Goals reference."),
     cash: section("Cash in dollars and as % of NAV."),
-    portfolio: section("NAV, invested cost vs the capital-phase cap, flags."),
+    portfolio: section("NAV, invested cost vs the capital-phase cap, flags, price_data_stale, price_data_missing, corporate_actions_pending, and valuation_provisional — when true the NAV here is not a reliable input for a deployment decision."),
     holdings: list("Open positions with size and weight."),
     theme_exposure: list("Weight by theme."),
     planned_actions: list("The open deployment queue."),
@@ -69,7 +81,7 @@ export const TOOL_OUTPUTS: Record<string, z.ZodRawShape> = {
   },
   get_portfolio: {
     as_of: str("When the book was read."),
-    ...freshness,
+    ...integrity,
     nav_usd: num("Net asset value, dollars."),
     invested_cost_usd: num("Invested cost, dollars — compare with the capital-phase cap."),
     market_value_usd: num("Market value of positions, dollars."),
@@ -84,7 +96,7 @@ export const TOOL_OUTPUTS: Record<string, z.ZodRawShape> = {
   },
   get_performance: {
     as_of: str("When the response was built."),
-    ...freshness,
+    ...integrity,
     units: str("Returns are in percent."),
     success_benchmark: str("Primary benchmark."),
     style_benchmark: str("Style benchmark."),
@@ -95,7 +107,7 @@ export const TOOL_OUTPUTS: Record<string, z.ZodRawShape> = {
   },
   get_risk_snapshot: {
     as_of: str("When the snapshot was computed."),
-    ...freshness,
+    ...integrity,
     nav_usd: num("Net asset value, dollars, cash included."),
     deployed_usd: num("Market value of positions, dollars."),
     correlation: section("method, window (calendar_days, from, through per symbol), held_symbols, pairs: a, b, correlation, observations, both_held."),

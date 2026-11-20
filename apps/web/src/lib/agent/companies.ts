@@ -1,3 +1,5 @@
+import { fillSessionDate, priceBasisNote, splitRatioLabel } from "@powerfund/domain";
+
 import { notFound } from "@/lib/api/agent/errors";
 import { freshnessPayload } from "@/lib/data/price-freshness";
 import { getInstrumentDossier } from "@/lib/data/research";
@@ -55,6 +57,37 @@ export async function getAgentCompany(supabase: DbClient, symbol: string) {
   const lastClose = lastBar?.adj_close ?? lastBar?.close ?? null;
   const lastCloseSession = lastBar?.bar_date ?? null;
 
+  // Splits for this name, pending ones included. `last_close` is on the
+  // current share basis; a dossier written before a split is not, and its
+  // text is never rewritten, so the factor is handed over beside it.
+  const { data: actionData, error: actionError } = await supabase
+    .from("corporate_actions")
+    .select("effective_date, split_numerator, split_denominator, status, source")
+    .eq("instrument_id", loaded.instrument.id)
+    .in("status", ["pending", "applied"])
+    .order("effective_date", { ascending: true });
+  if (actionError) {
+    throw new Error(`Failed to load corporate actions: ${actionError.message}`);
+  }
+  const actions = actionData ?? [];
+  const applied = actions
+    .filter((row) => row.status === "applied")
+    .map((row) => ({
+      instrumentId: loaded.instrument.id,
+      effectiveDate: row.effective_date,
+      numerator: Number(row.split_numerator),
+      denominator: Number(row.split_denominator),
+    }));
+  const basisNote =
+    version == null
+      ? null
+      : priceBasisNote(
+          applied,
+          loaded.instrument.id,
+          fillSessionDate(version.created_at),
+          `Dossier version ${version.number}`,
+        );
+
   return {
     as_of: new Date().toISOString(),
     ...freshnessPayload(lastCloseSession),
@@ -71,6 +104,17 @@ export async function getAgentCompany(supabase: DbClient, symbol: string) {
     },
     dossier: loaded.dossier,
     current_version: version,
+    corporate_actions: actions.map((row) => ({
+      type: "split",
+      ratio: splitRatioLabel({
+        numerator: Number(row.split_numerator),
+        denominator: Number(row.split_denominator),
+      }),
+      effective_date: row.effective_date,
+      status: row.status,
+      source: row.source,
+    })),
+    price_basis_note: basisNote,
   };
 }
 

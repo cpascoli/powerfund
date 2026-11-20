@@ -3,10 +3,13 @@ import {
   describePriceRebase,
   detectPriceRebase,
   findSeriesDiscontinuities,
+  impliedSplit,
+  nextWeekdayOnOrAfter,
   vendorSymbol,
   type StoredClose,
 } from "@powerfund/domain";
 
+import { recordDetectedSplit } from "../corporate-actions";
 import { createAdminDb, listWatchInstruments, type AdminDb } from "../db";
 
 /**
@@ -15,6 +18,9 @@ import { createAdminDb, listWatchInstruments, type AdminDb } from "../db";
  * two bases spliced together.
  */
 const REBASE_REFETCH_DAYS = 1900;
+
+/** How old a vendor-reported split may be and still be opened as pending. */
+const VENDOR_SPLIT_LOOKBACK_DAYS = 45;
 
 function daysAgoIso(days: number): string {
   const date = new Date();
@@ -28,8 +34,20 @@ export type IngestBarsResult = {
   succeeded: number;
   /** Symbols whose whole series was refetched after the vendor re-based it. */
   rebased: string[];
+  /**
+   * Splits noticed this run and left pending for the operator. A re-based
+   * price series is half of a split; the other half is the book's quantity,
+   * which nothing changes until someone applies the corporate action.
+   */
+  splitsPending: string[];
   failed: string[];
 };
+
+function dayAfter(date: string): string {
+  return new Date(Date.parse(`${date}T00:00:00Z`) + 86_400_000)
+    .toISOString()
+    .slice(0, 10);
+}
 
 const PAGE = 1000;
 
@@ -98,6 +116,7 @@ export async function ingestBars(options: {
   const tiingoKey = process.env.TIINGO_API_KEY ?? null;
   const failed: string[] = [];
   const rebased: string[] = [];
+  const splitsPending: string[] = [];
   let succeeded = 0;
 
   console.log(
@@ -108,11 +127,12 @@ export async function ingestBars(options: {
   for (const instrument of instruments) {
     try {
       const listing = vendorSymbol(instrument.symbol, instrument.dataSymbol);
-      let { bars, source } = await fetchDailyBars({
+      let { bars, source, splits: vendorSplits } = await fetchDailyBars({
         symbol: listing,
         startDate,
         tiingoApiKey: tiingoKey,
       });
+      const splitNotes: string[] = [];
 
       // Did the vendor change its mind about sessions we already hold? That is
       // how a split reaches us — silently, as different numbers for the same
@@ -127,6 +147,60 @@ export async function ingestBars(options: {
           .filter((bar): bar is typeof bar & { close: number } => bar.close != null)
           .map((bar) => ({ date: bar.date, close: bar.close })),
       );
+      // The series moving is the vendor's half of a split. Ours is the
+      // quantity in the book, and nothing here may touch that: it is recorded
+      // as a pending corporate action whether or not the refetch below is
+      // accepted, because a held name is on the wrong basis either way. The
+      // vendor restates on the ex-date, so the session after the last one we
+      // hold is the best estimate of it; a vendor event, when one arrives,
+      // corrects the date.
+      const inferred = rebase.looksLikeSplit
+        ? impliedSplit(rebase.ratio ?? Number.NaN)
+        : null;
+      if (inferred != null) {
+        const lastHeld = held.at(-1)?.date ?? startDate;
+        const note = await recordDetectedSplit(
+          db,
+          instrument,
+          {
+            ...inferred,
+            effectiveDate: nextWeekdayOnOrAfter(dayAfter(lastHeld)),
+            source: "price_rebase",
+          },
+          {
+            stored_over_fetched: rebase.ratio,
+            disagreeing_sessions: rebase.disagreeingSessions,
+            compared_sessions: rebase.comparedSessions,
+            first_disagreement: rebase.firstDisagreement,
+            effective_date_is_estimate: true,
+          },
+        );
+        if (note != null) splitNotes.push(note);
+      }
+      // Only recent events. A wide manual backfill returns every split in the
+      // window, and one from 2022 predates every fill and every threshold we
+      // hold: registering it would raise a warning about nothing.
+      const recentFrom = daysAgoIso(VENDOR_SPLIT_LOOKBACK_DAYS);
+      for (const split of vendorSplits) {
+        if (split.date < recentFrom) continue;
+        const note = await recordDetectedSplit(
+          db,
+          instrument,
+          {
+            numerator: split.numerator,
+            denominator: split.denominator,
+            effectiveDate: split.date,
+            source: "vendor_event",
+          },
+          { vendor: split.source, ex_date: split.date },
+        );
+        if (note != null) splitNotes.push(note);
+      }
+      for (const note of splitNotes) {
+        splitsPending.push(`${instrument.symbol}: ${note}`);
+        console.warn(`[ingest:bars] ${instrument.symbol} — ${note}`);
+      }
+
       if (rebase.rebased && !rebase.looksLikeSplit) {
         // One odd session is a bad print, not a split. Overwriting five years of
         // history on that evidence is how a correct APH series was destroyed on
@@ -257,6 +331,7 @@ export async function ingestBars(options: {
     instruments: instruments.length,
     succeeded,
     rebased,
+    splitsPending,
     failed,
   };
 }

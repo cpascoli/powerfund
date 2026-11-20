@@ -87,6 +87,18 @@ jobs:
       # mode the whole ledger design exists to prevent.
       - name: Verify the book against the ledger
         run: pnpm --filter @powerfund/worker verify:book
+      # The reconciliation above compares the book with the ledger, and both
+      # can agree while the valuation is wrong: when a vendor restates a series
+      # for a split, prices move to the new share basis and quantities do not.
+      # That is what valued SNDK at an eighth of its worth in November 2026
+      # with every other check green. This compares fills with the prices
+      # stored for their own session and lists any split registered but not
+      # applied, and fails the run so it cannot pass unnoticed. A holding that
+      # is merely missing its close is reported, not failed: the retry job
+      # handles that.
+      - name: Check the share basis of the book
+        if: ${{ !cancelled() }}
+        run: pnpm --filter @powerfund/worker book:integrity
 
   # A vendor that has not published yesterday's close yet is the one failure the
   # first pass cannot fix by succeeding. Rather than ingesting twice every

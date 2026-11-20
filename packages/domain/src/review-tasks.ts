@@ -91,6 +91,13 @@ export type ConditionReviewTrigger = {
   operator: ConditionOperator;
   value: number;
   lookback_days?: number;
+  /**
+   * Day the price `value` was last stated, for a `price` metric. A split that
+   * takes effect after it re-bases the threshold; one on or before it does not.
+   * Absent on triggers written before splits were handled, which fall back to
+   * the task's creation date.
+   */
+  price_basis_date?: string;
 };
 
 export type ReviewTrigger =
@@ -113,6 +120,12 @@ export type ReviewTriggerTask = {
   id: string;
   status: ReviewTaskStatus;
   trigger: ReviewTrigger;
+  /**
+   * Product of the splits that took effect after a price threshold was
+   * written. The stored value is divided by it before comparing, so the
+   * threshold and the close are on one share basis. Absent means 1.
+   */
+  priceBasisFactor?: number;
 };
 
 export type TriggerEvaluation = {
@@ -254,6 +267,12 @@ export function parseReviewTrigger(value: unknown): ReviewTrigger {
         value: value.value,
       };
       if (lookbackDays != null) trigger.lookback_days = lookbackDays;
+      if (
+        typeof value.price_basis_date === "string" &&
+        /^\d{4}-\d{2}-\d{2}$/.test(value.price_basis_date)
+      ) {
+        trigger.price_basis_date = value.price_basis_date;
+      }
       return trigger;
     }
     default:
@@ -261,6 +280,26 @@ export function parseReviewTrigger(value: unknown): ReviewTrigger {
         "trigger.type must be scheduled, event_window, or condition.",
       );
   }
+}
+
+/**
+ * Record the day a price threshold was stated.
+ *
+ * Called on the write path only — when a caller supplies a trigger — and never
+ * when a stored one is re-read, so editing a task's title does not quietly
+ * move the basis of a threshold nobody restated. Whatever the caller sent for
+ * `price_basis_date` is overwritten: the basis is when we received the number.
+ */
+export function stampPriceBasis(
+  trigger: ReviewTrigger,
+  session: string,
+): ReviewTrigger {
+  if (trigger.type !== "condition") return trigger;
+  if (trigger.metric !== "price") {
+    const { price_basis_date: _dropped, ...rest } = trigger;
+    return rest;
+  }
+  return { ...trigger, price_basis_date: session };
 }
 
 export function denormalizedSchedule(
@@ -329,10 +368,21 @@ export function isTriggerEvaluable(trigger: ReviewTrigger): boolean {
   }
 }
 
+/**
+ * `priceBasisFactor` exists because a price threshold is a per-share number
+ * with a date on it. "Revisit SNDK below $1,500" was written when a share cost
+ * $1,740; after an eight-for-one split the close is $94 and the naive
+ * comparison fires on a stock that has not fallen at all. The stored value is
+ * never rewritten — the review must still read as it was written — so the
+ * threshold is restated here, at the moment of comparison, and the reason says
+ * so. A return condition needs none of this: both of its closes come from the
+ * same split-adjusted series.
+ */
 export function evaluateTrigger(
   trigger: ReviewTrigger,
   asOf: Date,
   market: MarketObservation = { lastPrice: {}, returnPct: {} },
+  options?: { priceBasisFactor?: number },
 ): { satisfied: boolean; evaluable: boolean; reason: string } {
   switch (trigger.type) {
     case "scheduled": {
@@ -386,17 +436,30 @@ export function evaluateTrigger(
           reason: "market observation is missing",
         };
       }
-      if (compareNumber(observed, trigger.operator, trigger.value)) {
+      const factor = options?.priceBasisFactor ?? 1;
+      if (!Number.isFinite(factor) || factor <= 0) {
+        return {
+          satisfied: false,
+          evaluable: false,
+          reason: "split basis for this threshold is unknown",
+        };
+      }
+      const restated = trigger.metric === "price" && factor !== 1;
+      const threshold = restated ? trigger.value / factor : trigger.value;
+      const basis = restated
+        ? ` (threshold ${trigger.value} restated to ${Number(threshold.toFixed(4))} after a split)`
+        : "";
+      if (compareNumber(observed, trigger.operator, threshold)) {
         return {
           satisfied: true,
           evaluable: true,
-          reason: "condition is satisfied",
+          reason: `condition is satisfied${basis}`,
         };
       }
       return {
         satisfied: false,
         evaluable: true,
-        reason: "condition is not satisfied",
+        reason: `condition is not satisfied${basis}`,
       };
     }
     default: {
@@ -414,7 +477,9 @@ export function evaluateReviewTriggers(
   const evaluations: TriggerEvaluation[] = [];
   const markDueIds: string[] = [];
   for (const task of tasks) {
-    const result = evaluateTrigger(task.trigger, asOf, market);
+    const result = evaluateTrigger(task.trigger, asOf, market, {
+      priceBasisFactor: task.priceBasisFactor,
+    });
     evaluations.push({
       taskId: task.id,
       satisfied: result.satisfied,

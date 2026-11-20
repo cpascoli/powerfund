@@ -1,8 +1,11 @@
+import { loadAppliedSplits } from "@powerfund/db";
 import {
   accumulateLedgerFlows,
   buildPerformancePoints,
   drawdownFromPeakPct,
+  fillSessionDate,
   lastCompletedCashSession,
+  ledgerOnCurrentBasis,
   maxDrawdownPct,
   reconstructSnapshots,
   snapshotAlignmentIssues,
@@ -11,6 +14,7 @@ import {
   type PerformancePoint,
   type ReconstructedSnapshot,
   type SnapshotAlignmentIssue,
+  type StockSplit,
 } from "@powerfund/domain";
 
 import { createAdminDb, type AdminDb } from "../db";
@@ -69,7 +73,16 @@ export async function snapshotPortfolio(options?: {
   /** Report what would change without writing. */
   dryRun?: boolean;
   now?: Date;
+  /**
+   * Use these splits instead of the applied ones in the database. For a dry
+   * run that asks "what would the series be if this split were applied" before
+   * anyone applies it; never combine with a write.
+   */
+  splits?: StockSplit[];
 }): Promise<SnapshotPortfolioResult> {
+  if (options?.splits != null && !options.dryRun) {
+    throw new Error("A split override is a preview: it requires dryRun.");
+  }
   const db = createAdminDb();
   const now = options?.now ?? new Date();
 
@@ -94,15 +107,24 @@ export async function snapshotPortfolio(options?: {
     throw new Error(`Failed to load benchmark: ${benchmarkError.message}`);
   }
 
-  const entries: LedgerEntry[] = ((txData as LedgerRow[] | null) ?? []).map(
-    (row) => ({
+  // Stored closes are on the vendor's current share basis — a split restates
+  // the whole series — so every quantity has to be put on that basis before it
+  // is multiplied by one. Without this an 8-for-1 on a held name marks 2.28
+  // old shares at the new $94 close, on every session back to the fill,
+  // because this job rebuilds the whole history each night. Cash and cost
+  // basis are dollars and pass through untouched, so flows are unaffected.
+  const splits = options?.splits ?? (await loadAppliedSplits(db));
+  const entries: LedgerEntry[] = ledgerOnCurrentBasis(
+    ((txData as LedgerRow[] | null) ?? []).map((row) => ({
       occurredAt: row.occurred_at,
       kind: row.kind,
       instrumentId: row.instrument_id,
       quantity: row.quantity == null ? null : Number(row.quantity),
       cashDelta: Number(row.cash_delta),
       basisDelta: row.basis_delta == null ? null : Number(row.basis_delta),
-    }),
+    })),
+    splits,
+    fillSessionDate,
   );
 
   const empty: SnapshotPortfolioResult = {

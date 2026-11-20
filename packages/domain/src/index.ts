@@ -12,6 +12,7 @@ export * from "./vintages";
 export * from "./scorer-inputs";
 export * from "./replay-stats";
 export * from "./price-rebase";
+export * from "./corporate-actions";
 export * from "./dates";
 export * from "./memory-timeline";
 export * from "./bars-freshness";

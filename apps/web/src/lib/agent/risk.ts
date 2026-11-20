@@ -1,6 +1,6 @@
 import { factorExposures, RISK_DEFAULTS, roundPercent } from "@powerfund/domain";
 
-import { freshnessPayload } from "@/lib/data/price-freshness";
+import { INTEGRITY_NOTE, integrityPayload } from "@/lib/data/price-freshness";
 import { CORRELATION_WINDOW_DAYS, getRiskView, type RiskView } from "@/lib/data/risk";
 import type { DbClient } from "@/lib/supabase/db";
 
@@ -51,7 +51,7 @@ export function toRiskSnapshot(view: RiskView, query: RiskSnapshotQuery = {}) {
 
   return {
     as_of: view.asOf,
-    ...freshnessPayload(view.priceDataThrough, view.asOf),
+    ...integrityPayload(view.priceDataThrough, view.integrity, view.asOf),
     nav_usd: round2(nav),
     deployed_usd: round2(view.deployed),
     correlation: {
@@ -124,6 +124,7 @@ export function toRiskSnapshot(view: RiskView, query: RiskSnapshotQuery = {}) {
       "Read-only. These are the exact Workbench → Risk calculations; quote them, do not recompute them.",
       "Percent fields are percent (1.2 means 1.2%). Impacts are negative numbers.",
       "If price_data_stale is true, the closes behind every number here miss the last completed US cash session.",
+      INTEGRITY_NOTE,
     ],
   };
 }

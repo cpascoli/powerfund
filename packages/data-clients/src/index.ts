@@ -1,9 +1,9 @@
 import { fetchSecQuarterlyFundamentals } from "./sec";
 import { fetchStooqDailyBars } from "./stooq";
 import { fetchTiingoDailyBars } from "./tiingo";
-import type { DailyBar, QuarterlyFundamentals } from "./types";
+import type { DailyBar, QuarterlyFundamentals, VendorSplit } from "./types";
 import {
-  fetchYahooDailyBars,
+  fetchYahooChart,
   fetchYahooMarketCap,
   fetchYahooQuarterlyFundamentals,
 } from "./yahoo";
@@ -14,30 +14,39 @@ export type {
   MarketCapPoint,
   MarketState,
   QuarterlyFundamentals,
+  VendorSplit,
 } from "./types";
 export { fetchTiingoDailyBars } from "./tiingo";
 export { fetchStooqDailyBars } from "./stooq";
 export { fetchSecQuarterlyFundamentals } from "./sec";
 export {
+  fetchYahooChart,
   fetchYahooDailyBars,
   fetchYahooMarketCap,
   fetchYahooQuarterlyFundamentals,
   fetchYahooQuotes,
   fundamentalsFromYahooRow,
   liveQuoteFromYahoo,
+  splitsFromYahooEvents,
 } from "./yahoo";
 
 export async function sleep(ms: number): Promise<void> {
   await new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-/** Fetch daily bars with free-tier vendor fallback chain. */
+/**
+ * Fetch daily bars with free-tier vendor fallback chain.
+ *
+ * `splits` are the split events the serving vendor reported inside the window.
+ * Only Yahoo's chart carries them today; from any other source the list is
+ * empty, which means "not reported", not "none happened".
+ */
 export async function fetchDailyBars(args: {
   symbol: string;
   startDate: string;
   endDate?: string;
   tiingoApiKey?: string | null;
-}): Promise<{ bars: DailyBar[]; source: string }> {
+}): Promise<{ bars: DailyBar[]; source: string; splits: VendorSplit[] }> {
   const errors: string[] = [];
 
   if (args.tiingoApiKey) {
@@ -49,7 +58,7 @@ export async function fetchDailyBars(args: {
         endDate: args.endDate,
       });
       if (bars.length > 0) {
-        return { bars, source: "tiingo" };
+        return { bars, source: "tiingo", splits: [] };
       }
       errors.push("tiingo: empty");
     } catch (error) {
@@ -60,13 +69,13 @@ export async function fetchDailyBars(args: {
   }
 
   try {
-    const bars = await fetchYahooDailyBars({
+    const { bars, splits } = await fetchYahooChart({
       symbol: args.symbol,
       startDate: args.startDate,
       endDate: args.endDate,
     });
     if (bars.length > 0) {
-      return { bars, source: "yahoo" };
+      return { bars, source: "yahoo", splits };
     }
     errors.push("yahoo: empty");
   } catch (error) {
@@ -82,7 +91,7 @@ export async function fetchDailyBars(args: {
       endDate: args.endDate,
     });
     if (bars.length > 0) {
-      return { bars, source: "stooq" };
+      return { bars, source: "stooq", splits: [] };
     }
     errors.push("stooq: empty");
   } catch (error) {

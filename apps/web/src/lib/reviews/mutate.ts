@@ -3,12 +3,14 @@ import {
   REVIEW_OUTPUT_KINDS,
   PATCHABLE_REVIEW_TASK_STATUSES,
   denormalizedSchedule,
+  fillSessionDate,
   isReviewOutputKind,
   isReviewTaskPriority,
   isReviewTaskScope,
   isReviewTaskStatus,
   parseReviewTrigger,
   ReviewTriggerParseError,
+  stampPriceBasis,
   type ReviewOutputKind,
   type ReviewTaskPriority,
   type ReviewTaskScope,
@@ -96,9 +98,15 @@ function optionalText(
   return requiredText(name, value, max);
 }
 
+/**
+ * A trigger a caller has just supplied. A price threshold is stamped with
+ * today's session, so a later split knows which side of it the number was
+ * written on. Stored triggers are re-read with `parseReviewTrigger` directly
+ * and keep the day they already carry.
+ */
 function parseTrigger(value: unknown): ReviewTrigger {
   try {
-    return parseReviewTrigger(value);
+    return stampPriceBasis(parseReviewTrigger(value), fillSessionDate());
   } catch (error) {
     if (error instanceof ReviewTriggerParseError) {
       throw validationError(error.message);

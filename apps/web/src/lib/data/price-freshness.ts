@@ -1,4 +1,8 @@
-import { priceDataStale } from "@powerfund/domain";
+import {
+  priceDataStale,
+  splitRatioLabel,
+  type BookIntegrity,
+} from "@powerfund/domain";
 import type { Database } from "@powerfund/db";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
@@ -40,3 +44,59 @@ export function freshnessPayload(
     price_data_stale: priceDataStale(through, asOfIso),
   };
 }
+
+/**
+ * Freshness plus whether the valuation can be leaned on.
+ *
+ * `price_data_stale` used to be a statement about the newest close in the
+ * response. On 19 November 2026 that was current while six holdings were
+ * marked from the day before, so the flag said "fresh" over a book that was
+ * half a day old — and it had no way at all to say that one holding was being
+ * valued on the wrong share basis. With an integrity assessment it is true
+ * when *any* open holding lacks the last completed session, the laggards are
+ * named, and `valuation_provisional` says whether NAV, returns, drawdown and
+ * risk in this response are fit to act on.
+ *
+ * `integrity` is null when the check could not run. That is reported as
+ * provisional: not knowing is not the same as fine.
+ */
+export function integrityPayload(
+  through: string | null,
+  integrity: BookIntegrity | null | undefined,
+  asOfIso: string = new Date().toISOString(),
+) {
+  const base = freshnessPayload(through, asOfIso);
+  if (integrity === undefined) return base;
+  if (integrity === null) {
+    return {
+      ...base,
+      valuation_provisional: true,
+      valuation_warnings: [
+        "The valuation integrity check could not run; treat NAV, returns and risk as unverified.",
+      ],
+    };
+  }
+  return {
+    price_data_through: base.price_data_through,
+    price_data_stale: base.price_data_stale || integrity.stale,
+    price_data_expected_session: integrity.expectedSession,
+    price_data_missing: integrity.missingCloses.map((row) => ({
+      symbol: row.symbol,
+      last_close_session: row.through,
+    })),
+    corporate_actions_pending: integrity.pendingCorporateActions.map((row) => ({
+      symbol: row.symbol,
+      type: "split",
+      ratio: splitRatioLabel(row),
+      effective_date: row.effectiveDate,
+      source: row.source,
+      held: row.held,
+    })),
+    valuation_provisional: integrity.provisional,
+    valuation_warnings: integrity.warnings,
+  };
+}
+
+/** One line telling an agent how to read the fields above. */
+export const INTEGRITY_NOTE =
+  "price_data_stale is true when any open holding lacks the last completed US cash session; price_data_missing names them. corporate_actions_pending lists splits registered but not applied. When valuation_provisional is true, NAV, returns, drawdown and risk here are not reliable inputs for a deployment decision: say so and stop, do not reason around it.";

@@ -4,7 +4,9 @@ import {
   aiMemoryNavPct,
   RISK_DEFAULTS,
   unclassifiedSymbols,
+  type BookIntegrity,
 } from "@powerfund/domain";
+import { loadBookIntegrity } from "@powerfund/db";
 import { fetchYahooQuotes, type LiveQuote } from "@powerfund/data-clients";
 
 import { isTapeActive, quoteCaption } from "@/lib/market/quotes";
@@ -68,6 +70,8 @@ export type MandateFlag = {
     | "ai_capex_factor"
     | "ai_memory_sleeve"
     | "factor_unclassified"
+    | "valuation_provisional"
+    | "corporate_action_pending"
     | "all_clear";
   label: string;
   severity: "warn" | "ok";
@@ -97,7 +101,89 @@ export type PortfolioBook = {
   markAsOf: string | null;
   tapeActive: boolean;
   priceDataThrough: string | null;
+  /**
+   * Whether these marks can be trusted: coverage across every holding, pending
+   * splits, share-basis agreement. Null when the check could not run; absent
+   * on a book that was never assessed (fixtures).
+   */
+  integrity?: BookIntegrity | null;
 };
+
+/**
+ * Attach the integrity assessment and lead the flags with what it found.
+ *
+ * It goes first and replaces "all clear": a mandate check that passes against
+ * a NAV understated by a mis-based position has not passed, and the row that
+ * says so should not sit under a green one.
+ */
+export function withBookIntegrity(
+  book: PortfolioBook,
+  integrity: BookIntegrity | null,
+): PortfolioBook {
+  const flags: MandateFlag[] = [];
+  if (integrity == null) {
+    flags.push({
+      code: "valuation_provisional",
+      severity: "warn",
+      label:
+        "Valuation integrity could not be checked — treat NAV, drawdown and risk as unverified",
+    });
+  } else {
+    for (const row of integrity.pendingCorporateActions) {
+      flags.push({
+        code: "corporate_action_pending",
+        severity: "warn",
+        label:
+          `${row.symbol} ${row.numerator}-for-${row.denominator} split (effective ${row.effectiveDate}) is not applied` +
+          (row.held
+            ? " — its position may be valued on the wrong share basis"
+            : " — per-share research figures predate it"),
+      });
+    }
+    for (const row of integrity.basisMismatches) {
+      flags.push({
+        code: "valuation_provisional",
+        severity: "warn",
+        label:
+          `${row.symbol} fill on ${row.session} is ${row.ratio.toFixed(1)}x its session's stored prices` +
+          (row.implied == null
+            ? " — ledger and prices disagree"
+            : ` — looks like an unreconciled ${row.implied.numerator}-for-${row.implied.denominator} split`),
+      });
+    }
+    if (integrity.missingCloses.length > 0) {
+      flags.push({
+        code: "valuation_provisional",
+        severity: "warn",
+        // A late vendor is routine and fixes itself on the next ingest; it is
+        // a caveat on the numbers, not work the operator owes.
+        due: false,
+        label:
+          `No ${integrity.expectedSession} close for ${integrity.missingCloses
+            .map((row) => row.symbol)
+            .join(", ")} — marked from an older session`,
+      });
+    }
+  }
+  if (flags.length === 0) return { ...book, integrity };
+  return {
+    ...book,
+    integrity,
+    flags: [...flags, ...book.flags.filter((flag) => flag.code !== "all_clear")],
+  };
+}
+
+async function loadIntegrityOrNull(
+  supabase: DbClient,
+): Promise<BookIntegrity | null> {
+  try {
+    return await loadBookIntegrity(supabase);
+  } catch (error) {
+    // The book still renders; it just says it could not be vouched for.
+    console.error("Book integrity check failed", error);
+    return null;
+  }
+}
 
 type PositionDbRow = {
   id: string;
@@ -116,9 +202,11 @@ export async function getOpenPortfolioBook(
   const supabase = await resolveDb(client);
 
   const [
+    integrity,
     { data: positionData, error: positionError },
     { data: stateData, error: stateError },
   ] = await Promise.all([
+    loadIntegrityOrNull(supabase),
     supabase
       .from("positions")
       .select(
@@ -153,7 +241,7 @@ export async function getOpenPortfolioBook(
   if (positions.length === 0) {
     const nav = cash;
     const cashPctNav = nav > 0 ? (cash / nav) * 100 : 100;
-    return {
+    return withBookIntegrity({
       positions: [],
       invested: 0,
       marketValue: 0,
@@ -178,7 +266,7 @@ export async function getOpenPortfolioBook(
       markAsOf: null,
       tapeActive: false,
       priceDataThrough: null,
-    };
+    }, integrity);
   }
 
   const instrumentIds = [...new Set(positions.map((row) => row.instrument_id))];
@@ -322,15 +410,18 @@ export async function getOpenPortfolioBook(
     };
   });
 
-  return assembleBook({
-    cash,
-    cashUpdatedAt,
-    cashNotes,
-    positions: draftRows,
-    markLabel: "Close",
-    markAsOf: null,
-    tapeActive: false,
-  });
+  return withBookIntegrity(
+    assembleBook({
+      cash,
+      cashUpdatedAt,
+      cashNotes,
+      positions: draftRows,
+      markLabel: "Close",
+      markAsOf: null,
+      tapeActive: false,
+    }),
+    integrity,
+  );
 }
 
 function markPosition(
@@ -446,7 +537,7 @@ export function applyLiveMarks(
   const active =
     live.find((quote) => isTapeActive(quote.marketState)) ?? live[0];
 
-  return assembleBook({
+  const marked = assembleBook({
     cash: book.cash,
     cashUpdatedAt: book.cashUpdatedAt,
     cashNotes: book.cashNotes,
@@ -455,6 +546,11 @@ export function applyLiveMarks(
     markAsOf: active?.asOf ?? null,
     tapeActive: live.some((quote) => isTapeActive(quote.marketState)),
   });
+  // A live quote refreshes the price, not the share basis: a pending split is
+  // exactly as pending with the tape open.
+  return book.integrity === undefined
+    ? marked
+    : withBookIntegrity(marked, book.integrity);
 }
 
 export async function withLiveMarks(

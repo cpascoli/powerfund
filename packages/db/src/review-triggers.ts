@@ -1,12 +1,15 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import {
   evaluateReviewTriggers,
+  fillSessionDate,
   parseReviewTrigger,
+  splitFactorAfter,
   returnPctKey,
   type MarketObservation,
   type ReviewTriggerTask,
 } from "@powerfund/domain";
 
+import { loadAppliedSplits } from "./corporate-actions";
 import type { Database } from "./database.types";
 
 /**
@@ -65,19 +68,71 @@ async function lastCloseOnOrBefore(
   return close == null ? null : Number(close);
 }
 
+/**
+ * Pending tasks, each price threshold carrying the split factor it needs.
+ *
+ * A threshold is a per-share number written on a particular day. A split that
+ * takes effect after that day re-bases it; the stored value is left as written
+ * and the factor rides along to the comparison. The basis day is the trigger's
+ * own `price_basis_date` when it has one, else the day the task was created —
+ * which is right for every trigger written before splits were handled, since
+ * none of them has been edited across one.
+ */
 export async function loadPendingTriggerTasks(db: Db): Promise<ReviewTriggerTask[]> {
   const { data, error } = await db
     .from("review_tasks")
-    .select("id, status, trigger")
+    .select("id, status, trigger, created_at")
     .eq("status", "pending");
   if (error) {
     throw new Error(`Failed to load pending review tasks: ${error.message}`);
   }
-  return (data ?? []).map((row) => ({
+  const tasks = (data ?? []).map((row) => ({
     id: row.id,
     status: row.status as ReviewTriggerTask["status"],
     trigger: parseReviewTrigger(row.trigger),
+    createdAt: row.created_at,
   }));
+
+  const priced = tasks.filter(
+    (task) => task.trigger.type === "condition" && task.trigger.metric === "price",
+  );
+  if (priced.length === 0) {
+    return tasks.map(({ createdAt: _createdAt, ...task }) => task);
+  }
+
+  const splits = await loadAppliedSplits(db);
+  if (splits.length === 0) {
+    return tasks.map(({ createdAt: _createdAt, ...task }) => task);
+  }
+  const symbols = [
+    ...new Set(
+      priced.map((task) =>
+        task.trigger.type === "condition" ? task.trigger.symbol : "",
+      ),
+    ),
+  ];
+  const { data: instruments, error: instrumentError } = await db
+    .from("instruments")
+    .select("id, symbol")
+    .in("symbol", symbols);
+  if (instrumentError) {
+    throw new Error(`Failed to load instruments: ${instrumentError.message}`);
+  }
+  const idBySymbol = new Map((instruments ?? []).map((row) => [row.symbol, row.id]));
+
+  return tasks.map(({ createdAt, ...task }) => {
+    if (task.trigger.type !== "condition" || task.trigger.metric !== "price") {
+      return task;
+    }
+    const basisDay =
+      task.trigger.price_basis_date ?? fillSessionDate(createdAt);
+    const factor = splitFactorAfter(
+      splits,
+      idBySymbol.get(task.trigger.symbol) ?? null,
+      basisDay,
+    );
+    return factor === 1 ? task : { ...task, priceBasisFactor: factor };
+  });
 }
 
 export async function loadMarketObservation(
