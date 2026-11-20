@@ -114,6 +114,74 @@ export type Database = {
           },
         ]
       }
+      corporate_actions: {
+        Row: {
+          action_type: Database["public"]["Enums"]["corporate_action_type"]
+          applied_at: string | null
+          created_at: string
+          effective_date: string
+          evidence: Json
+          fractional_treatment: string | null
+          id: string
+          instrument_id: string
+          notes: string | null
+          rejected_at: string | null
+          source: string
+          split_denominator: number
+          split_numerator: number
+          status: Database["public"]["Enums"]["corporate_action_status"]
+          updated_at: string
+          verification_notes: string | null
+          verified_by: string | null
+        }
+        Insert: {
+          action_type?: Database["public"]["Enums"]["corporate_action_type"]
+          applied_at?: string | null
+          created_at?: string
+          effective_date: string
+          evidence?: Json
+          fractional_treatment?: string | null
+          id?: string
+          instrument_id: string
+          notes?: string | null
+          rejected_at?: string | null
+          source: string
+          split_denominator: number
+          split_numerator: number
+          status?: Database["public"]["Enums"]["corporate_action_status"]
+          updated_at?: string
+          verification_notes?: string | null
+          verified_by?: string | null
+        }
+        Update: {
+          action_type?: Database["public"]["Enums"]["corporate_action_type"]
+          applied_at?: string | null
+          created_at?: string
+          effective_date?: string
+          evidence?: Json
+          fractional_treatment?: string | null
+          id?: string
+          instrument_id?: string
+          notes?: string | null
+          rejected_at?: string | null
+          source?: string
+          split_denominator?: number
+          split_numerator?: number
+          status?: Database["public"]["Enums"]["corporate_action_status"]
+          updated_at?: string
+          verification_notes?: string | null
+          verified_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "corporate_actions_instrument_id_fkey"
+            columns: ["instrument_id"]
+            isOneToOne: false
+            referencedRelation: "instruments"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       decision_outcomes: {
         Row: {
           actor_name: string | null
@@ -1539,6 +1607,11 @@ export type Database = {
         }
         Returns: Json
       }
+      split_factor: {
+        Args: { p_instrument: string; p_session: string }
+        Returns: number
+      }
+      trade_session: { Args: { p_at: string }; Returns: string }
       verify_book_against_ledger: {
         Args: never
         Returns: {
@@ -1562,6 +1635,8 @@ export type Database = {
       app_role: "operator" | "viewer"
       asset_class: "equity" | "etf" | "commodity_proxy" | "other"
       benchmark_role: "success" | "style"
+      corporate_action_status: "pending" | "applied" | "rejected"
+      corporate_action_type: "split"
       decision_quality_grade: "good" | "mixed" | "poor"
       decision_thesis_grade: "correct" | "partly_correct" | "wrong"
       decision_type: "enter" | "add" | "reduce" | "exit" | "hold" | "watch"
@@ -1740,6 +1815,8 @@ export const Constants = {
       app_role: ["operator", "viewer"],
       asset_class: ["equity", "etf", "commodity_proxy", "other"],
       benchmark_role: ["success", "style"],
+      corporate_action_status: ["pending", "applied", "rejected"],
+      corporate_action_type: ["split"],
       decision_quality_grade: ["good", "mixed", "poor"],
       decision_thesis_grade: ["correct", "partly_correct", "wrong"],
       decision_type: ["enter", "add", "reduce", "exit", "hold", "watch"],
