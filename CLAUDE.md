@@ -55,6 +55,8 @@ pnpm --filter @powerfund/worker bars:audit           # find split-shaped jumps
 pnpm --filter @powerfund/worker bars:freshness       # does the store reach the last session?
 pnpm --filter @powerfund/worker verify:book          # positions/cash vs the ledger, and the append-only guards
 pnpm --filter @powerfund/worker reviews:latch        # record fired review triggers (also runs after ingest:bars)
+pnpm --filter @powerfund/worker book:integrity       # missing closes, pending splits, fills on the wrong share basis
+pnpm --filter @powerfund/worker splits               # list corporate actions; splits:register / splits:apply / splits:reject
 ```
 
 ## Working with production
@@ -89,6 +91,7 @@ read-only audits — that is how most findings in the reviews were established.
 | One-off `tsx` scripts | Must live inside a workspace to resolve `@powerfund/*`, and cannot use top-level await. |
 | PostgREST | Caps responses at 1,000 rows. Page with `.range()`. |
 | `supabase test db` | Always exits non-zero. The suites `raise exception` rather than emit TAP, so the harness reports "No plan found" even when every one passes. CI is right to run them through `psql -v ON_ERROR_STOP=1` instead; do the same locally. |
+| Deploy order | A migration that adds a table the app reads must be pushed (`supabase db push`) **before** the code that reads it reaches `main`. `corporate_actions` is read by the snapshot job, the contribution report and review triggers; code first means those throw. |
 | `market_bars.ingested_at` | `default now()` fires on INSERT only. An upsert that *updates* a row keeps the old timestamp, so it cannot tell you when a row was last written. Compare values against the vendor, not timestamps. |
 
 ## Invariants — do not regress these
@@ -114,6 +117,25 @@ Each was a real production defect. See the remediation log for the full story.
   vendor glitch: acting on one in September 2026 overwrote five years of correct
   APH prices. An automatic repair path with a weak trigger is more dangerous than
   no repair path.
+- **Prices are on the current share basis; ledger quantities are restated to
+  it when read; the ledger is never rewritten.** Vendors restate a series'
+  whole history on a split and ingest refetches it, so `market_bars` is always
+  split-adjusted to today. Any code that multiplies a `transactions.quantity`
+  by a stored close must go through `ledgerOnCurrentBasis` first (SQL:
+  `split_factor`). SNDK's 8-for-1 in November 2026 had no such rule: 2.28 old
+  shares were marked at the new $94 close in every snapshot back to the fill,
+  with `verify:book` green throughout, because it compares the projection with
+  the ledger and both were equally unaware. A split is a `corporate_actions`
+  row, registered `pending` by ingest and applied once by a human — never
+  automatically, for the APH reason above. Applying re-projects `positions`
+  and moves no cash, writes no transaction and preserves cost basis exactly.
+  See `docs/corporate-actions.md`.
+- **Reconciling two of our own tables does not show either agrees with the
+  market.** `book:integrity` checks the thing `verify:book` cannot: that each
+  fill sits near its own session's stored prices. A valuation with a missing
+  close, a pending split on a held name, or a basis mismatch is *provisional*
+  (`valuation_provisional`), and `price_data_stale` is true when **any** open
+  holding lacks the last session, not only the newest one.
 - **A green ingest run is not evidence the store is current.** The vendor decides
   where its window ends, and twice in September 2026 Yahoo ended it at the
   *previous* session: every symbol logged "4 bars via yahoo", the snapshot keyed

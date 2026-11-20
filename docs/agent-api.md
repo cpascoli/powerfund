@@ -395,7 +395,7 @@ Typical workflows:
 **Scoreboard vs SPY / QQQ**
 
 1. `getPerformance` (optional `from` / `to` as `YYYY-MM-DD`)
-2. Read `price_data_through` / `price_data_stale` before treating marks as the last completed US cash session
+2. Read `price_data_through` / `price_data_stale` before treating marks as the last completed US cash session. On `getPortfolio`, `getPerformance`, `getRiskSnapshot` and `getFundState.portfolio`, `price_data_stale` is true when **any** open holding lacks that session (`price_data_missing` names them), `corporate_actions_pending` lists splits registered but not applied, and `valuation_provisional` is true when NAV, returns, drawdown or risk cannot be relied on — a missing close, or a holding on the wrong share basis. Do not base a deployment decision on a provisional valuation. `getCompanyDossier` and each planned action carry a `price_basis_note` when their text predates a split: per-share figures in it are on the old basis. See [corporate-actions.md](./corporate-actions.md)
 3. Read `drawdown.nav_max_pct` and `drawdown.deployed_max_pct` (unitized; percent)
 4. Compare window `nav_return_pct` and `deployed_return_pct` to `spy_return_pct` / `qqq_return_pct`
 5. Read `contribution.tickers` / `themes` / `factors` (`pnl_usd` is dollars, not TWR)

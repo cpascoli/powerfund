@@ -12,6 +12,7 @@ Intelligence for managing and growing capital in the markets — starting with p
 | [themes.md](./themes.md) | Priority sectors, why they are one transformation, adjacent watch |
 | [ux.md](./ux.md) | Research UI information architecture and viz principles |
 | [deploy.md](./deploy.md) | GitHub → Netlify CI and remote Supabase |
+| [corporate-actions.md](./corporate-actions.md) | Stock splits: the share-basis convention, the applied-once record, the valuation integrity check, the operator runbook, and the SNDK 8-for-1 reconciliation |
 | [agent-api.md](./agent-api.md) | Private authenticated API for AI agents (ChatGPT / MCP) |
 | [gpt-agent-process.md](./gpt-agent-process.md) | How a GPT should run the book against that API (cadence, Briefing objects, rituals) |
 | [mcp-architecture.md](./mcp-architecture.md) | The MCP server over the agent API: transport, in-process adapter, OAuth, observability |

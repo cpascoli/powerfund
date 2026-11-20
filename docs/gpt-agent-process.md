@@ -801,6 +801,12 @@ If any QA item fails, or the independent underwriting status is missing, provisi
 
 There is no separate integrity API. The agent compares dossier text to `getPortfolio` / live marks. Contribution math and split-adjusted history are not machine-checked yet.
 
+### Provisional valuations and stock splits
+
+If `valuation_provisional` is true on `getPortfolio`, `getPerformance` or `getRiskSnapshot`, the gate fails: quote `valuation_warnings` to the operator and stop. Do not size, rank or run a drawdown diagnostic on those numbers, and do not reason around them — a holding missing its close or valued on the wrong share basis makes NAV, weights, drawdown and the stress all wrong together.
+
+After a split, stored prices, quantities, average cost and review-trigger price thresholds are restated automatically. Text is not. When `getCompanyDossier` or a planned action returns a `price_basis_note`, every per-share figure in that text (entry zone, value per share, invalidation level, EPS) is on the old share basis: convert with the stated factor before comparing with `last_close`, and never treat a nominally lower price after a split as a trigger having been met. The split opens a due review task to restate those figures in a new dossier version; that task authorises no trade and reactivates no deferred action. Mechanics: [corporate-actions.md](./corporate-actions.md).
+
 ### Adds under incomplete evidence (staged adds)
 
 The independent underwriting gate **and** the QA gate above decide whether a dossier is fit to authorize capital. This step decides how much of an intended **add** the evidence supports. It exists because a binary evidence gate turns "uncertainty remains" into "zero tranche", and that is not always right. The rule was added after decision grading identified a case where strong primary evidence and a material valuation dislocation still resulted in zero incremental capital, because secondary uncertainties were treated as binary gates. The fix is to stage the add, not to weaken the gate.
